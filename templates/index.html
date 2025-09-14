@@ -593,7 +593,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
         else if (res.status == 500 || res.status == 502 || res.status == 503) {
             content.remove();
-            alert("A 3rd party service is currently down. Please try again later.");
+            content.replaceWith("<h1 style=\"color: red; font-style: Helvetica, sans-serif;\">A 3rd party service (pesu-auth) is currently down. Please try again later.</h1>");
             return;
         }
         else {
