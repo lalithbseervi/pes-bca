@@ -1,6 +1,6 @@
 theme = "apollo"
 # The URL the site will be built for
-base_url = "https://lalithbseervi.pages.dev/pesu/"
+base_url = "https://pes-bca.pages.dev/"
 title = "BCA | PESU Materials"
 description = "Organized collection of study materials for BCA '25 1st Sem"
 build_search_index = true
