@@ -1,0 +1,51 @@
+ol {
+  counter-reset: item;
+  list-style-type: none;
+}
+
+ol > li {
+  counter-increment: item;
+  position: relative;
+}
+
+ol > li:before {
+  content: counter(item) ". ";
+  font-weight: bold;
+  position: absolute;
+  left: -1.5em;
+}
+
+ol ol {
+  counter-reset: subitem;
+  list-style-type: none;
+}
+
+ol ol > li {
+  counter-increment: subitem;
+  position: relative;
+}
+
+ol ol > li:before {
+  content: counter(item) "." counter(subitem) ". ";
+  font-weight: normal;
+  position: absolute;
+  left: -2em;
+}
+
+ol ol ol {
+  counter-reset: subsubitem;
+  list-style-type: none;
+  padding-left: 2.5em;
+}
+
+ol ol ol > li {
+  counter-increment: subsubitem;
+  position: relative;
+}
+
+ol ol ol > li:before {
+  content: counter(item) "." counter(subitem) "." counter(subsubitem) ". ";
+  font-weight: normal;
+  position: absolute;
+  left: -3em;
+}

@@ -1,0 +1,44 @@
+theme = "apollo"
+# The URL the site will be built for
+base_url = "https://lalithbseervi.pages.dev/pesu/"
+title = "BCA | PESU Materials"
+description = "Organized collection of study materials for BCA '25 1st Sem"
+build_search_index = true
+compile_sass = true
+minify_html = true
+taxonomies = [{ name = "tags" }]
+
+[search]
+include_title = true
+include_description = true
+include_path = true
+include_content = true
+index_format = "elasticlunr_json"
+
+[markdown]
+highlight_code = true
+highlight_theme = "css"
+highlight_themes_css = [
+  { theme = "ayu-dark", filename = "syntax-theme-dark.css" },
+  { theme = "ayu-light", filename = "syntax-theme-light.css" },
+]
+
+[extra]
+theme = "auto"
+toc = true
+use_cdn = false
+repo_url = "https://github.com/lalithbseervi/lalithbseervi/tree/main/pesu/"
+dynamic_note = true
+
+menu = [
+    { name = "/posts", url = "/posts", weight = 1 },
+    { name = "/tags", url = "/tags", weight = 2 },
+]
+
+socials = [
+  { name = "github", url = "https://github.com/lalithbseervi/", icon = "github" },
+]
+
+[extra.tags]
+sort_by = "page_count"         # e.g. name, page_count
+reverse = true

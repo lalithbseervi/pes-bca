@@ -1,0 +1,13 @@
+# Zola build output
+public/
+# Zola cache
+.cache/
+# Sass cache
+.sass-cache/
+# Node modules (if using npm/yarn for assets)
+node_modules/
+# OS/Editor files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo

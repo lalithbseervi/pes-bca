@@ -1,0 +1,8 @@
+<div class="alert-container">
+    {% if header is defined %}
+        <div class="alert-header">
+            <strong>{{ header | markdown | safe }}</strong>
+        </div>
+    {% endif %}
+    <div class="alert-content">{{ body | markdown | safe }}</div>
+</div>

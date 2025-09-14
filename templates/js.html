@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block main_content %}
+<link rel="stylesheet" href="/css/list_counter.css">
+<link rel="stylesheet" href="/css/alerts.css">
+<style>
+    blockquote {
+        border-left: 4px solid #2196f3;
+        background: #e3f2fd;
+        padding: 0.1em 1em;
+        margin: 0.1em 0;
+    }
+
+    blockquote strong {
+        color: #1565c0;
+    }
+</style>
+<main>
+    <article>
+        <section class="body">
+            {{ post_macros::page_header(title=page.title) }}
+            {{ page.content | safe }}
+        </section>
+    </article>
+</main>
+{% endblock main_content %}

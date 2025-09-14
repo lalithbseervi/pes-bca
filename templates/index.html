@@ -1,0 +1,509 @@
+{% extends "base.html" %}
+{% macro home_page(section) %}
+<link rel="stylesheet" href="/css/index.css">
+<link rel="stylesheet" href="/css/alerts.css">
+<main>
+    <article>
+        <section class="body">
+            <br>
+            <div class="alerts">
+                <div class="alert alert-info">
+                    <div class="alert-type">
+                        <strong>Disclaimer</strong>
+                    </div>
+                    <div class="alert-content">
+                        This site is in no way affiliated to PESU Academy or pes.edu.
+                        All content is borrowed from PESU Academy unless explicitly stated.
+                    </div>
+                </div>
+            </div>
+            {{ post_macros::page_header(title=section.title) }}
+            {{ section.content | safe }}
+            <ul class="parent">
+                <li>
+                    <details>
+                        <summary>Web Design</summary>
+                        <ul>
+                            <li>
+                                <details>
+                                    <summary>Unit-1</summary>
+                                    <ul>
+                                        <li>
+                                            <details>
+                                                <summary>Notes</summary>
+                                                <ul>
+                                                    <li><a href="/wd/unit-1/UQ25CA152A_Web_Design_62726c9d-5990-453f-85e3-572e147d3028_20250826152533.pdf"
+                                                            target="_blank">PDF</a></li>
+                                                </ul>
+                                            </details>
+                                            <details>
+                                                <summary>Question Bank</summary>
+                                                <ul>
+                                                    <li><a href="/wd/unit-1/QB_UQ25CA152A_62726c9d-5990-453f-85e3-572e147d3028_20250730223553.pdf"
+                                                            target="_blank">PDF</a></li>
+                                                </ul>
+                                            </details>
+                                            <details>
+                                                <summary>Sample Question Answers</summary>
+                                                <ul>
+                                                    <li><a href="/wd/unit-1/QA_UQ25CA152A_62726c9d-5990-453f-85e3-572e147d3028_20250731162619.pdf"
+                                                            target="_blank">PDF</a></li>
+                                                </ul>
+                                            </details>
+                                        </li>
+                                    </ul>
+                                </details>
+                            </li>
+                            <li>
+                                <details>
+                                    <summary>Unit-2</summary>
+                                    <ul>
+                                        <li>
+                                            <details>
+                                                <summary>Notes</summary>
+                                                <ul>
+                                                    <li><a href="/wd/unit-2/UQ25CA152A_afadd938-a35d-4911-97d4-25f8857b9ba8_20250911154439.pdf"
+                                                            target="_blank">PDF</a></li>
+                                                </ul>
+                                            </details>
+                                            <details>
+                                                <summary>Question Bank</summary>
+                                                <ul>
+                                                    <li><a href="/wd/unit-2/QB_UQ25CA152A_afadd938-a35d-4911-97d4-25f8857b9ba8_20250911114026.pdf"
+                                                            target="_blank">PDF</a></li>
+                                                </ul>
+                                            </details>
+                                            <details>
+                                                <summary>Sample Question Answers</summary>
+                                                <ul>
+                                                    <li><a href="/wd/unit-2/QA_UQ25CA152A_afadd938-a35d-4911-97d4-25f8857b9ba8_20250911130412.pdf"
+                                                            target="_blank">PDF</a></li>
+                                                </ul>
+                                            </details>
+                                        </li>
+                                    </ul>
+                                </details>
+                            </li>
+                        </ul>
+                    </details>
+                </li>
+                <li>
+                    <details>
+                        <summary>Computing Fundamentals with Python [No material available]</summary>
+                        <ul>
+                            <li>
+                                <details>
+                                    <summary>Unit-1</summary>
+                                    <ul>
+                                        <li>
+                                            <details>
+                                                <summary>Notes</summary>
+                                                <ul>
+                                                    <li><a href="" target="_blank">PDF Not Uploaded</a></li>
+                                                </ul>
+                                            </details>
+                                            <details>
+                                                <summary>Question Bank</summary>
+                                                <ul>
+                                                    <li><a href="" target="_blank">PDF Not Uploaded</a></li>
+                                                </ul>
+                                            </details>
+                                            <details>
+                                                <summary>Sample Question Answers</summary>
+                                                <ul>
+                                                    <li><a href="" target="_blank">PDF Not Uploaded</a></li>
+                                                </ul>
+                                            </details>
+                                        </li>
+                                    </ul>
+                                </details>
+                            </li>
+                            <li>
+                                <details>
+                                    <summary>Unit-2</summary>
+                                    <ul>
+                                        <li>
+                                            <details>
+                                                <summary>Notes</summary>
+                                                <ul>
+                                                    <li><a href="" target="_blank">PDF Not Uploaded</a></li>
+                                                </ul>
+                                            </details>
+                                            <details>
+                                                <summary>Question Bank</summary>
+                                                <ul>
+                                                    <li><a href="" target="_blank">PDF Not Uploaded</a></li>
+                                                </ul>
+                                            </details>
+                                            <details>
+                                                <summary>Sample Question Answers</summary>
+                                                <ul>
+                                                    <li><a href="" target="_blank">PDF Not Uploaded</a></li>
+                                                </ul>
+                                            </details>
+                                        </li>
+                                    </ul>
+                                </details>
+                            </li>
+                        </ul>
+                    </details>
+                </li>
+                <li>
+                    <details>
+                        <summary>Macro Programming</summary>
+                        <ul>
+                            <li>
+                                <details>
+                                    <summary>Unit-1</summary>
+                                    <ul>
+                                        <li>
+                                            <details>
+                                                <summary>Notes</summary>
+                                                <ul>
+                                                    <li><a href="/mp/notes/unit-1/Unit_1_Excel_Notes_UQ25CA142A_0e5009cd-0a5a-4204-9dbc-86c30649bbbd_20250902130301.pdf"
+                                                            target="_blank">PDF</a></li>
+                                                </ul>
+                                            </details>
+                                            <details>
+                                                <summary>Slides</summary>
+                                                <ul>
+                                                    <li><a href="/mp/slides/unit-1/01_Intro_to_excel_UQ25CA142A_0e5009cd-0a5a-4204-9dbc-86c30649bbbd_20250812110412.pdf"
+                                                            target="_blank">Introduction to Excel</a></li>
+                                                    <li><a href="/mp/slides/unit-1/02_Cell_Ref_and_Value_Entry_UQ25CA142A_81cc611d-6817-416f-a334-46e7679f49f1_20250812110605.pdf"
+                                                            target="_blank">Cell Reference and Data Entry</a></li>
+                                                    <li><a href="/mp/slides/unit-1/03_Basic_Formulas_and_Array_Formulas_UQ25CA142A_c37f2abb-cc40-41a1-8f92-698816100de5_20250812110919.pdf"
+                                                            target="_blank">Basic Formulas and Array Formulas</a></li>
+                                                    <li><a href="/mp/slides/unit-1/04_Logical_and_Nested_Functions_UQ25CA142A_6ede5687-7445-4bc9-be16-63b281496f0e_20250812111526.pdf"
+                                                            target="_blank">Logical and Nested Functions</a></li>
+                                                    <li><a href="/mp/slides/unit-1/05_Lookup_VLOOKUP_HLOOKUP_UQ25CA142A_30b38720-2339-4216-9d4e-18aba1b3d21c_20250820185606.pdf"
+                                                            target="_blank">Lookup Functions (VLOOKUP, HLOOKUP)</a></li>
+                                                    <li><a href="/mp/slides/unit-1/06_INDEX_MATCH_UQ25CA142A_92d6fccf-2cdd-48ad-88a4-236d6ba9ffff_20250826023137.pdf"
+                                                            target="_blank">INDEX, MATCH Functions</a></li>
+                                                    <li><a href="/mp/slides/unit-1/07_INDIRECT_OFFSET_UQ25CA142A_ce170a10-e1b8-486b-8fab-1ff5dab3b085_20250826023613.pdf"
+                                                            target="_blank">INDIRECT, OFFSET Functions</a></li>
+                                                    <li><a href="/mp/slides/unit-1/08_Text_Manip_and_Regex_UQ25CA142A_1df1c750-4bba-46b8-9b74-1f05d5dd4f62_20250826024155.pdf"
+                                                            target="_blank">Text Manipulation and Regex</a></li>
+                                                    <li><a href="/mp/slides/unit-1/09_Data_Val_and_Conditional_Formatting_UQ25CA142A_873b832d-a2f3-4421-9a58-69bb39d89569_20250826024332.pdf"
+                                                            target="_blank">Data Validation and Conditional
+                                                            Formatting</a></li>
+                                                    <li><a href="/mp/slides/unit-1/10_GPT_Excel_UQ25CA142A_8779adda-4db0-4fa2-8e46-6d0e4aaee7a2_20250830132156.pdf"
+                                                            target="_blank">GPT Excel</a></li>
+                                                </ul>
+                                            </details>
+                                            <details>
+                                                <summary>Question Bank</summary>
+                                                <ul>
+                                                    <li><a href="/mp/question_bank/UQ25CA142A_0e5009cd-0a5a-4204-9dbc-86c30649bbbd_20250828102912.pdf"
+                                                            target="_blank">PDF</a></li>
+                                                </ul>
+                                            </details>
+                                            <details>
+                                                <summary>Sample Question Answers</summary>
+                                                <ul>
+                                                    <li><a href="/mp/question_bank/QA_UQ25CA142A_0e5009cd-0a5a-4204-9dbc-86c30649bbbd_20250828111611.pdf"
+                                                            target="_blank">PDF</a></li>
+                                                </ul>
+                                            </details>
+                                        </li>
+                                    </ul>
+                                </details>
+                            </li>
+                            <li>
+                                <details>
+                                    <summary>Unit-2</summary>
+                                    <ul>
+                                        <li>
+                                            <details>
+                                                <summary>Notes</summary>
+                                                <ul>
+                                                    <li><a href="/mp/notes/unit-2/Unit_2_Dasboard_Design_UQ25CA142A_837ead81-17f2-4f72-a1bc-9ff6d7e09161_20250830125655.pdf"
+                                                            target="_blank">Dashboard Design Principles</a></li>
+                                                    <li><a href="/mp/notes/unit-2/Unit_2_Pivot_Table_Chart_UQ25CA142A_03752481-ce9e-49f0-a829-6c45f481d0ce_20250910111748.pdf"
+                                                            target="_blank">Pivot Table and Pivot Chart</a></li>
+                                                </ul>
+                                            </details>
+                                            <summary>Slides</summary>
+                                            <ul>
+                                                <li><a href="/mp/slides/unit-2/1_PivotTables_UQ25CA142A_03752481-ce9e-49f0-a829-6c45f481d0ce_20250828152935.pdf"
+                                                        target="_blank">Introduction to Pivot Tables</a></li>
+                                                <li><a href="/mp/slides/unit-2/2_Grouping_Sorting_Calculated_Fields_UQ25CA142A_2c33c614-2ce7-4337-b4b7-b9727f5c1ab8_20250828153226.pdf"
+                                                        target="_blank">Grouping, Sorting, and Calculated Fields</a>
+                                                </li>
+                                                <li><a href="/mp/slides/unit-2/3_Missing_Val_Del_Duplicates_UQ25CA142A_03752481-ce9e-49f0-a829-6c45f481d0ce_20250828152935.pdf"
+                                                        target="_blank">Handling Missing Values and Deleting
+                                                        Duplicates</a></li>
+                                                <li><a href="/mp/slides/unit-2/4_Advanced_Data_Manip_UQ25CA142A_d3a4e8bb-4488-4c8d-996f-e79df9042f1e_20250828162212.pdf"
+                                                        target="_blank">Advanced Data Manipulation Functions</a></li>
+                                                <li><a href="/mp/slides/unit-2/5_Dashboard_Design_UQ25CA142A_837ead81-17f2-4f72-a1bc-9ff6d7e09161_20250830123423.pdf"
+                                                        target="_blank">Dashboard Design Principles</a></li>
+                                                <li><a href="/mp/slides/unit-2/6_Visualization_Interactive_Controls_UQ25CA142A_def89fcb-5300-4c1c-a214-e026b130ed89_20250830123538.pdf"
+                                                        target="_blank">Visualization and Interactive Controls</a></li>
+                                                <li><a href="/mp/slides/unit-2/7_Dynamic_Named_Ranges_UQ25CA142A_8bc8d646-9dbf-4ba7-a8d0-9e2c9232b106_20250830131510.pdf"
+                                                        target="_blank">Dynamic Named Ranges</a></li>
+                                            </ul>
+                                            <details>
+                                                <summary>Question Bank</summary>
+                                                <ul>
+                                                    <li><a href="/mp/question_bank/Unit_2_UQ25CA142A_03752481-ce9e-49f0-a829-6c45f481d0ce_20250910120842.pdf"
+                                                            target="_blank">PDF</a></li>
+                                                </ul>
+                                            </details>
+                                            <details>
+                                                <summary>Sample Question Answers</summary>
+                                                <ul>
+                                                    <li><a href="/mp/question_bank/Unit_2_QA_UQ25CA142A_03752481-ce9e-49f0-a829-6c45f481d0ce_20250910121807.pdf"
+                                                            target="_blank">PDF</a></li>
+                                                </ul>
+                                            </details>
+                                        </li>
+                                    </ul>
+                                </details>
+                            </li>
+                        </ul>
+                    </details>
+                </li>
+                <li>
+                    <details>
+                        <summary>Mathematical Foundation for Computer Applications</summary>
+                        <ul>
+                            <li>
+                                <details>
+                                    <summary>Textbook</summary>
+                                    <ul>
+                                        <li><a href="/mfca/References viz. Notes/UQ25CA141A_Textbook_647fcb0c-bbb8-49a7-9012-f0737c5aaca7_20250819101941.pdf"
+                                                target="_blank">PDF</a></li>
+                                    </ul>
+                                </details>
+                            </li>
+                            <li>
+                                <details>
+                                    <summary>Unit-1</summary>
+                                    <ul>
+                                        <li>
+                                            <details>
+                                                <summary>Notes</summary>
+                                                <ul>
+                                                    <li><a href="/mfca/References viz. Notes/unit-1/Induction_Examples_UQ25CA141A_647fcb0c-bbb8-49a7-9012-f0737c5aaca7_20250820222545.pdf"
+                                                            target="_blank">Examples of Mathematical Induction</a></li>
+                                                </ul>
+                                            </details>
+                                            <details>
+                                                <summary>Slides</summary>
+                                                <ul>
+                                                    <li><a href="/mfca/References viz. Notes/unit-1/1_UQ25CA141A_647fcb0c-bbb8-49a7-9012-f0737c5aaca7_20250810223453.pdf"
+                                                            target="_blank">Intro</a></li>
+                                                    <li><a href="/mfca/References viz. Notes/unit-1/2_Subsets_UQ25CA141A_aab75067-999e-47ea-b642-2a267c93a02b_20250811134313.pdf"
+                                                            target="_blank">Subsets</a></li>
+                                                    <li><a href="/mfca/References viz. Notes/unit-1/3_Set_Operations_UQ25CA141A_ef9f6250-54b7-4f70-afdb-55546b256980_20250814120002.pdf"
+                                                            target="_blank">Set Operations</a></li>
+                                                    <li><a href="/mfca/References viz. Notes/unit-1/4_Laws_of_Set_Theory_UQ25CA141A_5b2716c2-2802-4080-9b9b-3bd056d87a52_20250814120028.pdf"
+                                                            target="_blank">Laws of Set Theory</a></li>
+                                                    <li><a href="/mfca/References viz. Notes/unit-1/5_Inclusion_and_Exclusion_Principle_UQ25CA141A_aab75067-999e-47ea-b642-2a267c93a02b_20250811134313.pdf"
+                                                            target="_blank">Princilpe of Inclusion and Exclusion</a>
+                                                    </li>
+                                                    <li><a href="/mfca/References viz. Notes/unit-1/6_PIE_Problems_UQ25CA141A_ad656607-6ffb-41c1-8be0-ac9020e0fd3b_20250820222111.pdf"
+                                                            target="_blank">Problems on Principle of Inclusion and
+                                                            Exclusion</a></li>
+                                                    <li><a href="/mfca/References viz. Notes/unit-1/7_Mathematical_Induction_UQ25CA141A_95f977d2-5a4f-4b7b-a13c-640a0cb2ade1_20250825152641.pdf"
+                                                            target="_blank">Mathematical Induction</a></li>
+                                                    <li><a href="/mfca/References viz. Notes/unit-1/8_MI_Problems_UQ25CA141A_ed17dcc1-7f1f-424f-977f-f053d01e3f88_20250825152716.pdf"
+                                                            target="_blank">Problems on MI</a></li>
+                                                    <li><a href="/mfca/References viz. Notes/unit-1/9_Prime_Numbers_UQ25CA141A_79619df5-76d9-4023-9dfc-a05341f4c537_20250825153208.pdf"
+                                                            target="_blank">Prime Numbers</a></li>
+                                                    <li><a href="/mfca/References viz. Notes/unit-1/10_Matrix_Theory_UQ25CA141A_03c2c4d9-fa4a-486e-a871-b140752c7e61_20250825152922.pdf"
+                                                            target="_blank">Matrix Theory</a></li>
+                                                    <li><a href="/mfca/References viz. Notes/unit-1/11_Cramer's_Rule_UQ25CA141A_a0e88bfd-ad54-4d9e-a746-17d8361949fe_20250828154829.pdf"
+                                                            target="_blank">Cramer's Rule</a></li>
+                                                </ul>
+                                            </details>
+                                            <details>
+                                                <summary>Question Bank</summary>
+                                                <ul>
+                                                    <li><a href="/mfca/References viz. Notes/unit-1/QB_UQ25CA141A_647fcb0c-bbb8-49a7-9012-f0737c5aaca7_20250819101823.pdf"
+                                                            target="_blank">PDF</a></li>
+                                                </ul>
+                                            </details>
+                                            <details>
+                                                <summary>Sample Question Answers</summary>
+                                                <ul>
+                                                    <li><a href="/mfca/References viz. Notes/unit-1/QA_UQ25CA141A_647fcb0c-bbb8-49a7-9012-f0737c5aaca7_20250819101848.pdf"
+                                                            target="_blank">PDF</a></li>
+                                                </ul>
+                                            </details>
+                                        </li>
+                                    </ul>
+                                </details>
+                            </li>
+                            <li>
+                                <details>
+                                    <summary>Unit-2</summary>
+                                    <ul>
+                                        <li>
+                                            <details>
+                                                <summary>Notes</summary>
+                                                <ul>
+                                                    <li><a href="" target="_blank">PDF Not Uploaded</a></li>
+                                                </ul>
+                                            </details>
+                                            <details>
+                                                <summary>Slides</summary>
+                                                <ul>
+                                                    <li><a href="/mfca/References viz. Notes/unit-2/Sum_Rule_UQ25CA141A_d9e73e88-1b38-4283-bd0d-9e2a0ff22008_20250903114246.pdf"
+                                                            target="_blank">Sum Rule</a></li>
+                                                    <li><a href="/mfca/References viz. Notes/unit-2/Product_Rule_UQ25CA141A_e134516b-3e39-44ab-bc68-45572bd780a3_20250903114059.pdf"
+                                                            target="_blank">Product Rule</a></li>
+                                                    <li><a href="/mfca/References viz. Notes/unit-2/Product_And_Sum_UQ25CA141A_1284e990-7fa3-45d9-beac-d3804e447cda_20250903114342.pdf"
+                                                            target="_blank">Sum Rule and Product Rule</a></li>
+                                                    <li><a href="/mfca/References viz. Notes/unit-2/Pigeonhole_Principle_UQ25CA141A_1f83b068-a445-422a-9f54-7bbc3a34016c_20250903114527.pdf"
+                                                            target="_blank">Pigeonhole Principle</a></li>
+                                                    <li><a href="/mfca/References viz. Notes/unit-2/permutations_UQ25CA141A_c8f4c67b-fb2a-4aca-970a-79a766e9ac5c_20250910144538.pdf"
+                                                            target="_blank">Permutations</a></li>
+                                                    <li><a href="/mfca/References viz. Notes/unit-2/permutation_problems_UQ25CA141A_529ff4d1-b7c4-45be-bfce-ab1bc5ecb1c8_20250909202817.pdf"
+                                                            target="_blank">Problems on Permutations</a></li>
+                                                    <li><a href="/mfca/References viz. Notes/unit-2/permutation_with_multiset_UQ25CA141A_749f2a47-a6c9-4e36-a392-f1870ac20759_20250911090238.pdf"
+                                                            target="_blank">Permutations with Multisets</a></li>
+                                                    <li><a href="/mfca/References viz. Notes/unit-2/"
+                                                            target="_blank">Combinations [NA]</a></li>
+                                                    <li><a href="/mfca/References viz. Notes/unit-2/"
+                                                            target="_blank">Permutations and Combinations [NA]</a></li>
+                                                </ul>
+                                            </details>
+                                            <details>
+                                                <summary>Question Bank</summary>
+                                                <ul>
+                                                    <li><a href="/mfca/References viz. Notes/unit-2/"
+                                                            target="_blank">PDF Not Uploaded</a></li>
+                                                </ul>
+                                            </details>
+                                            <details>
+                                                <summary>Sample Question Answers</summary>
+                                                <ul>
+                                                    <li><a href="/mfca/References viz. Notes/unit-2/"
+                                                            target="_blank">PDF Not Uploaded</a></li>
+                                                </ul>
+                                            </details>
+                                        </li>
+                                    </ul>
+                                </details>
+                            </li>
+                        </ul>
+                    </details>
+                </li>
+                <li>
+                    <details>
+                        <summary>Professional Communication and Ethics</summary>
+                        <ul>
+                            <li>
+                                <details>
+                                    <summary>Unit-1</summary>
+                                    <ul>
+                                        <li>
+                                            <details>
+                                                <summary>Notes</summary>
+                                                <ul>
+                                                    <li><a href="/wd/unit-1/UQ25CA152A_Web_Design_62726c9d-5990-453f-85e3-572e147d3028_20250826152533.pdf"
+                                                            target="_blank">PDF</a></li>
+                                                </ul>
+                                            </details>
+                                            <details>
+                                                <summary>Slides</summary>
+                                                <ul>
+                                                    <li><a href="/pce/slides/unit-1/01_Intro_To_Comm_UQ25CA131A_dead6bda-fd9e-4a33-8716-a240cf304654_20250804024957.pdf"
+                                                            target="_blank">Introduction to Communication</a></li>
+                                                    <li><a href="/pce/slides/unit-1/02_Importance_of_Comm_UQ25CA131A_9170fec2-ba07-49b5-8077-c4216485b503_20250804025035.pdf"
+                                                            target="_blank">Importance of Communication</a></li>
+                                                    <li><a href="/pce/slides/unit-1/03_Language_As_A_Tool_Tech_Comm_UQ25CA131A_c41d8bd1-8029-4339-b76d-03b6dc599859_20250804025358.pdf"
+                                                            target="_blank">Language as a Tool and Technical
+                                                            Communication</a></li>
+                                                    <li><a href="/pce/slides/unit-1/07_Barries_to_Comm_UQ25CA131A_952c7ee2-1dab-4db4-83c6-6a69ee1dc42c_20250804025502.pdf"
+                                                            target="_blank">Barriers to Communication</a></li>
+                                                    <li><a href="/pce/slides/unit-1/08_Verbal_and_Non_Verbal_UQ25CA131A_6b7292fc-833c-4b38-8fa5-fbd514a41312_20250804025534.pdf"
+                                                            target="_blank">Verbal and Non-Verbal Communication</a></li>
+                                                    <li><a href="/pce/slides/unit-1/09_Tech_in_Comm_UQ25CA131A_0bf7a55c-71b7-437c-91b5-2eacf3c3fbef_20250804025622.pdf"
+                                                            target="_blank">Technology in Communication</a></li>
+                                                    <li><a href="/pce/slides/unit-1/13_listening_skills_UQ25CA131A_a5138154-ce87-4239-ac02-bbc5a4b7a9bd_20250804030022.pdf"
+                                                            target="_blank">Listening Skills</a></li>
+                                                </ul>
+                                            </details>
+                                            <details>
+                                                <summary>Question Bank</summary>
+                                                <ul>
+                                                    <li><a href="/wd/unit-1/QB_UQ25CA152A_62726c9d-5990-453f-85e3-572e147d3028_20250730223553.pdf"
+                                                            target="_blank">PDF</a></li>
+                                                </ul>
+                                            </details>
+                                            <details>
+                                                <summary>Sample Question Answers</summary>
+                                                <ul>
+                                                    <li><a href="/wd/unit-1/QA_UQ25CA152A_62726c9d-5990-453f-85e3-572e147d3028_20250731162619.pdf"
+                                                            target="_blank">PDF</a></li>
+                                                </ul>
+                                            </details>
+                                        </li>
+                                    </ul>
+                                </details>
+                            </li>
+                            <li>
+                                <details>
+                                    <summary>Unit-2</summary>
+                                    <ul>
+                                        <li>
+                                            <details>
+                                                <summary>Notes</summary>
+                                                <ul>
+                                                    <li><a href="/wd/unit-2/UQ25CA152A_afadd938-a35d-4911-97d4-25f8857b9ba8_20250911154439.pdf"
+                                                            target="_blank">PDF</a></li>
+                                                </ul>
+                                            </details>
+                                            <details>
+                                                <summary>Question Bank</summary>
+                                                <ul>
+                                                    <li><a href="/wd/unit-2/QB_UQ25CA152A_afadd938-a35d-4911-97d4-25f8857b9ba8_20250911114026.pdf"
+                                                            target="_blank">PDF</a></li>
+                                                </ul>
+                                            </details>
+                                            <details>
+                                                <summary>Sample Question Answers</summary>
+                                                <ul>
+                                                    <li><a href="/wd/unit-2/QA_UQ25CA152A_afadd938-a35d-4911-97d4-25f8857b9ba8_20250911130412.pdf"
+                                                            target="_blank">PDF</a></li>
+                                                </ul>
+                                            </details>
+                                        </li>
+                                    </ul>
+                                </details>
+                            </li>
+                        </ul>
+                    </details>
+                </li>
+            </ul>
+        </section>
+    </article>
+</main>
+<script>
+    // Close all child <details> when a parent <details> is closed
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('details').forEach(function(details) {
+            details.addEventListener('toggle', function() {
+                if (!details.open) {
+                    details.querySelectorAll('details').forEach(function(child) {
+                        child.open = false;
+                    });
+                }
+            });
+        });
+    });
+</script>
+<script>
+    !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init Ce js Ls Te Fs Ds capture Ye calculateEventProperties Us register register_once register_for_session unregister unregister_for_session Ws getFeatureFlag getFeatureFlagPayload isFeatureEnabled reloadFeatureFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSurveysLoaded onSessionId getSurveys getActiveMatchingSurveys renderSurvey displaySurvey canRenderSurvey canRenderSurveyAsync identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException loadToolbar get_property getSessionProperty Bs zs createPersonProfile Hs Ms Gs opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing get_explicit_consent_status is_capturing clear_opt_in_out_capturing Ns debug L qs getPageViewId captureTraceFeedback captureTraceMetric".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+    posthog.init('phc_78cRhH8qoYmTyUHbMXdUxqrFPFfrdVp3yxzK0gdqB6Q', {
+        api_host: 'https://us.i.posthog.com',
+        defaults: '2025-05-24',
+        person_profiles: 'always', // or 'always' to create profiles for anonymous users as well
+    })
+</script>
+{% endmacro home_page %}
+
+{% block main_content %}
+{{ self::home_page(section=section) }}
+{% endblock main_content %}
