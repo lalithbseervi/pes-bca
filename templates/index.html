@@ -556,8 +556,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     const content = document.getElementsByClassName('body')[0];
 
     if (!sessionStorage.logged_in) {
-        let srn = prompt("Enter your SRN: ");
-        let pwd = prompt("Enter your pwd: ");
+        let srn = prompt("Enter your SRN/PRN: ");
+        let pwd = prompt("Enter your password: ");
 
         if (!srn || !pwd) return;
         const res = await fetch('https://cors-anywhere.herokuapp.com/https://pesu-auth.onrender.com/authenticate', {
@@ -583,14 +583,22 @@ document.addEventListener('DOMContentLoaded', async function() {
                 sessionStorage.setItem('user_details', JSON.stringify(data));
                 sessionStorage.setItem('logged_in', true)
 
+                alert(`Welcome ${srn}!`)
                 content.style.display = 'block';
-                console.log(data);
             }
             else {
-                console.log('Redirecting...')
-                window.location.href = 'https://google.com';
-                return
+                content.remove();
+                alert("You cannot access this content.")
             };
+        }
+        else if (res.status == 500 || res.status == 502 || res.status == 503) {
+            content.remove();
+            alert("A 3rd party service is currently down. Please try again later.");
+            return;
+        }
+        else {
+            content.remove()
+            alert("Invalid PRN/SRN or password.");
         }
     }
     
