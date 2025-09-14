@@ -31,7 +31,7 @@ details summary {
   cursor: pointer;
   color: #007bff;
   font-weight: bold;
-  font-size: 1.25vw;
+  font-size: 1.25em;
 }
 
 details summary::-webkit-details-marker {

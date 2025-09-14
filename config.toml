@@ -27,7 +27,7 @@ highlight_themes_css = [
 theme = "auto"
 toc = true
 use_cdn = false
-repo_url = "https://github.com/lalithbseervi/lalithbseervi/tree/main/pesu/"
+repo_url = "https://github.com/lalithbseervi/notes/"
 dynamic_note = true
 
 menu = [
