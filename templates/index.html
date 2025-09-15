@@ -651,9 +651,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             };
         }
         else if (res.status == 500 || res.status == 502 || res.status == 503) {
-            console.log(res);
             err_message = document.createElement('div');
-            err_message.innerHTML = `<h1 style=\"color: red; font-style: Helvetica, sans-serif;\">A 3rd party service (pesu-auth) is currently down. Please try again later.<br>Status Code: ${res.status}</h1>`;
+            err_message.innerHTML = `<h1 style=\"color: red; font-style: Helvetica, sans-serif;\">A 3rd party service is currently down. Please try again later.<br>Status Code: ${res.status}</h1>`;
             content.replaceWith(err_message);
             content.style.display = 'block';
             return;
