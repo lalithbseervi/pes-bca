@@ -174,6 +174,21 @@
                                                 </ul>
                                             </details>
                                             <details>
+                                                <summary>Slides</summary>
+                                                <ul>
+                                                    <li><a href="/cfp/slides/unit-1/1_UQ25CA151A_Intro_to_problem_solving.pdf" target="_blank">Introduction to Problem Solving</a></li>
+                                                    <li><a href="/cfp/slides/unit-1/2_UQ25CA151A_features_history_of_python.pdf" target="_blank">History and Features of Python</a></li>
+                                                    <li><a href="/cfp/slides/unit-1/3_UQ25CA151A_python_basics.pdf" target="_blank">Python Basics</a></li>
+                                                    <li><a href="/cfp/slides/unit-1/4_UQ25CA151A_datatypes.pdf" target="_blank">Python Datatypes</a></li>
+                                                    <li><a href="/cfp/slides/unit-1/5_UQ25CA151A_data_structures.pdf" target="_blank">Python Data Structures (list, tuple, dict)</a></li>
+                                                    <li><a href="/cfp/slides/unit-1/6_UQ25CA151A_type_conversion.pdf" target="_blank">Python Type Conversion</a></li>
+                                                    <li><a href="/cfp/slides/unit-1/7_UQ25CA151A_operators.pdf" target="_blank">Python Operators</a></li>
+                                                    <li><a href="/cfp/slides/unit-1/8_UQ25CA151A_special_operators.pdf" target="_blank">Python Special Operators</a></li>
+                                                    <li><a href="/cfp/slides/unit-1/9_UQ25CA151A_python_repl.pdf" target="_blank">Python REPL (Read, Evaluate, Print, Loop)</a></li>
+                                                    <li><a href="/cfp/slides/unit-1/10_UQ25CA151A_objects.pdf" target="_blank">Python Objects</a></li>
+                                                </ul>
+                                            </details>
+                                            <details>
                                                 <summary>Question Bank</summary>
                                                 <ul>
                                                     <li><a href="" target="_blank">PDF Not Uploaded</a></li>
@@ -198,6 +213,14 @@
                                                 <summary>Notes</summary>
                                                 <ul>
                                                     <li><a href="" target="_blank">PDF Not Uploaded</a></li>
+                                                </ul>
+                                            </details>
+                                            <details>
+                                                <summary>Slides</summary>
+                                                <ul>
+                                                    <li><a href="/cfp/slides/unit-2/1_UQ25CA151A_conditional_statements.pdf" target="_blank">Conditional Statement</a></li>
+                                                    <li><a href="/cfp/slides/unit-2/2_UQ25CA151A_looping.pdf" target="_blank">Looping</a></li>
+                                                    <li><a href="/cfp/slides/unit-2/3_UQ25CA151A_for_loop.pdf" target="_blank">For Loop</a></li>
                                                 </ul>
                                             </details>
                                             <details>
@@ -560,7 +583,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         let pwd = prompt("Enter your password: ");
 
         if (!srn || !pwd) return;
-        const res = await fetch('https://cors-anywhere.herokuapp.com/https://pesu-auth.onrender.com/authenticate', {
+        const res = await fetch('http://localhost:8787/?url=https://pesu-auth.onrender.com/authenticate', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
