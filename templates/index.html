@@ -583,7 +583,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         let pwd = prompt("Enter your password: ");
 
         if (!srn || !pwd) return;
-        const res = await fetch('http://localhost:8787/?url=https://pesu-auth.onrender.com/authenticate', {
+        const res = await fetch('https://cors-anywhere.herokuapp.com/https://pesu-auth.onrender.com/authenticate', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
