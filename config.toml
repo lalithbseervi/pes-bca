@@ -1,6 +1,6 @@
 theme = "apollo"
 # The URL the site will be built for
-base_url = "https://pes-bca.pages.dev/"
+base_url = "http://127.0.0.1:1111/"
 title = "BCA | Study Materials"
 description = "Organized collection of study materials for BCA '25 1st Sem"
 build_search_index = true
@@ -24,7 +24,7 @@ highlight_themes_css = [
 ]
 
 [extra]
-theme = "auto"
+theme = "dark"
 toc = true
 use_cdn = false
 repo_url = "https://github.com/lalithbseervi/notes/"
