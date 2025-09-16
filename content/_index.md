@@ -38,7 +38,12 @@ template = "index.html"
         <tr>
             <td>19-09-25</td>
             <td>Friday</td>
-            <td>Web Design Quiz</td>
+            <td>
+                <ol>
+                    <li>Web Design Quiz</li>
+                    <li>MFCA Quiz</li>
+                </ol>
+            </td>
         </tr>
         <tr>
             <td>20-09-25</td>
