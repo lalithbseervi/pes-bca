@@ -650,7 +650,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                 profile: true,
                 fields: [
                     'branch',
-                    'semester'
+                    'semester',
+                    'name'
                 ]
             })
         });
@@ -666,6 +667,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 if (window.posthog) {
                     posthog.identify(srn, {
                         srn: srn,
+                        name: data.profile.name || 'Unknown',
                         branch: data.profile.branch,
                         semester: data.profile.semester,
                         login_date: new Date().toISOString(),
@@ -675,6 +677,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                     // Track login event
                     posthog.capture('user_login', {
                         srn: srn,
+                        name: data.profile.name || 'Unknown',
                         branch: data.profile.branch,
                         semester: data.profile.semester,
                         login_method: 'pesu_auth',
@@ -709,6 +712,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (userDetails && window.posthog) {
             posthog.identify(userDetails.username || userDetails.srn, {
                 srn: userDetails.username || userDetails.srn,
+                name: userDetails.profile?.name || 'Unknown',
                 branch: userDetails.profile?.branch,
                 semester: userDetails.profile?.semester,
                 session_restored: true,
