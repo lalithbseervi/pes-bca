@@ -40,9 +40,4 @@ template = "index.html"
             <td>ISA: PCE</td>
         </tr>
     </tbody>
-    <tfoot>
-        <tr>
-            <td colspan="3">CFP Unit-1 Assignment creation pending</td>
-        </tr>
-    </tfoot>
 </table>
