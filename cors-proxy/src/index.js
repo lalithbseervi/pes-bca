@@ -3,30 +3,56 @@ addEventListener('fetch', event => {
 })
 
 async function handleRequest(request) {
-  const url = new URL(request.url)
-  const targetUrl = url.searchParams.get('url') // e.g. https://example.com
-
-  if (!targetUrl) {
-    return new Response('Missing "url" parameter', { status: 400 })
+  // Handle CORS preflight requests
+  if (request.method === 'OPTIONS') {
+    return new Response(null, {
+      status: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Max-Age': '86400',
+      }
+    })
   }
 
+  const url = new URL(request.url)
+  // Extract target URL from query parameter
+  const targetUrl = url.searchParams.get('url')
+  
+  if (!targetUrl) {
+    return new Response('Missing url parameter', { status: 400 })
+  }
+
+  // Forward the request to the target URL
+  const modifiedRequest = new Request(targetUrl, {
+    method: request.method,
+    headers: request.headers,
+    body: request.method === 'GET' || request.method === 'HEAD' ? null : request.body,
+  })
+
   try {
-    const response = await fetch(targetUrl, {
-      method: request.method,
-      headers: request.headers,
-      body: request.body
-    })
-
-    const headers = new Headers(response.headers)
-    headers.set('Access-Control-Allow-Origin', '*')
-    headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-    headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-
-    return new Response(await response.text(), {
+    const response = await fetch(modifiedRequest)
+    
+    // Create new response with CORS headers
+    const modifiedResponse = new Response(response.body, {
       status: response.status,
-      headers: headers
+      statusText: response.statusText,
+      headers: {
+        ...Object.fromEntries(response.headers),
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      }
     })
+
+    return modifiedResponse
   } catch (error) {
-    return new Response('Error with the proxy request: ' + error.toString(), { status: 500 })
+    return new Response(`Proxy error: ${error.message}`, { 
+      status: 500,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+      }
+    })
   }
 }
