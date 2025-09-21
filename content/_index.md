@@ -3,7 +3,7 @@ title = "Applicable only for BCA '25 Sem-1"
 template = "index.html"
 +++
 
-# Important This Week
+# Important This Week [ISA: 4:00 pm - 5:05 pm]
 
 <table>
     <thead>
@@ -15,40 +15,29 @@ template = "index.html"
     </thead>
     <tbody>
         <tr>
-            <td>16-09-25</td>
+            <td>22-09-25</td>
+            <td>Monday</td>
+            <td>ISA: CFP</td>
+        </tr>
+        <tr>
+            <td>23-09-25</td>
             <td>Tuesday</td>
-            <td>First two sessions - CFP</td>
+            <td>ISA: Web Design</td>
         </tr>
         <tr>
-            <td>17-09-25</td>
+            <td>24-09-25</td>
             <td>Wednesday</td>
-            <td>MFCA Assignment Submission</td>
+            <td>ISA: MFCA</td>
         </tr>
         <tr>
-            <td>18-09-25</td>
+            <td>25-09-25</td>
             <td>Thursday</td>
-            <td>
-                <ol>
-                    <li>MP Quiz: 1:45 - 2:30 PM</li>
-                    <li>Fresher's Day</li>
-                    <li>Web Design Assignment-2</li>
-                </ol>
-            </td>
+            <td>ISA: Macro Programming</td>
         </tr>
         <tr>
-            <td>19-09-25</td>
+            <td>26-09-25</td>
             <td>Friday</td>
-            <td>
-                <ol>
-                    <li>Web Design Quiz</li>
-                    <li>MFCA Quiz</li>
-                </ol>
-            </td>
-        </tr>
-        <tr>
-            <td>20-09-25</td>
-            <td>Saturday</td>
-            <td>ISA-1: Constitutional Law</td>
+            <td>ISA: PCE</td>
         </tr>
     </tbody>
     <tfoot>
