@@ -662,7 +662,24 @@ document.addEventListener('DOMContentLoaded', async function() {
                 sessionStorage.setItem('user_details', JSON.stringify(data));
                 sessionStorage.setItem('logged_in', true)
 
-                posthog.identify(srn);
+                // Enhanced PostHog user profiling
+                posthog.identify(srn, {
+                    srn: srn,
+                    branch: data.profile.branch,
+                    semester: data.profile.semester,
+                    login_date: new Date().toISOString(),
+                    user_type: 'student'
+                });
+
+                // Track login event
+                posthog.capture('user_login', {
+                    srn: srn,
+                    branch: data.profile.branch,
+                    semester: data.profile.semester,
+                    login_method: 'pesu_auth',
+                    timestamp: new Date().toISOString()
+                });
+
                 alert(`Welcome ${srn}!`)
                 content.style.display = 'block';
             }
@@ -685,6 +702,17 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
     
     if (sessionStorage.getItem('logged_in')) {
+        // Re-identify user from stored session data
+        const userDetails = JSON.parse(sessionStorage.getItem('user_details'));
+        if (userDetails) {
+            posthog.identify(userDetails.username || userDetails.srn, {
+                srn: userDetails.username || userDetails.srn,
+                branch: userDetails.profile?.branch,
+                semester: userDetails.profile?.semester,
+                session_restored: true,
+                user_type: 'student'
+            });
+        }
         content.style.display = 'block';
     }
 });
