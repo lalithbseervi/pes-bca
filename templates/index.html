@@ -2,6 +2,66 @@
 {% macro home_page(section) %}
 <link rel="stylesheet" href="/css/index.css">
 <link rel="stylesheet" href="/css/alerts.css">
+<style>
+    /* Loading overlay styles */
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        display: none;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+        backdrop-filter: blur(5px);
+    }
+
+    .loading-content {
+        text-align: center;
+        color: white;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    .loading-text {
+        font-size: 1.5rem;
+        margin-bottom: 20px;
+        font-weight: 300;
+    }
+
+    .loading-dots {
+        display: inline-block;
+    }
+
+    .loading-dots::after {
+        content: '';
+        animation: dots 1.5s steps(4, end) infinite;
+    }
+
+    @keyframes dots {
+        0%, 20% { content: ''; }
+        40% { content: '.'; }
+        60% { content: '..'; }
+        80%, 100% { content: '...'; }
+    }
+
+    /* Spinner animation */
+    .spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid rgba(255, 255, 255, 0.3);
+        border-top: 4px solid white;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 0 auto;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
 <script>
     !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init Ce js Ls Te Fs Ds capture Ye calculateEventProperties Us register register_once register_for_session unregister unregister_for_session Ws getFeatureFlag getFeatureFlagPayload isFeatureEnabled reloadFeatureFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSurveysLoaded onSessionId getSurveys getActiveMatchingSurveys renderSurvey displaySurvey canRenderSurvey canRenderSurveyAsync identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException loadToolbar get_property getSessionProperty Bs zs createPersonProfile Hs Ms Gs opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing get_explicit_consent_status is_capturing clear_opt_in_out_capturing Ns debug L qs getPageViewId captureTraceFeedback captureTraceMetric".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
     posthog.init('phc_78cRhH8qoYmTyUHbMXdUxqrFPFfrdVp3yxzK0gdqB6Q', {
@@ -11,6 +71,14 @@
     })
 </script>
 <main>
+    <!-- Loading overlay -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="loading-content">
+            <div class="spinner"></div>
+            <div class="loading-text">Verifying details<span class="loading-dots"></span></div>
+        </div>
+    </div>
+    
     <article>
         <section class="body" style="display: none;">
             <br>
@@ -408,65 +476,63 @@
                         <ul>
                             <li>
                                 <details>
-                                    <summary>Textbook</summary>
-                                    <ul>
-                                        <li><a href="/mfca/References viz. Notes/UQ25CA141A_Textbook_647fcb0c-bbb8-49a7-9012-f0737c5aaca7_20250819101941.pdf"
-                                                target="_blank">PDF</a></li>
-                                    </ul>
-                                </details>
-                            </li>
-                            <li>
-                                <details>
                                     <summary>Unit-1</summary>
                                     <ul>
                                         <li>
                                             <details>
+                                                <summary>Textbook</summary>
+                                                <ul>
+                                                    <li><a href="/mfca/References viz. Notes/UQ25CA141A_Textbook_647fcb0c-bbb8-49a7-9012-f0737c5aaca7_20250819101941.pdf"
+                                                        target="_blank">PDF</a></li>
+                                                </ul>
+                                            </details>
+                                            <details>
                                                 <summary>Notes</summary>
                                                 <ul>
-                                                    <li><a href="/mfca/References viz. Notes/unit-1/Induction_Examples_UQ25CA141A_647fcb0c-bbb8-49a7-9012-f0737c5aaca7_20250820222545.pdf"
+                                                    <li><a href="/static/mfca/References viz. Notes/unit-1/Induction_Examples_UQ25CA141A.pdf"
                                                             target="_blank">Examples of Mathematical Induction</a></li>
                                                 </ul>
                                             </details>
                                             <details>
                                                 <summary>Slides</summary>
                                                 <ul>
-                                                    <li><a href="/mfca/References viz. Notes/unit-1/1_UQ25CA141A_647fcb0c-bbb8-49a7-9012-f0737c5aaca7_20250810223453.pdf"
+                                                    <li><a href="/static/mfca/References viz. Notes/unit-1/1_Intro_to_sets_UQ25CA141A.pdf"
                                                             target="_blank">Intro</a></li>
-                                                    <li><a href="/mfca/References viz. Notes/unit-1/2_Subsets_UQ25CA141A_aab75067-999e-47ea-b642-2a267c93a02b_20250811134313.pdf"
+                                                    <li><a href="/static/mfca/References viz. Notes/unit-1/2_Subsets_UQ25CA141A.pdf"
                                                             target="_blank">Subsets</a></li>
-                                                    <li><a href="/mfca/References viz. Notes/unit-1/3_Set_Operations_UQ25CA141A_ef9f6250-54b7-4f70-afdb-55546b256980_20250814120002.pdf"
+                                                    <li><a href="/static/mfca/References viz. Notes/unit-1/3_Set_Operations_UQ25CA141A.pdf"
                                                             target="_blank">Set Operations</a></li>
-                                                    <li><a href="/mfca/References viz. Notes/unit-1/4_Laws_of_Set_Theory_UQ25CA141A_5b2716c2-2802-4080-9b9b-3bd056d87a52_20250814120028.pdf"
+                                                    <li><a href="/static/mfca/References viz. Notes/unit-1/4_Laws_of_Set_Theory_UQ25CA141A.pdf"
                                                             target="_blank">Laws of Set Theory</a></li>
-                                                    <li><a href="/mfca/References viz. Notes/unit-1/5_Inclusion_and_Exclusion_Principle_UQ25CA141A_aab75067-999e-47ea-b642-2a267c93a02b_20250811134313.pdf"
+                                                    <li><a href="/static/mfca/References viz. Notes/unit-1/5_Inclusion_and_Exclusion_Principle_UQ25CA141A.pdf"
                                                             target="_blank">Princilpe of Inclusion and Exclusion</a>
                                                     </li>
-                                                    <li><a href="/mfca/References viz. Notes/unit-1/6_PIE_Problems_UQ25CA141A_ad656607-6ffb-41c1-8be0-ac9020e0fd3b_20250820222111.pdf"
+                                                    <li><a href="/static/mfca/References viz. Notes/unit-1/6_PIE_Problems_UQ25CA141A.pdf"
                                                             target="_blank">Problems on Principle of Inclusion and
                                                             Exclusion</a></li>
-                                                    <li><a href="/mfca/References viz. Notes/unit-1/7_Mathematical_Induction_UQ25CA141A_95f977d2-5a4f-4b7b-a13c-640a0cb2ade1_20250825152641.pdf"
+                                                    <li><a href="/static/mfca/References viz. Notes/unit-1/7_Mathematical_Induction_UQ25CA141A.pdf"
                                                             target="_blank">Mathematical Induction</a></li>
-                                                    <li><a href="/mfca/References viz. Notes/unit-1/8_MI_Problems_UQ25CA141A_ed17dcc1-7f1f-424f-977f-f053d01e3f88_20250825152716.pdf"
+                                                    <li><a href="/static/mfca/References viz. Notes/unit-1/8_MI_Problems_UQ25CA141A.pdf"
                                                             target="_blank">Problems on MI</a></li>
-                                                    <li><a href="/mfca/References viz. Notes/unit-1/9_Prime_Numbers_UQ25CA141A_79619df5-76d9-4023-9dfc-a05341f4c537_20250825153208.pdf"
+                                                    <li><a href="/static/mfca/References viz. Notes/unit-1/9_Prime_Numbers_UQ25CA141A.pdf"
                                                             target="_blank">Prime Numbers</a></li>
-                                                    <li><a href="/mfca/References viz. Notes/unit-1/10_Matrix_Theory_UQ25CA141A_03c2c4d9-fa4a-486e-a871-b140752c7e61_20250825152922.pdf"
+                                                    <li><a href="/static/mfca/References viz. Notes/unit-1/10_Matrix_Theory_UQ25CA141A.pdf"
                                                             target="_blank">Matrix Theory</a></li>
-                                                    <li><a href="/mfca/References viz. Notes/unit-1/11_Cramer's_Rule_UQ25CA141A_a0e88bfd-ad54-4d9e-a746-17d8361949fe_20250828154829.pdf"
+                                                    <li><a href="/static/mfca/References viz. Notes/unit-1/11_Cramer's_Rule_UQ25CA141A.pdf"
                                                             target="_blank">Cramer's Rule</a></li>
                                                 </ul>
                                             </details>
                                             <details>
                                                 <summary>Question Bank</summary>
                                                 <ul>
-                                                    <li><a href="/mfca/References viz. Notes/unit-1/QB_UQ25CA141A_647fcb0c-bbb8-49a7-9012-f0737c5aaca7_20250819101823.pdf"
+                                                    <li><a href="/static/mfca/References viz. Notes/unit-1/QB_Unit-2-Maths-UQ25CA141A.pdf"
                                                             target="_blank">PDF</a></li>
                                                 </ul>
                                             </details>
                                             <details>
                                                 <summary>Sample Question Answers</summary>
                                                 <ul>
-                                                    <li><a href="/mfca/References viz. Notes/unit-1/QA_UQ25CA141A_647fcb0c-bbb8-49a7-9012-f0737c5aaca7_20250819101848.pdf"
+                                                    <li><a href="/static/mfca/References viz. Notes/unit-1/QA_Unit-1-Maths-UQ25CA141A_.pdf"
                                                             target="_blank">PDF</a></li>
                                                 </ul>
                                             </details>
@@ -480,6 +546,15 @@
                                     <ul>
                                         <li>
                                             <details>
+                                                <summary>Textbooks</summary>
+                                                <ul>
+                                                    <li><a href="/static/mfca/References viz. Notes/Pigeonhole_Combination_Permutation_Text_UQ25CA141A.pdf" 
+                                                        target="_blank">Pigeonhole Principle</a></li>
+                                                    <li><a href="/static/mfca/References viz. Notes/Permutation_and_Combination_textbook_UQ25CA141A.pdf"
+                                                        target="_blank">Permutations and Combinations</a></li>
+                                                </ul>
+                                            </details>
+                                            <details>
                                                 <summary>Assignments</summary>
                                                 <ul>
                                                     <li><a href="/mfca/assignments/unit-2/UQ25CA141A_647fcb0c-bbb8-49a7-9012-f0737c5aaca7_20250827120706.pdf" target="_blank" rel="noopener noreferrer">Unit-2 Assignment</a></li>
@@ -488,44 +563,49 @@
                                             <details>
                                                 <summary>Notes</summary>
                                                 <ul>
-                                                    <li><a href="" target="_blank">PDF Not Uploaded</a></li>
+                                                    <li><a href="/static/mfca/References viz. Notes/unit-2/MFCA_Unit-2_Notes_UQ25CA141A.pdf" 
+                                                        target="_blank">PDF</a></li>
+                                                    <li><a href="/static/mfca/References viz. Notes/unit-2/MFCA_Unit-2_Additional_Problems_UQ25CA141A.pdf" 
+                                                        target="_blank">Additional Problems</a></li>
                                                 </ul>
                                             </details>
                                             <details>
                                                 <summary>Slides</summary>
                                                 <ul>
-                                                    <li><a href="/mfca/References viz. Notes/unit-2/Sum_Rule_UQ25CA141A_d9e73e88-1b38-4283-bd0d-9e2a0ff22008_20250903114246.pdf"
+                                                    <li><a href="/static/mfca/References viz. Notes/unit-2/1_Sum_Rule_UQ25CA141A.pdf"
                                                             target="_blank">Sum Rule</a></li>
-                                                    <li><a href="/mfca/References viz. Notes/unit-2/Product_Rule_UQ25CA141A_e134516b-3e39-44ab-bc68-45572bd780a3_20250903114059.pdf"
+                                                    <li><a href="/static/mfca/References viz. Notes/unit-2/2_Product_Rule_UQ25CA141A.pdf"
                                                             target="_blank">Product Rule</a></li>
-                                                    <li><a href="/mfca/References viz. Notes/unit-2/Product_And_Sum_UQ25CA141A_1284e990-7fa3-45d9-beac-d3804e447cda_20250903114342.pdf"
+                                                    <li><a href="/static/mfca/References viz. Notes/unit-2/3_Product_And_Sum_UQ25CA141A.pdf"
                                                             target="_blank">Sum Rule and Product Rule</a></li>
-                                                    <li><a href="/mfca/References viz. Notes/unit-2/Pigeonhole_Principle_UQ25CA141A_1f83b068-a445-422a-9f54-7bbc3a34016c_20250903114527.pdf"
+                                                    <li><a href="/static/mfca/References viz. Notes/unit-2/4_Pigeonhole_Principle_UQ25CA141A.pdf"
                                                             target="_blank">Pigeonhole Principle</a></li>
-                                                    <li><a href="/mfca/References viz. Notes/unit-2/permutations_UQ25CA141A_c8f4c67b-fb2a-4aca-970a-79a766e9ac5c_20250910144538.pdf"
+                                                    <li><a href="/static/mfca/References viz. Notes/unit-2/5_permutation_with_multiset_UQ25CA141A.pdf"
                                                             target="_blank">Permutations</a></li>
-                                                    <li><a href="/mfca/References viz. Notes/unit-2/permutation_problems_UQ25CA141A_529ff4d1-b7c4-45be-bfce-ab1bc5ecb1c8_20250909202817.pdf"
+                                                    <li><a href="/static/mfca/References viz. Notes/unit-2/6_permutations_UQ25CA141A.pdf"
                                                             target="_blank">Problems on Permutations</a></li>
-                                                    <li><a href="/mfca/References viz. Notes/unit-2/permutation_with_multiset_UQ25CA141A_749f2a47-a6c9-4e36-a392-f1870ac20759_20250911090238.pdf"
+                                                    <li><a href="/static/mfca/References viz. Notes/unit-2/7_permutation_problems_UQ25CA141A.pdf"
                                                             target="_blank">Permutations with Multisets</a></li>
-                                                    <li><a href="/mfca/References viz. Notes/unit-2/"
+                                                    <li><a href="/static/mfca/References viz. Notes/unit-2/8_Combinations_UQ25CA141A.pdf"
                                                             target="_blank">Combinations [NA]</a></li>
-                                                    <li><a href="/mfca/References viz. Notes/unit-2/"
+                                                    <li><a href="/static/mfca/References viz. Notes/unit-2/9_permutations_and_combinations_UQ25CA141A.pdf"
                                                             target="_blank">Permutations and Combinations [NA]</a></li>
+                                                    <li><a href="/static/mfca/References viz. Notes/unit-2/10_circular_arramgements_UQ25CA141A.pdf" 
+                                                            target="_blank">Circular Arrangements</a></li>
                                                 </ul>
                                             </details>
                                             <details>
                                                 <summary>Question Bank</summary>
                                                 <ul>
-                                                    <li><a href="/mfca/References viz. Notes/unit-2/"
-                                                            target="_blank">PDF Not Uploaded</a></li>
+                                                    <li><a href="/static/mfca/References viz. Notes/unit-2/unit-2_qb_UQ25CA141A.pdf"
+                                                            target="_blank">PDF</a></li>
                                                 </ul>
                                             </details>
                                             <details>
                                                 <summary>Sample Question Answers</summary>
                                                 <ul>
-                                                    <li><a href="/mfca/References viz. Notes/unit-2/"
-                                                            target="_blank">PDF Not Uploaded</a></li>
+                                                    <li><a href="/static/mfca/References viz. Notes/unit-2/unit-2-qa_UQ25CA141A.pdf"
+                                                            target="_blank">PDF</a></li>
                                                 </ul>
                                             </details>
                                         </li>
@@ -631,70 +711,85 @@ document.addEventListener('DOMContentLoaded', async function() {
         let pwd = prompt("Enter your password: ");
 
         if (!srn || !pwd) return;
-        const res = await fetch(('https://cors-proxy.devpages.workers.dev/?url=' + encodeURIComponent('https://pesu-auth.onrender.com/authenticate')), {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                username: srn,
-                password: pwd,
-                profile: true,
-                fields: [
-                    'branch',
-                    'semester',
-                    'name'
-                ]
-            })
-        });
+        
+        // Show loading overlay
+        const loadingOverlay = document.getElementById('loading-overlay');
+        loadingOverlay.style.display = 'flex';
+        
+        try {
+            const res = await fetch(('https://cors-proxy.devpages.workers.dev/?url=' + encodeURIComponent('https://pesu-auth.onrender.com/authenticate')), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    username: srn,
+                    password: pwd,
+                    profile: true,
+                    fields: [
+                        'branch',
+                        'semester',
+                        'name'
+                    ]
+                })
+            });
 
-        if (res.ok) {
-            const data = await res.json();
+            // Hide loading overlay
+            loadingOverlay.style.display = 'none';
 
-            if (data.profile.branch == 'Bachelor of Computer Applications' && data.profile.semester == 'Sem-1') {
-                sessionStorage.setItem('user_details', JSON.stringify(data));
-                sessionStorage.setItem('logged_in', true)
+            if (res.ok) {
+                const data = await res.json();
 
-                // Enhanced PostHog user profiling
-                if (window.posthog) {
-                    posthog.identify(srn, {
-                        srn: srn,
-                        name: data.profile.name || 'Unknown',
-                        branch: data.profile.branch,
-                        semester: data.profile.semester,
-                        login_date: new Date().toISOString(),
-                        user_type: 'student'
-                    });
+                if (data.profile.branch == 'Bachelor of Computer Applications' && data.profile.semester == 'Sem-1') {
+                    sessionStorage.setItem('user_details', JSON.stringify(data));
+                    sessionStorage.setItem('logged_in', true)
 
-                    // Track login event
-                    posthog.capture('user_login', {
-                        srn: srn,
-                        name: data.profile.name || 'Unknown',
-                        branch: data.profile.branch,
-                        semester: data.profile.semester,
-                        login_method: 'pesu_auth',
-                        timestamp: new Date().toISOString()
-                    });
+                    // Enhanced PostHog user profiling
+                    if (window.posthog) {
+                        posthog.identify(srn, {
+                            srn: srn,
+                            name: data.profile.name || 'Unknown',
+                            branch: data.profile.branch,
+                            semester: data.profile.semester,
+                            login_date: new Date().toISOString(),
+                            user_type: 'student'
+                        });
+
+                        // Track login event
+                        posthog.capture('user_login', {
+                            srn: srn,
+                            name: data.profile.name || 'Unknown',
+                            branch: data.profile.branch,
+                            semester: data.profile.semester,
+                            login_method: 'pesu_auth',
+                            timestamp: new Date().toISOString()
+                        });
+                    }
+
+                    alert(`Welcome ${srn}!`)
+                    content.style.display = 'block';
                 }
-
-                alert(`Welcome ${srn}!`)
+                else {
+                    content.remove();
+                    alert("You cannot access this content.")
+                };
+            }
+            else if (res.status == 500 || res.status == 502 || res.status == 503) {
+                err_message = document.createElement('div');
+                err_message.innerHTML = `<h1 style=\"color: red; font-style: Helvetica, sans-serif;\">A 3rd party service is currently down. Please try again later.<br>Status Code: ${res.status}</h1>`;
+                content.replaceWith(err_message);
                 content.style.display = 'block';
+                return;
             }
             else {
-                content.remove();
-                alert("You cannot access this content.")
-            };
-        }
-        else if (res.status == 500 || res.status == 502 || res.status == 503) {
-            err_message = document.createElement('div');
-            err_message.innerHTML = `<h1 style=\"color: red; font-style: Helvetica, sans-serif;\">A 3rd party service is currently down. Please try again later.<br>Status Code: ${res.status}</h1>`;
-            content.replaceWith(err_message);
-            content.style.display = 'block';
-            return;
-        }
-        else {
-            content.remove()
-            alert("Invalid PRN/SRN or password.");
+                content.remove()
+                alert("Invalid PRN/SRN or password.");
+            }
+        } catch (error) {
+            // Hide loading overlay on error
+            loadingOverlay.style.display = 'none';
+            console.error('Authentication error:', error);
+            alert('Network error. Please check your connection and try again.');
         }
     }
     
