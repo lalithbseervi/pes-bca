@@ -76,7 +76,7 @@
                         <strong>Upcoming: ISA-1</strong>
                     </div>
                     <div class="alert-content">
-                        <a href="/time_tables/BCA_1st_3rd__5th_sem_ISA-1_TT.pdf" target="_blank" rel="noopener noreferrer">Time Table for ISA-1</a>
+                        <a href="/pdf-viewer/?file=/time_tables/BCA_1st_3rd__5th_sem_ISA-1_TT.pdf" target="_blank" rel="noopener noreferrer">Time Table for ISA-1</a>
                     </div>
                 </div>
             </div>
@@ -104,6 +104,42 @@
         </section>
     </article>
 </main>
+<script>
+document.addEventListener('click', function(event) {
+    const link = event.target.closest('a');
+    if (link && link.href && link.href.includes('/pdf-viewer/')) {
+        event.preventDefault();
+        
+        // Check session
+        const sessionData = sessionStorage.getItem('user_session');
+        if (!sessionData) {
+            window.location.href = '/';
+            return;
+        }
+
+        try {
+            const session = JSON.parse(sessionData);
+            const now = new Date();
+            const expiresAt = new Date(session.expiresAt);
+            
+            if (now >= expiresAt) {
+                window.location.href = '/';
+                return;
+            }
+
+            // Add session data to URL for new tab
+            const url = new URL(link.href);
+            url.searchParams.set('token', session.token);
+            url.searchParams.set('expires', expiresAt.getTime());
+            console.log(url);
+            
+            window.open(url.href, '_blank');
+        } catch (error) {
+            window.location.href = '/';
+        }
+    }
+});
+</script>
 <script>
     // Close all child <details> when a parent <details> is closed
     document.addEventListener('DOMContentLoaded', function () {
