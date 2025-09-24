@@ -1,5 +1,14 @@
 {
   "version": 1,
-  "include": ["/*"],
-  "exclude": ["/build/static/css/*", "/build/static/js/*"]
+  "include": [
+    "/*.pdf/",
+    "/*/*.pdf",
+    "/*/*/*.pdf",
+    "/*/*/*/*.pdf",
+    "/*/*.pdf*/*"
+  ],
+  "exclude": [
+    "/build/static/css/*",
+    "/build/static/js/*"
+  ]
 }
