@@ -15,6 +15,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const pdfPath = urlParams.get('file');
     const sessionToken = urlParams.get('token');
     const sessionExpiry = urlParams.get('expires');
+    const title = urlParams.get('title');
+
+    document.title = title;
     
     if (!pdfPath) {
         document.getElementById('pdf-container').innerHTML = '<h2>Error: No file specified</h2>';

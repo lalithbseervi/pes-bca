@@ -131,7 +131,7 @@ document.addEventListener('click', function(event) {
             const url = new URL(link.href);
             url.searchParams.set('token', session.token);
             url.searchParams.set('expires', expiresAt.getTime());
-            console.log(url);
+            url.searchParams.set('title', link.innerText);
             
             window.open(url.href, '_blank');
         } catch (error) {
