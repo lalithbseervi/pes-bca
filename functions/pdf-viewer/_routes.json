@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "include": [
+    "/*.pdf"
+  ],
+  "exclude": [
+    "/css/*",
+    "/js/*"
+  ]
+}
