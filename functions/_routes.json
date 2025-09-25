@@ -1,14 +1,25 @@
 {
   "version": 1,
   "include": [
-    "/*.pdf/",
-    "/*/*.pdf",
-    "/*/*/*.pdf",
-    "/*/*/*/*.pdf",
-    "/*/*.pdf*/*"
+    "*.pdf",
+    "*/*.pdf",
+    "*/*/*.pdf",
+    "*/*/*/*.pdf",
+    "*/*/*/*/*.pdf"
   ],
   "exclude": [
-    "/build/static/css/*",
-    "/build/static/js/*"
+    "*.css",
+    "*.js",
+    "*.svg",
+    "*.png",
+    "*.jpg",
+    "*.ico",
+    "/css/*",
+    "/js/*",
+    "/static/css/*",
+    "/static/js/*",
+    "/icons/*",
+    "/theme/*",
+    "/build/*"
   ]
 }
