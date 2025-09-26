@@ -6,13 +6,23 @@ export async function onRequest(context) {
   if (url.pathname.includes('.pdf')) {
     const referer = request.headers.get('referer') || request.headers.get('Referer');
     
-    // Check if the request comes from the pdf-viewer page
-    if (!referer || !referer.includes('/pdf-viewer/')) {
-      // Redirect direct PDF access to home page
+    // Temporary debug logging
+    console.log('PDF Request:', {
+      url: url.pathname,
+      referer: referer,
+      userAgent: request.headers.get('User-Agent')
+    });
+    
+    const isFromViewer = referer && (
+      referer.includes('/pdf-viewer/') || 
+      referer.includes('/pdfjs/')
+    );
+    
+    if (!isFromViewer) {
+      console.log('Blocking PDF request - invalid referer');
       return Response.redirect('https://pes-bca.pages.dev/', 302);
     }
   }
   
-  // For all other requests, serve the static content
   return context.env.ASSETS.fetch(request);
 }
