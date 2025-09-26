@@ -17,23 +17,23 @@ document.addEventListener('DOMContentLoaded', function() {
     const sessionExpiry = urlParams.get('expires');
     const title = urlParams.get('title');
 
-    document.title = title;
+    if (title) {
+        document.title = title;
+    }
     
     if (!pdfPath) {
         document.getElementById('pdf-container').innerHTML = '<h2>Error: No file specified</h2>';
         return;
     }
 
-    // Check if session data was passed via URL
+    // Session validation logic (same as before)
     let isValidSession = false;
     
     if (sessionToken && sessionExpiry) {
-        // Validate session from URL parameters
         const now = new Date().getTime();
         const expiryTime = parseInt(sessionExpiry);
         isValidSession = now < expiryTime;
     } else {
-        // Fallback: check sessionStorage (for same-tab navigation)
         const sessionData = sessionStorage.getItem('user_session');
         if (sessionData) {
             try {
@@ -47,20 +47,20 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // If no valid session, redirect to home
     if (!isValidSession) {
         window.location.href = '/';
         return;
     }
 
-    // If session is valid, show the PDF
+    // Use locally hosted PDF.js
+    const pdfViewerUrl = `/pdfjs/web/viewer.html?file=${encodeURIComponent(pdfPath)}`;
+    
     document.getElementById('pdf-container').innerHTML = `
         <div style="width: 100%; height: 90vh;">
-            <iframe src="${pdfPath}" 
-                    style="width: 100%; height: 100%; border: none;" 
-                    type="application/pdf">
-                <p>Your browser doesn't support PDF viewing. 
-                   <a href="${pdfPath}" download>Download the PDF</a> instead.</p>
+            <iframe src="${pdfViewerUrl}" 
+                    style="width: 100%; height: 100%; border: none;"
+                    allow="fullscreen">
+                <p>Loading PDF viewer...</p>
             </iframe>
         </div>
     `;
