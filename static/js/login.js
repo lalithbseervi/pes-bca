@@ -53,7 +53,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         loadingOverlay.style.display = 'flex';
 
         try {
-            const res = await fetch('https://cors-proxy.devpages.workers.dev/?url=' + encodeURIComponent('https://pesu-auth.onrender.com/authenticate'), {
+            const res = await fetch('https://cors-proxy.devpages.workers.dev/?url=' + encodeURIComponent('https://pesu-auth-z18n.onrender.com/authenticate'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
