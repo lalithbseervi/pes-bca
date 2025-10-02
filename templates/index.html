@@ -13,6 +13,24 @@
         person_profiles: 'identified_only',
     })
 </script>
+<script>
+(function() {
+    const isMobileOrTablet = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) 
+                             || window.innerWidth <= 768;
+    
+    if (isMobileOrTablet) {
+        // Dynamically load mobile-nav.js only for mobile/tablet
+        const script = document.createElement('script');
+        script.src = '/js/mobile-nav.js';
+        script.async = true;
+        document.head.appendChild(script);
+        
+        console.log('Mobile navigation loaded');
+    } else {
+        console.log('Desktop detected - mobile navigation skipped');
+    }
+})();
+</script>
 <main>
     <div id="login-modal" class="login-modal">
         <div class="login-modal-content">
@@ -70,33 +88,23 @@
                     </div>
                 </div>
             </div><br>
-            <div class="alerts">
-                <div class="alert alert-error">
-                    <div class="alert-type">
-                        <strong>Upcoming: ISA-1</strong>
-                    </div>
-                    <div class="alert-content">
-                        <a href="/pdf-viewer/?file=/time_tables/BCA_1st_3rd__5th_sem_ISA-1_TT.pdf" target="_blank" rel="noopener noreferrer">Time Table for ISA-1</a>
-                    </div>
-                </div>
-            </div>
             {{ post_macros::page_header(title=section.title) }}
             {{ section.content | safe }}
             <div class="parent-parent">
             <ul class="parent" style="list-style-type: none;">
-                <li>
+                <li id="subject-wd">
                     {% include 'web_design.html' %}
                 </li>
-                <li>
+                <li id="subject-cfp">
                     {% include 'cfp.html' %}
                 </li>
-                <li>
+                <li id="subject-mp">
                     {% include 'mp.html' %}
                 </li>
-                <li>
+                <li id="subject-mfca">
                     {% include 'mfca.html' %}
                 </li>
-                <li>
+                <li id="subject-pce">
                     {% include 'pce.html' %}
                 </li>
             </ul>
