@@ -40,7 +40,7 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Get URL parameters - only file path and title now
+    // Get URL parameters
     const urlParams = new URLSearchParams(window.location.search);
     const pdfPath = urlParams.get('file');
     const title = urlParams.get('title');
@@ -52,7 +52,6 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!pdfPath) {
         document.getElementById('pdf-container').innerHTML = '<h2>Error: No file specified</h2>';
         
-        // Track error
         if (window.posthog) {
             posthog.capture('pdf_viewer_error', {
                 error: 'No file specified',
@@ -67,7 +66,7 @@ document.addEventListener('DOMContentLoaded', function() {
     try {
         loginChannel = new BroadcastChannel('login_channel');
     } catch (e) {
-        console.log('BroadcastChannel not supported');
+        console.error('BroadcastChannel not supported. PWA cross-tab sync disabled.');
     }
 
     // Check if session is valid
@@ -80,14 +79,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 const expiresAt = new Date(session.expiresAt);
                 return now < expiresAt;
             } catch (error) {
+                console.error('Invalid session data:', error);
                 return false;
             }
         }
-        
         return false;
     }
 
-    // Request session from other tabs
+    // Request session from other tabs via BroadcastChannel
     function requestSessionFromOtherTabs() {
         return new Promise((resolve, reject) => {
             if (!loginChannel) {
@@ -101,9 +100,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Store received session
                     sessionStorage.setItem('user_session', JSON.stringify(event.data.sessionData));
                     sessionStorage.setItem('logged_in', 'true');
+                    
                     loginChannel.removeEventListener('message', messageHandler);
                     
-                    // Track session sync
                     if (window.posthog) {
                         posthog.capture('pdf_viewer_session_synced', {
                             pdf_path: pdfPath,
@@ -124,11 +123,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 requestId: Date.now()
             });
 
-            // Timeout after 1 second
+            // Timeout after 2 seconds
             setTimeout(() => {
                 loginChannel.removeEventListener('message', messageHandler);
                 reject('No session response from other tabs');
-            }, 1000);
+            }, 2000);
         });
     }
 
@@ -146,7 +145,7 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
         `;
 
-        // Track PDF view
+        // Track PDF view with PostHog
         const sessionData = sessionStorage.getItem('user_session');
         if (window.posthog && sessionData) {
             try {
@@ -158,6 +157,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     name: session.profile?.name || 'Unknown',
                     branch: session.profile?.branch,
                     semester: session.profile?.semester,
+                    is_pwa: window.matchMedia('(display-mode: standalone)').matches
                 });
 
                 // Track PDF view event
@@ -168,7 +168,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     subject: extractSubjectFromPath(pdfPath),
                     unit: extractUnitFromPath(pdfPath),
                     view_timestamp: new Date().toISOString(),
-                    referrer: document.referrer
+                    referrer: document.referrer,
+                    is_pwa: window.matchMedia('(display-mode: standalone)').matches
                 });
             } catch (error) {
                 console.error('PostHog tracking error:', error);
@@ -194,26 +195,20 @@ document.addEventListener('DOMContentLoaded', function() {
             <div style="text-align: center; padding: 50px;">
                 <h2 style="color: #e74c3c;">Access Denied</h2>
                 <p>Your session has expired or is invalid.</p>
-                <p><a href="/" style="color: #4a90e2;">Return to login</a></p>
+                <p>Please open this PDF from a logged-in tab, or log in again.</p>
+                <p><a href="/" style="color: #4a90e2; text-decoration: none; font-weight: bold;">Go to Login</a></p>
             </div>
         `;
 
-        // Track access denied
         if (window.posthog) {
             posthog.capture('pdf_viewer_access_denied', {
                 pdf_path: pdfPath,
                 title: title,
                 reason: 'Session expired or invalid',
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
+                is_pwa: window.matchMedia('(display-mode: standalone)').matches
             });
         }
-    }
-
-    // Redirect to login
-    function redirectToLogin() {
-        setTimeout(() => {
-            window.location.href = '/';
-        }, 2000);
     }
 
     // Main session validation logic
@@ -222,30 +217,29 @@ document.addEventListener('DOMContentLoaded', function() {
             // Valid session found in this tab
             loadPdfViewer();
         } else {
-            // No valid session, try to get from other tabs
+            // No valid session, try to get from other tabs via BroadcastChannel
             try {
                 await requestSessionFromOtherTabs();
                 loadPdfViewer();
             } catch (error) {
-                console.log('Could not obtain session:', error);
+                console.log('Could not obtain session from other tabs:', error);
                 
-                // Track failed session sync
                 if (window.posthog) {
                     posthog.capture('pdf_viewer_session_sync_failed', {
                         pdf_path: pdfPath,
                         title: title,
                         error: error.toString(),
-                        timestamp: new Date().toISOString()
+                        timestamp: new Date().toISOString(),
+                        is_pwa: window.matchMedia('(display-mode: standalone)').matches
                     });
                 }
                 
                 showAccessDenied();
-                redirectToLogin();
             }
         }
     }
 
-    // Listen for messages from other tabs
+    // Listen for messages from other tabs via BroadcastChannel
     if (loginChannel) {
         loginChannel.onmessage = function(event) {
             if (event.data.type === 'logout') {
@@ -253,59 +247,49 @@ document.addEventListener('DOMContentLoaded', function() {
                 sessionStorage.removeItem('user_session');
                 sessionStorage.removeItem('logged_in');
                 
-                // Track logout in PDF viewer
                 if (window.posthog) {
                     posthog.capture('pdf_viewer_logged_out', {
                         pdf_path: pdfPath,
                         title: title,
-                        logout_source: 'other_tab',
+                        logout_source: 'broadcast_channel',
                         timestamp: new Date().toISOString()
                     });
                 }
                 
                 showAccessDenied();
-                redirectToLogin();
             } else if (event.data.type === 'request_session') {
-                // Another tab is requesting session
-                const mySession = sessionStorage.getItem('user_session');
-                if (mySession) {
-                    loginChannel.postMessage({
-                        type: 'session_response',
-                        sessionData: JSON.parse(mySession)
-                    });
+                // Another tab is requesting session - send our session if valid
+                if (isSessionValid()) {
+                    const mySession = sessionStorage.getItem('user_session');
+                    if (mySession) {
+                        loginChannel.postMessage({
+                            type: 'session_response',
+                            sessionData: JSON.parse(mySession)
+                        });
+                    }
+                }
+            } else if (event.data.type === 'login_success') {
+                // User logged in from another tab
+                if (event.data.sessionData) {
+                    sessionStorage.setItem('user_session', JSON.stringify(event.data.sessionData));
+                    sessionStorage.setItem('logged_in', 'true');
+                    
+                    // Reload PDF if we were showing access denied
+                    if (document.getElementById('pdf-container').innerHTML.includes('Access Denied')) {
+                        loadPdfViewer();
+                    }
                 }
             }
         };
     }
-
-    // Monitor storage events (fallback for logout detection)
-    window.addEventListener('storage', function(event) {
-        if (event.key === 'has_active_session' && !event.newValue) {
-            // Session cleared in another tab
-            sessionStorage.removeItem('user_session');
-            sessionStorage.removeItem('logged_in');
-            
-            // Track logout via storage event
-            if (window.posthog) {
-                posthog.capture('pdf_viewer_logged_out', {
-                    pdf_path: pdfPath,
-                    title: title,
-                    logout_source: 'storage_event',
-                    timestamp: new Date().toISOString()
-                });
-            }
-            
-            showAccessDenied();
-            redirectToLogin();
-        }
-    });
 
     // Track page view
     if (window.posthog) {
         posthog.capture('$pageview', {
             page_type: 'pdf_viewer',
             pdf_path: pdfPath,
-            title: title
+            title: title,
+            is_pwa: window.matchMedia('(display-mode: standalone)').matches
         });
     }
 
@@ -315,7 +299,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Periodic session validation (every 5 minutes)
     setInterval(function() {
         if (!isSessionValid()) {
-            // Track session expiry
             if (window.posthog) {
                 posthog.capture('pdf_viewer_session_expired', {
                     pdf_path: pdfPath,
@@ -325,7 +308,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             showAccessDenied();
-            redirectToLogin();
         }
     }, 5 * 60 * 1000);
 
@@ -341,7 +323,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Track visibility changes (tab switching)
+    // Track visibility changes
     let visibilityStartTime = Date.now();
     document.addEventListener('visibilitychange', function() {
         if (window.posthog) {
