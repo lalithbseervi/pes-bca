@@ -9,6 +9,15 @@ document.addEventListener('DOMContentLoaded', async function() {
     const cancelButton = document.getElementById('cancel-login');
     const loadingOverlay = document.getElementById('loading-overlay');
 
+    // BroadcastChannel for cross-tab communication
+    // solves the problem of session not being detected in new tabs
+    let loginChannel;
+    try {
+        loginChannel = new BroadcastChannel('login_channel');
+    } catch (e) {
+        console.log('BroadcastChannel not supported');
+    }
+
     // Password visibility toggle
     passwordToggle.addEventListener('click', function() {        
         if (passwordInput.type === 'password') {
@@ -34,6 +43,22 @@ document.addEventListener('DOMContentLoaded', async function() {
         setTimeout(() => {
             errorMessage.style.display = 'none';
         }, 5000);
+    }
+
+    // Store session only in sessionStorage
+    function storeSession(sessionData) {
+        sessionStorage.setItem('user_session', JSON.stringify(sessionData));
+        sessionStorage.setItem('logged_in', 'true');
+        
+        // Only store a flag in localStorage to indicate an active session exists
+        localStorage.setItem('has_active_session', Date.now().toString());
+    }
+
+    // Clear session
+    function clearSession() {
+        sessionStorage.removeItem('user_session');
+        sessionStorage.removeItem('logged_in');
+        localStorage.removeItem('has_active_session');
     }
 
     // Handle login form submission
@@ -83,8 +108,16 @@ document.addEventListener('DOMContentLoaded', async function() {
                         expiresAt: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString()
                     };
                     
-                    sessionStorage.setItem('user_session', JSON.stringify(sessionData));
-                    sessionStorage.setItem('logged_in', 'true');
+                    // Store in sessionStorage only
+                    storeSession(sessionData);
+
+                    // Broadcast to other tabs (they will request session data via BroadcastChannel)
+                    if (loginChannel) {
+                        loginChannel.postMessage({
+                            type: 'login_success',
+                            timestamp: Date.now()
+                        });
+                    }
 
                     // Enhanced PostHog user profiling
                     if (window.posthog) {
@@ -141,7 +174,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             if (now < expiresAt) {
                 // Update the session expiry time if valid
                 session.expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString();
-                sessionStorage.setItem('user_session', JSON.stringify(session)); // Save the updated session
+                sessionStorage.setItem('user_session', JSON.stringify(session));
                 return true;
             } else {
                 return false;
@@ -151,35 +184,119 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     }
 
-    // Clear expired session
-    function clearSession() {
-        sessionStorage.removeItem('user_session');
-        sessionStorage.removeItem('logged_in');
+    // Handle logout
+    function handleLogout() {
+        clearSession();
+        
+        // Broadcast logout event to other tabs
+        if (loginChannel) {
+            loginChannel.postMessage({
+                type: 'logout'
+            });
+        }
+
+        window.location.reload();
     }
 
-    // Event listeners
-    loginForm.addEventListener('submit', handleLogin);
-    
-    cancelButton.addEventListener('click', function() {
-        // guests users only have access to posts and other material
-        content.remove();
-        loginModal.style.display = 'none';
-    });
+    // Listen for messages from other tabs
+    if (loginChannel) {
+        loginChannel.onmessage = function(event) {
+            const { type, sessionData } = event.data;
+            
+            if (type === 'login_success') {
+                // Another tab logged in - ask for session data
+                // This tab doesn't have session, so request it
+                if (!sessionStorage.getItem('logged_in')) {
+                    loginChannel.postMessage({
+                        type: 'request_session',
+                        requestId: Date.now()
+                    });
+                }
+            } else if (type === 'request_session') {
+                // Another tab is requesting session data
+                const mySession = sessionStorage.getItem('user_session');
+                if (mySession) {
+                    // Share session data ONLY via BroadcastChannel (in-memory, not persisted)
+                    loginChannel.postMessage({
+                        type: 'session_response',
+                        sessionData: JSON.parse(mySession)
+                    });
+                }
+            } else if (type === 'session_response') {
+                // Received session data from another tab
+                if (sessionData) {
+                    sessionStorage.setItem('user_session', JSON.stringify(sessionData));
+                    sessionStorage.setItem('logged_in', 'true');
+                    
+                    if (loginModal && loginModal.style.display === 'block') {
+                        loginModal.style.display = 'none';
+                        content.style.display = 'block';
+                    }
+                    
+                    // Re-identify with PostHog
+                    if (window.posthog) {
+                        posthog.identify(sessionData.srn, {
+                            srn: sessionData.srn,
+                            name: sessionData.profile?.name || 'Unknown',
+                            branch: sessionData.profile?.branch,
+                            semester: sessionData.profile?.semester,
+                            session_synced: true,
+                        });
+                    }
+                }
+            } else if (type === 'logout') {
+                // Another tab logged out
+                clearSession();
+                window.location.reload();
+            }
+        };
+    }
 
-    // Close modal when clicking outside
-    loginModal.addEventListener('click', function(event) {
-        if (event.target === loginModal) {
-            loginModal.style.display = 'none';
+    // Monitor localStorage for session flag changes (fallback)
+    window.addEventListener('storage', function(event) {
+        if (event.key === 'has_active_session') {
+            if (event.newValue && !sessionStorage.getItem('logged_in')) {
+                // A session exists in another tab, request it
+                if (loginChannel) {
+                    loginChannel.postMessage({
+                        type: 'request_session',
+                        requestId: Date.now()
+                    });
+                }
+            } else if (!event.newValue) {
+                // Session cleared in another tab
+                clearSession();
+                window.location.reload();
+            }
         }
     });
 
-    // Check if user is already logged in and session is valid
-    if (!sessionStorage.getItem('logged_in') || !isSessionValid()) {
-        // Clear any expired session
+    // For new tabs: Check if there's an active session in another tab
+    if (!sessionStorage.getItem('logged_in') && localStorage.getItem('has_active_session')) {
+        // Request session data from other tabs
+        if (loginChannel) {
+            loginChannel.postMessage({
+                type: 'request_session',
+                requestId: Date.now()
+            });
+            
+            // Wait a moment for response
+            setTimeout(() => {
+                if (!sessionStorage.getItem('logged_in')) {
+                    // No response, show login modal
+                    loginModal.style.display = 'block';
+                }
+            }, 500);
+        } else {
+            // BroadcastChannel not supported, show login modal
+            loginModal.style.display = 'block';
+        }
+    } else if (!sessionStorage.getItem('logged_in') || !isSessionValid()) {
+        // No active session at all
         clearSession();
         loginModal.style.display = 'block';
     } else {
-        // Re-identify user from stored session data
+        // Valid session exists
         const sessionData = JSON.parse(sessionStorage.getItem('user_session'));
         if (sessionData && window.posthog) {
             posthog.identify(sessionData.srn, {
@@ -192,4 +309,22 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
         content.style.display = 'block';
     }
+
+    // Event listeners
+    loginForm.addEventListener('submit', handleLogin);
+    
+    cancelButton.addEventListener('click', function() {
+        content.remove();
+        loginModal.style.display = 'none';
+    });
+
+    // Close modal when clicking outside
+    loginModal.addEventListener('click', function(event) {
+        if (event.target === loginModal) {
+            loginModal.style.display = 'none';
+        }
+    });
+
+    // Expose logout function
+    window.logout = handleLogout;
 });
