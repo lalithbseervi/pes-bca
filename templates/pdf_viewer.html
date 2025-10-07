@@ -1,6 +1,36 @@
 {% extends "base.html" %}
 
 {% block main_content %}
+<style>
+.loading-message {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 70vh;
+    text-align: center;
+}
+
+.loading-message h2 {
+    margin-bottom: 10px;
+    color: #4a90e2;
+}
+
+.loading-message p {
+    color: #888;
+}
+</style>
+
+<!-- PostHog Analytics -->
+<script>
+    !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init Ce js Ls Te Fs Ds capture Ye calculateEventProperties Us register register_once register_for_session unregister unregister_for_session Ws getFeatureFlag getFeatureFlagPayload isFeatureEnabled reloadFeatureFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSurveysLoaded onSessionId getSurveys getActiveMatchingSurveys renderSurvey displaySurvey canRenderSurvey canRenderSurveyAsync identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException loadToolbar get_property getSessionProperty Bs zs createPersonProfile Hs Ms Gs opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing get_explicit_consent_status is_capturing clear_opt_in_out_capturing Ns debug L qs getPageViewId captureTraceFeedback captureTraceMetric".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+    posthog.init('phc_78cRhH8qoYmTyUHbMXdUxqrFPFfrdVp3yxzK0gdqB6Q', {
+        api_host: 'https://us.i.posthog.com',
+        defaults: '2025-05-24',
+        person_profiles: 'identified_only',
+    })
+</script>
+
 <div id="pdf-container">
     <div class="loading-message">
         <h2>Loading document...</h2>
@@ -10,11 +40,9 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Get URL parameters
+    // Get URL parameters - only file path and title now
     const urlParams = new URLSearchParams(window.location.search);
     const pdfPath = urlParams.get('file');
-    const sessionToken = urlParams.get('token');
-    const sessionExpiry = urlParams.get('expires');
     const title = urlParams.get('title');
 
     if (title) {
@@ -23,47 +51,315 @@ document.addEventListener('DOMContentLoaded', function() {
     
     if (!pdfPath) {
         document.getElementById('pdf-container').innerHTML = '<h2>Error: No file specified</h2>';
+        
+        // Track error
+        if (window.posthog) {
+            posthog.capture('pdf_viewer_error', {
+                error: 'No file specified',
+                url: window.location.href
+            });
+        }
         return;
     }
 
-    // Session validation logic (same as before)
-    let isValidSession = false;
-    
-    if (sessionToken && sessionExpiry) {
-        const now = new Date().getTime();
-        const expiryTime = parseInt(sessionExpiry);
-        isValidSession = now < expiryTime;
-    } else {
+    // BroadcastChannel for cross-tab session monitoring
+    let loginChannel;
+    try {
+        loginChannel = new BroadcastChannel('login_channel');
+    } catch (e) {
+        console.log('BroadcastChannel not supported');
+    }
+
+    // Check if session is valid
+    function isSessionValid() {
         const sessionData = sessionStorage.getItem('user_session');
         if (sessionData) {
             try {
                 const session = JSON.parse(sessionData);
                 const now = new Date();
                 const expiresAt = new Date(session.expiresAt);
-                isValidSession = now < expiresAt;
+                return now < expiresAt;
             } catch (error) {
-                isValidSession = false;
+                return false;
+            }
+        }
+        
+        return false;
+    }
+
+    // Request session from other tabs
+    function requestSessionFromOtherTabs() {
+        return new Promise((resolve, reject) => {
+            if (!loginChannel) {
+                reject('BroadcastChannel not supported');
+                return;
+            }
+
+            // Listen for session response
+            const messageHandler = function(event) {
+                if (event.data.type === 'session_response' && event.data.sessionData) {
+                    // Store received session
+                    sessionStorage.setItem('user_session', JSON.stringify(event.data.sessionData));
+                    sessionStorage.setItem('logged_in', 'true');
+                    loginChannel.removeEventListener('message', messageHandler);
+                    
+                    // Track session sync
+                    if (window.posthog) {
+                        posthog.capture('pdf_viewer_session_synced', {
+                            pdf_path: pdfPath,
+                            title: title,
+                            sync_method: 'broadcast_channel'
+                        });
+                    }
+                    
+                    resolve(true);
+                }
+            };
+
+            loginChannel.addEventListener('message', messageHandler);
+
+            // Request session from other tabs
+            loginChannel.postMessage({
+                type: 'request_session',
+                requestId: Date.now()
+            });
+
+            // Timeout after 1 second
+            setTimeout(() => {
+                loginChannel.removeEventListener('message', messageHandler);
+                reject('No session response from other tabs');
+            }, 1000);
+        });
+    }
+
+    // Load PDF viewer
+    function loadPdfViewer() {
+        const pdfViewerUrl = `/pdfjs/web/viewer.html?file=${encodeURIComponent(pdfPath)}`;
+        
+        document.getElementById('pdf-container').innerHTML = `
+            <div style="width: 100%; height: 90vh;">
+                <iframe src="${pdfViewerUrl}" 
+                        style="width: 100%; height: 100%; border: none;"
+                        allow="fullscreen">
+                    <p>Loading PDF viewer...</p>
+                </iframe>
+            </div>
+        `;
+
+        // Track PDF view
+        const sessionData = sessionStorage.getItem('user_session');
+        if (window.posthog && sessionData) {
+            try {
+                const session = JSON.parse(sessionData);
+                
+                // Identify user
+                posthog.identify(session.srn, {
+                    srn: session.srn,
+                    name: session.profile?.name || 'Unknown',
+                    branch: session.profile?.branch,
+                    semester: session.profile?.semester,
+                });
+
+                // Track PDF view event
+                posthog.capture('pdf_viewed', {
+                    pdf_path: pdfPath,
+                    pdf_title: title || 'Unknown',
+                    file_name: pdfPath.split('/').pop(),
+                    subject: extractSubjectFromPath(pdfPath),
+                    unit: extractUnitFromPath(pdfPath),
+                    view_timestamp: new Date().toISOString(),
+                    referrer: document.referrer
+                });
+            } catch (error) {
+                console.error('PostHog tracking error:', error);
             }
         }
     }
 
-    if (!isValidSession) {
-        window.location.href = '/';
-        return;
+    // Extract subject from file path
+    function extractSubjectFromPath(path) {
+        const match = path.match(/\/(wd|cfp|mp|mfca|pce)\//i);
+        return match ? match[1].toUpperCase() : 'Unknown';
     }
 
-    // Use locally hosted PDF.js
-    const pdfViewerUrl = `/pdfjs/web/viewer.html?file=${encodeURIComponent(pdfPath)}`;
-    
-    document.getElementById('pdf-container').innerHTML = `
-        <div style="width: 100%; height: 90vh;">
-            <iframe src="${pdfViewerUrl}" 
-                    style="width: 100%; height: 100%; border: none;"
-                    allow="fullscreen">
-                <p>Loading PDF viewer...</p>
-            </iframe>
-        </div>
-    `;
+    // Extract unit from file path
+    function extractUnitFromPath(path) {
+        const match = path.match(/unit[-_]?(\d+)/i);
+        return match ? `Unit ${match[1]}` : 'Unknown';
+    }
+
+    // Show access denied message
+    function showAccessDenied() {
+        document.getElementById('pdf-container').innerHTML = `
+            <div style="text-align: center; padding: 50px;">
+                <h2 style="color: #e74c3c;">Access Denied</h2>
+                <p>Your session has expired or is invalid.</p>
+                <p><a href="/" style="color: #4a90e2;">Return to login</a></p>
+            </div>
+        `;
+
+        // Track access denied
+        if (window.posthog) {
+            posthog.capture('pdf_viewer_access_denied', {
+                pdf_path: pdfPath,
+                title: title,
+                reason: 'Session expired or invalid',
+                timestamp: new Date().toISOString()
+            });
+        }
+    }
+
+    // Redirect to login
+    function redirectToLogin() {
+        setTimeout(() => {
+            window.location.href = '/';
+        }, 2000);
+    }
+
+    // Main session validation logic
+    async function validateAndLoadPdf() {
+        if (isSessionValid()) {
+            // Valid session found in this tab
+            loadPdfViewer();
+        } else {
+            // No valid session, try to get from other tabs
+            try {
+                await requestSessionFromOtherTabs();
+                loadPdfViewer();
+            } catch (error) {
+                console.log('Could not obtain session:', error);
+                
+                // Track failed session sync
+                if (window.posthog) {
+                    posthog.capture('pdf_viewer_session_sync_failed', {
+                        pdf_path: pdfPath,
+                        title: title,
+                        error: error.toString(),
+                        timestamp: new Date().toISOString()
+                    });
+                }
+                
+                showAccessDenied();
+                redirectToLogin();
+            }
+        }
+    }
+
+    // Listen for messages from other tabs
+    if (loginChannel) {
+        loginChannel.onmessage = function(event) {
+            if (event.data.type === 'logout') {
+                // User logged out in another tab
+                sessionStorage.removeItem('user_session');
+                sessionStorage.removeItem('logged_in');
+                
+                // Track logout in PDF viewer
+                if (window.posthog) {
+                    posthog.capture('pdf_viewer_logged_out', {
+                        pdf_path: pdfPath,
+                        title: title,
+                        logout_source: 'other_tab',
+                        timestamp: new Date().toISOString()
+                    });
+                }
+                
+                showAccessDenied();
+                redirectToLogin();
+            } else if (event.data.type === 'request_session') {
+                // Another tab is requesting session
+                const mySession = sessionStorage.getItem('user_session');
+                if (mySession) {
+                    loginChannel.postMessage({
+                        type: 'session_response',
+                        sessionData: JSON.parse(mySession)
+                    });
+                }
+            }
+        };
+    }
+
+    // Monitor storage events (fallback for logout detection)
+    window.addEventListener('storage', function(event) {
+        if (event.key === 'has_active_session' && !event.newValue) {
+            // Session cleared in another tab
+            sessionStorage.removeItem('user_session');
+            sessionStorage.removeItem('logged_in');
+            
+            // Track logout via storage event
+            if (window.posthog) {
+                posthog.capture('pdf_viewer_logged_out', {
+                    pdf_path: pdfPath,
+                    title: title,
+                    logout_source: 'storage_event',
+                    timestamp: new Date().toISOString()
+                });
+            }
+            
+            showAccessDenied();
+            redirectToLogin();
+        }
+    });
+
+    // Track page view
+    if (window.posthog) {
+        posthog.capture('$pageview', {
+            page_type: 'pdf_viewer',
+            pdf_path: pdfPath,
+            title: title
+        });
+    }
+
+    // Start validation
+    validateAndLoadPdf();
+
+    // Periodic session validation (every 5 minutes)
+    setInterval(function() {
+        if (!isSessionValid()) {
+            // Track session expiry
+            if (window.posthog) {
+                posthog.capture('pdf_viewer_session_expired', {
+                    pdf_path: pdfPath,
+                    title: title,
+                    timestamp: new Date().toISOString()
+                });
+            }
+            
+            showAccessDenied();
+            redirectToLogin();
+        }
+    }, 5 * 60 * 1000);
+
+    // Track when user leaves the page
+    window.addEventListener('beforeunload', function() {
+        if (window.posthog) {
+            posthog.capture('pdf_viewer_closed', {
+                pdf_path: pdfPath,
+                title: title,
+                time_on_page: Math.floor((Date.now() - performance.timing.navigationStart) / 1000),
+                timestamp: new Date().toISOString()
+            });
+        }
+    });
+
+    // Track visibility changes (tab switching)
+    let visibilityStartTime = Date.now();
+    document.addEventListener('visibilitychange', function() {
+        if (window.posthog) {
+            if (document.hidden) {
+                posthog.capture('pdf_viewer_hidden', {
+                    pdf_path: pdfPath,
+                    title: title,
+                    time_visible: Math.floor((Date.now() - visibilityStartTime) / 1000)
+                });
+            } else {
+                visibilityStartTime = Date.now();
+                posthog.capture('pdf_viewer_visible', {
+                    pdf_path: pdfPath,
+                    title: title
+                });
+            }
+        }
+    });
 });
 </script>
 {% endblock main_content %}
