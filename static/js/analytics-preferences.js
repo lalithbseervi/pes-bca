@@ -203,7 +203,7 @@
                 ">
                     <strong>Current Status:</strong> 
                     <span style="color: ${isOptedOut ? '#e74c3c' : '#10b981'}">
-                        ${isOptedOut ? '❌ Analytics Disabled' : '✅ Analytics Enabled'}
+                        ${isOptedOut ? 'Analytics Disabled' : 'Analytics Enabled'}
                     </span>
                 </div>
 
