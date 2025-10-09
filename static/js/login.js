@@ -96,7 +96,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             if (res.ok) {
                 const data = await res.json();
 
-                if (data.profile.branch == 'Bachelor of Computer Applications' && data.profile.semester == 'Sem-1') {
+                if (data.profile.branch == 'Bachelor of Computer Applications') {
                     // Generate and store session token
                     const sessionToken = generateSessionToken();
                     const sessionData = {
@@ -141,7 +141,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                     content.style.display = 'block';
                 } else {
                     content.remove();
-                    showError("You cannot access this content. Only BCA Sem-1 students are allowed.");
+                    showError("Unexpected Error Occurred.");
                     loginModal.style.display = 'block';
                 }
             } else if (res.status == 500 || res.status == 502 || res.status == 503) {
