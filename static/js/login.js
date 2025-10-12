@@ -75,7 +75,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     async function tryServerSession() {
         try {
-            const res = await fetch('http://localhost:8787/api/session', { 
+            const res = await fetch('https://cors-proxy.workers.pages.dev/api/session', { 
                 method: 'GET', 
                 credentials: 'include',
                 headers: {
@@ -124,7 +124,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 turnstileToken: turnstileResponse,
             };
 
-            const res = await fetch('http://localhost:8787/api/login', {
+            const res = await fetch('https://cors-proxy.workers.pages.dev/api/login', {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
