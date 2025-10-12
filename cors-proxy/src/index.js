@@ -40,7 +40,7 @@ function makeCookieHeader(token, maxAgeSec) {
 function getCorsHeaders(request) {
   // For local development, accept common localhost origins
   const origin = request.headers.get('Origin')
-  const allowedOrigin = origin || 'http://localhost:1111'
+  const allowedOrigin = origin || 'https://pes-bca.pages.dev'
   
   return {
     'Access-Control-Allow-Origin': allowedOrigin,
