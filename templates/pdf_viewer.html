@@ -211,29 +211,34 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    async function tryServerSession() {
+        try {
+            const res = await fetch('/api/session', { credentials: 'include' });
+            if (!res.ok) return false;
+            const j = await res.json();
+            if (j.success && j.session) {
+                sessionStorage.setItem('user_session', JSON.stringify(j.session));
+                sessionStorage.setItem('logged_in', 'true');
+                return true;
+            }
+        } catch (e) { /* ignore */ }
+        return false;
+    }
+
     // Main session validation logic
     async function validateAndLoadPdf() {
+        if (await tryServerSession()) {
+            loadPdfViewer();
+            return;
+        }
+
         if (isSessionValid()) {
-            // Valid session found in this tab
             loadPdfViewer();
         } else {
-            // No valid session, try to get from other tabs via BroadcastChannel
             try {
                 await requestSessionFromOtherTabs();
                 loadPdfViewer();
             } catch (error) {
-                console.log('Could not obtain session from other tabs:', error);
-                
-                if (window.posthog) {
-                    posthog.capture('pdf_viewer_session_sync_failed', {
-                        pdf_path: pdfPath,
-                        title: title,
-                        error: error.toString(),
-                        timestamp: new Date().toISOString(),
-                        is_pwa: window.matchMedia('(display-mode: standalone)').matches
-                    });
-                }
-                
                 showAccessDenied();
             }
         }

@@ -31,11 +31,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     });
 
-    // Generate session token (simple random string)
-    function generateSessionToken() {
-        return Math.random().toString(36).substring(2) + Date.now().toString(36);
-    }
-
     // Show error message
     function showError(message) {
         errorMessage.textContent = message;
@@ -61,7 +56,44 @@ document.addEventListener('DOMContentLoaded', async function() {
         localStorage.removeItem('has_active_session');
     }
 
-    // Handle login form submission
+    function isSessionValid() {
+        const sessionData = sessionStorage.getItem('user_session');
+        if (!sessionData) return false;
+        
+        try {
+            const session = JSON.parse(sessionData);
+            if (!session.expiresAt) return true; // No expiry set, assume valid
+            
+            const expiryTime = new Date(session.expiresAt).getTime();
+            const now = Date.now();
+            return now < expiryTime;
+        } catch (e) {
+            console.error('Error parsing session:', e);
+            return false;
+        }
+    }
+
+    async function tryServerSession() {
+        try {
+            const res = await fetch('http://localhost:8787/api/session', { 
+                method: 'GET', 
+                credentials: 'include',
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+            if (!res.ok) return false;
+            const j = await res.json();
+            if (j.success && j.session) {
+                storeSession(j.session);
+                return true;
+            }
+        } catch (e) { 
+            console.error('Session check failed:', e);
+        }
+        return false;
+    }
+
     async function handleLogin(event) {
         event.preventDefault();
         
@@ -73,203 +105,122 @@ document.addEventListener('DOMContentLoaded', async function() {
             return;
         }
 
-        // Hide modal and show loading
         loginModal.style.display = 'none';
         loadingOverlay.style.display = 'flex';
 
         try {
-            const res = await fetch('https://cors-proxy.devpages.workers.dev/?url=' + encodeURIComponent('https://pesu-auth-z18n.onrender.com/authenticate'), {
+            // Get turnstile token from the widget
+            const turnstileResponse = window.turnstile?.getResponse?.() || window._turnstileToken;
+            
+            if (!turnstileResponse) {
+                showError('Please complete the verification challenge');
+                loginModal.style.display = 'block';
+                return;
+            }
+
+            const payload = {
+                srn,
+                password,
+                turnstileToken: turnstileResponse,
+            };
+
+            const res = await fetch('http://localhost:8787/api/login', {
                 method: 'POST',
-                headers: {
+                headers: { 
                     'Content-Type': 'application/json',
+                    'Accept': 'application/json'
                 },
-                body: JSON.stringify({
-                    username: srn,
-                    password: password,
-                    profile: true,
-                    fields: ['branch', 'semester', 'name']
-                })
+                credentials: 'include',
+                body: JSON.stringify(payload)
             });
 
             loadingOverlay.style.display = 'none';
 
-            if (res.ok) {
-                const data = await res.json();
+            const data = await res.json().catch(() => ({}));
 
-                if (data.profile.branch == 'Bachelor of Computer Applications') {
-                    // Generate and store session token
-                    const sessionToken = generateSessionToken();
-                    const sessionData = {
-                        token: sessionToken,
-                        srn: srn,
-                        profile: data.profile,
-                        loginTime: new Date().toISOString(),
-                        // Set session expiry (72 hours)
-                        expiresAt: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString()
-                    };
-                    
-                    // Store in sessionStorage only
-                    storeSession(sessionData);
+            if (res.ok && data.success) {
+                const sessionData = data.session || { srn: srn, profile: data.profile || {}, expiresAt: data.expiresAt };
+                storeSession(sessionData);
 
-                    // Broadcast to other tabs (they will request session data via BroadcastChannel)
-                    if (loginChannel) {
-                        loginChannel.postMessage({
-                            type: 'login_success',
-                            timestamp: Date.now()
-                        });
-                    }
-
-                    // Enhanced PostHog user profiling
-                    if (window.posthog) {
-                        posthog.identify(srn, {
-                            srn: srn,
-                            name: data.profile.name || 'Unknown',
-                            branch: data.profile.branch,
-                            semester: data.profile.semester,
-                            login_date: new Date().toISOString(),
-                        });
-
-                        posthog.capture('user_login', {
-                            srn: srn,
-                            name: data.profile.name || 'Unknown',
-                            branch: data.profile.branch,
-                            semester: data.profile.semester,
-                            timestamp: new Date().toISOString()
-                        });
-                    }
-
-                    content.style.display = 'block';
-                } else {
-                    content.remove();
-                    showError("Unexpected Error Occurred.");
-                    loginModal.style.display = 'block';
+                // notify other tabs
+                if (loginChannel) {
+                    try {
+                        loginChannel.postMessage({ type: 'login_success', sessionData });
+                    } catch (e) {}
                 }
-            } else if (res.status == 500 || res.status == 502 || res.status == 503) {
-                const errMessage = document.createElement('div');
-                errMessage.innerHTML = `<h1 style="color: red; font-family: Helvetica, sans-serif;">A 3rd party service is currently down. Please try again later.<br>Status Code: ${res.status}</h1>`;
-                content.replaceWith(errMessage);
+
+                if (window.posthog) {
+                    posthog.identify(sessionData.srn, {
+                        srn: sessionData.srn,
+                        name: sessionData.profile?.name || 'Unknown',
+                        branch: sessionData.profile?.branch,
+                        semester: sessionData.profile?.semester
+                    });
+                    posthog.capture('user_login', { srn: sessionData.srn });
+                }
+
+                content.style.display = 'block';
+                window.location.href = data.redirect || '/';
                 return;
             } else {
-                showError("Invalid SRN/PRN or password. Please try again.");
+                showError(data.message || 'Invalid SRN/PRN or password. Please try again.');
                 loginModal.style.display = 'block';
             }
         } catch (error) {
+            console.error(error)
             loadingOverlay.style.display = 'none';
-            console.error('Authentication error:', error);
             showError('Network error. Please check your connection and try again.');
             loginModal.style.display = 'block';
         }
     }
 
-    // Check if session is still valid
-    function isSessionValid() {
-        const sessionData = sessionStorage.getItem('user_session');
-        if (!sessionData) return false;
-        
-        try {
-            const session = JSON.parse(sessionData);
-            const now = new Date();
-            const expiresAt = new Date(session.expiresAt);
-            
-            if (now < expiresAt) {
-                // Update the session expiry time if valid
-                session.expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString();
-                sessionStorage.setItem('user_session', JSON.stringify(session));
-                return true;
+    // On load: try server session first before requesting via BroadcastChannel
+    (async function initSessionOnLoad() {
+        if (!sessionStorage.getItem('logged_in')) {
+            const ok = await tryServerSession();
+            if (ok) {
+                // re-identify and show content
+                const sessionData = JSON.parse(sessionStorage.getItem('user_session'));
+                if (window.posthog && sessionData) {
+                    posthog.identify(sessionData.srn, {
+                        srn: sessionData.srn,
+                        name: sessionData.profile?.name || 'Unknown',
+                        branch: sessionData.profile?.branch,
+                        semester: sessionData.profile?.semester,
+                        session_restored: true,
+                    });
+                }
+                content.style.display = 'block';
             } else {
-                return false;
-            }
-        } catch (error) {
-            return false;
-        }
-    }
-
-    // Handle logout
-    function handleLogout() {
-        clearSession();
-        
-        // Broadcast logout event to other tabs
-        if (loginChannel) {
-            loginChannel.postMessage({
-                type: 'logout'
-            });
-        }
-
-        window.location.reload();
-    }
-
-    // Listen for messages from other tabs
-    if (loginChannel) {
-        loginChannel.onmessage = function(event) {
-            const { type, sessionData } = event.data;
-            
-            if (type === 'login_success') {
-                // Another tab logged in - ask for session data
-                // This tab doesn't have session, so request it
-                if (!sessionStorage.getItem('logged_in')) {
-                    loginChannel.postMessage({
-                        type: 'request_session',
-                        requestId: Date.now()
-                    });
-                }
-            } else if (type === 'request_session') {
-                // Another tab is requesting session data
-                const mySession = sessionStorage.getItem('user_session');
-                if (mySession) {
-                    // Share session data ONLY via BroadcastChannel (in-memory, not persisted)
-                    loginChannel.postMessage({
-                        type: 'session_response',
-                        sessionData: JSON.parse(mySession)
-                    });
-                }
-            } else if (type === 'session_response') {
-                // Received session data from another tab
-                if (sessionData) {
-                    sessionStorage.setItem('user_session', JSON.stringify(sessionData));
-                    sessionStorage.setItem('logged_in', 'true');
-                    
-                    if (loginModal && loginModal.style.display === 'block') {
-                        loginModal.style.display = 'none';
-                        content.style.display = 'block';
-                    }
-                    
-                    // Re-identify with PostHog
-                    if (window.posthog) {
-                        posthog.identify(sessionData.srn, {
-                            srn: sessionData.srn,
-                            name: sessionData.profile?.name || 'Unknown',
-                            branch: sessionData.profile?.branch,
-                            semester: sessionData.profile?.semester,
-                            session_synced: true,
-                        });
-                    }
-                }
-            } else if (type === 'logout') {
-                // Another tab logged out
-                clearSession();
-                window.location.reload();
-            }
-        };
-    }
-
-    // Monitor localStorage for session flag changes (fallback)
-    window.addEventListener('storage', function(event) {
-        if (event.key === 'has_active_session') {
-            if (event.newValue && !sessionStorage.getItem('logged_in')) {
-                // A session exists in another tab, request it
+                // fallback to existing BroadcastChannel flow (request other tabs for session)
                 if (loginChannel) {
-                    loginChannel.postMessage({
-                        type: 'request_session',
-                        requestId: Date.now()
-                    });
+                    loginChannel.postMessage({ type: 'request_session', requestId: Date.now() });
+                    setTimeout(() => {
+                        if (!sessionStorage.getItem('logged_in')) {
+                            loginModal.style.display = 'block';
+                        }
+                    }, 500);
+                } else {
+                    loginModal.style.display = 'block';
                 }
-            } else if (!event.newValue) {
-                // Session cleared in another tab
-                clearSession();
-                window.location.reload();
             }
+        } else if (!isSessionValid()) {
+            clearSession();
+            loginModal.style.display = 'block';
+        } else {
+            const sessionData = JSON.parse(sessionStorage.getItem('user_session'));
+            if (sessionData && window.posthog) {
+                posthog.identify(sessionData.srn, {
+                    srn: sessionData.srn,
+                    name: sessionData.profile?.name || 'Unknown',
+                    branch: sessionData.profile?.branch,
+                    semester: sessionData.profile?.semester,
+                    session_restored: true,
+                });
+            }
+            content.style.display = 'block';
         }
-    });
+    })();
 
     // For new tabs: Check if there's an active session in another tab
     if (!sessionStorage.getItem('logged_in') && localStorage.getItem('has_active_session')) {
@@ -324,7 +275,4 @@ document.addEventListener('DOMContentLoaded', async function() {
             loginModal.style.display = 'none';
         }
     });
-
-    // Expose logout function
-    window.logout = handleLogout;
 });
