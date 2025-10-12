@@ -105,19 +105,18 @@ document.addEventListener('DOMContentLoaded', async function() {
             return;
         }
 
+        // Check Turnstile BEFORE showing loading screen
+        const turnstileResponse = window.turnstile?.getResponse?.() || window._turnstileToken;
+        
+        if (!turnstileResponse) {
+            showError('Please complete the verification challenge first');
+            return;
+        }
+
         loginModal.style.display = 'none';
         loadingOverlay.style.display = 'flex';
 
         try {
-            // Get turnstile token from the widget
-            const turnstileResponse = window.turnstile?.getResponse?.() || window._turnstileToken;
-            
-            if (!turnstileResponse) {
-                showError('Please complete the verification challenge');
-                loginModal.style.display = 'block';
-                return;
-            }
-
             const payload = {
                 srn,
                 password,
