@@ -33,7 +33,9 @@ function parseCookies(header) {
 }
 
 function makeCookieHeader(token, maxAgeSec) {
-  return `session_token=${token}; Max-Age=${maxAgeSec}; Path=/; HttpOnly; SameSite=None; Secure`
+  // For cross-site cookies, we need: SameSite=None, Secure, and Partitioned
+  // Partitioned attribute enables CHIPS (Cookies Having Independent Partitioned State)
+  return `session_token=${token}; Max-Age=${maxAgeSec}; Path=/; HttpOnly; SameSite=None; Secure; Partitioned`
 }
 
 // Helper to hash password for cache key (using Web Crypto API)
@@ -230,7 +232,7 @@ async function handleRequest(request, env) {
     if (token) {
       await env.SESSIONS.delete(token)
     }
-    const expiredCookie = 'session_token=; Max-Age=0; Path=/; HttpOnly; SameSite=None; Secure'
+    const expiredCookie = 'session_token=; Max-Age=0; Path=/; HttpOnly; SameSite=None; Secure; Partitioned'
     return new Response(JSON.stringify({ success:true }), { 
       status:200, 
       headers: { 
@@ -265,14 +267,44 @@ async function handleRequest(request, env) {
   }
 
   // GET /api/cache-stats
-  // Endpoint to get cache statistics (useful for monitoring)
+  // Endpoint to get cache statistics (requires authentication)
   if (request.method === 'GET' && url.pathname === '/api/cache-stats') {
+    // Require authentication - check for valid session
+    const cookies = parseCookies(request.headers.get('cookie'))
+    const token = cookies['session_token']
+    
+    if (!token) {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        message: 'Authentication required' 
+      }), { 
+        status: 401, 
+        headers: { ...JSON_HEADERS, ...getCorsHeaders(request) } 
+      })
+    }
+    
+    const sessionData = await env.SESSIONS.get(token)
+    if (!sessionData) {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        message: 'Invalid or expired session' 
+      }), { 
+        status: 401, 
+        headers: { ...JSON_HEADERS, ...getCorsHeaders(request) } 
+      })
+    }
+    
+    // User is authenticated, return stats
     const list = await env.SESSIONS.list({ prefix: 'auth_cache:' })
     
     return new Response(JSON.stringify({ 
       success: true, 
       cached_profiles: list.keys.length,
-      sample_keys: list.keys.slice(0, 5).map(k => k.name)
+      sample_keys: list.keys.slice(0, 5).map(k => {
+        // Redact password hashes from keys for privacy
+        const parts = k.name.split(':')
+        return parts.length >= 3 ? `auth_cache:${parts[1]}:***` : k.name
+      })
     }), { 
       status: 200, 
       headers: { ...JSON_HEADERS, ...getCorsHeaders(request) } 
