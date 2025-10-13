@@ -65,7 +65,7 @@ async function cacheAuthResult(env, srn, password, profile) {
   const cacheKey = `auth_cache:${srn}:${passwordHash}`
   
   // Cache for 7 days (in case password changes, it will expire)
-  const cacheTTL = 60 * 60 * 24 * 7 // 7 days
+  const cacheTTL = 60 * 60 * 24 * 14 // 14 days
   await env.SESSIONS.put(cacheKey, JSON.stringify(profile), { expirationTtl: cacheTTL })
 }
 

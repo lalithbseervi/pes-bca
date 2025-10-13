@@ -153,13 +153,23 @@ document.addEventListener('DOMContentLoaded', async function() {
                         srn: sessionData.srn,
                         name: sessionData.profile?.name || 'Unknown',
                         branch: sessionData.profile?.branch,
-                        semester: sessionData.profile?.semester
+                        semester: sessionData.profile?.semester,
+                        login_cached: data.cached || false  // Track if login used cache
                     });
-                    posthog.capture('user_login', { srn: sessionData.srn });
+                    posthog.capture('user_login', { 
+                        srn: sessionData.srn,
+                        cached: data.cached || false,
+                    });
+                }
+
+                // Show a brief message if login was cached (fast)
+                if (data.cached) {
+                    console.log('Fast login using cached credentials');
                 }
 
                 content.style.display = 'block';
-                window.location.href = data.redirect || '/';
+
+                if (data.redirect != '/') window.location.href = data.redirect
                 return;
             } else {
                 showError(data.message || 'Invalid SRN/PRN or password. Please try again.');
