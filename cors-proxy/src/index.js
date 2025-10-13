@@ -36,6 +36,50 @@ function makeCookieHeader(token, maxAgeSec) {
   return `session_token=${token}; Max-Age=${maxAgeSec}; Path=/; HttpOnly; Secure; SameSite=Lax`
 }
 
+// Helper to hash password for cache key (using Web Crypto API)
+async function hashPassword(password) {
+  const encoder = new TextEncoder()
+  const data = encoder.encode(password)
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
+// Helper to verify cached credentials
+async function verifyCachedCredentials(env, srn, password) {
+  const passwordHash = await hashPassword(password)
+  const cacheKey = `auth_cache:${srn}:${passwordHash}`
+  
+  // Check if credentials are cached
+  const cached = await env.SESSIONS.get(cacheKey)
+  if (cached) {
+    return { success: true, profile: JSON.parse(cached), cached: true }
+  }
+  
+  return { success: false, cached: false }
+}
+
+// Helper to cache successful authentication
+async function cacheAuthResult(env, srn, password, profile) {
+  const passwordHash = await hashPassword(password)
+  const cacheKey = `auth_cache:${srn}:${passwordHash}`
+  
+  // Cache for 7 days (in case password changes, it will expire)
+  const cacheTTL = 60 * 60 * 24 * 7 // 7 days
+  await env.SESSIONS.put(cacheKey, JSON.stringify(profile), { expirationTtl: cacheTTL })
+}
+
+// Helper to invalidate cached credentials for a user (when password changes)
+async function invalidateCachedAuth(env, srn) {
+  // List all cache keys for this SRN
+  const prefix = `auth_cache:${srn}:`
+  const list = await env.SESSIONS.list({ prefix })
+  
+  // Delete all cached credentials for this user
+  const deletePromises = list.keys.map(key => env.SESSIONS.delete(key.name))
+  await Promise.all(deletePromises)
+}
+
 // Helper to get CORS headers
 function getCorsHeaders(request) {
   // For local development, accept common localhost origins
@@ -88,29 +132,49 @@ async function handleRequest(request, env) {
       return new Response(JSON.stringify({ success:false, message:'human verification failed', detail: verification }), { status:403, headers: { ...JSON_HEADERS, ...getCorsHeaders(request) } })
     }
 
-    // Authenticate credentials (forward to AUTH_API or demo fallback)
-    const authApi = env.AUTH_API
-    let authResult
-    if (authApi) {
-      try {
-        const authResp = await fetch(authApi, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: srn, password, profile: true, fields: ['branch','semester','name'] })
-        })
-        authResult = await authResp.json()
-        if (!authResp.ok || !authResult.profile) {
-          return new Response(JSON.stringify({ success:false, message: authResult.message || 'invalid credentials' }), { status:401, headers: { ...JSON_HEADERS, ...getCorsHeaders(request) } })
-        }
-      } catch (e) {
-        return new Response(JSON.stringify({ success:false, message:'auth backend error' }), { status:502, headers: { ...JSON_HEADERS, ...getCorsHeaders(request) } })
-      }
+    // Step 1: Check cached credentials first (fast path)
+    const cachedAuth = await verifyCachedCredentials(env, srn, password)
+    
+    let profile
+    if (cachedAuth.success) {
+      // Cache hit! Use cached profile
+      profile = cachedAuth.profile
+      console.log(`Cache HIT for ${srn} - fast login`)
     } else {
-      // Demo fallback (NOT for production)
-      if (password !== 'demo') {
-        return new Response(JSON.stringify({ success:false, message:'invalid credentials (no AUTH_API configured)' }), { status:401, headers: { ...JSON_HEADERS, ...getCorsHeaders(request) } })
+      // Cache miss - authenticate via AUTH_API (slow path)
+      console.log(`Cache MISS for ${srn} - calling auth API`)
+      
+      const authApi = env.AUTH_API
+      if (!authApi) {
+        // Demo fallback (NOT for production)
+        if (password !== 'demo') {
+          return new Response(JSON.stringify({ success:false, message:'invalid credentials (no AUTH_API configured)' }), { status:401, headers: { ...JSON_HEADERS, ...getCorsHeaders(request) } })
+        }
+        profile = { name:'Demo User', branch:'BCA', semester:'1' }
+      } else {
+        try {
+          const authResp = await fetch(authApi, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: srn, password, profile: true, fields: ['branch','semester','name'] })
+          })
+          const authResult = await authResp.json()
+          
+          if (!authResp.ok || !authResult.profile) {
+            return new Response(JSON.stringify({ success:false, message: authResult.message || 'invalid credentials' }), { status:401, headers: { ...JSON_HEADERS, ...getCorsHeaders(request) } })
+          }
+          
+          profile = authResult.profile
+          
+          // Cache the successful authentication
+          await cacheAuthResult(env, srn, password, profile)
+          console.log(`Cached credentials for ${srn}`)
+          
+        } catch (e) {
+          console.error('Auth API error:', e)
+          return new Response(JSON.stringify({ success:false, message:'auth backend error' }), { status:502, headers: { ...JSON_HEADERS, ...getCorsHeaders(request) } })
+        }
       }
-      authResult = { profile: { name:'Demo User', branch:'BCA', semester:'1' } }
     }
 
     // create opaque session token and store in KV (SESSIONS binding)
@@ -119,7 +183,7 @@ async function handleRequest(request, env) {
     const ttlSec = 60 * 60 * 24 * 3 // 72 hours
     const session = {
       srn,
-      profile: authResult.profile,
+      profile: profile, // Use profile from cache or API
       createdAt: new Date().toISOString(),
       expiresAt: new Date(Date.now() + ttlSec * 1000).toISOString()
     }
@@ -128,7 +192,12 @@ async function handleRequest(request, env) {
 
     const cookieHeader = makeCookieHeader(token, ttlSec)
 
-    const resBody = { success:true, session: { srn: session.srn, profile: session.profile, expiresAt: session.expiresAt }, redirect: '/' }
+    const resBody = { 
+      success: true, 
+      session: { srn: session.srn, profile: session.profile, expiresAt: session.expiresAt }, 
+      redirect: '/',
+      cached: cachedAuth.success // Let frontend know if it was a cache hit
+    }
     return new Response(JSON.stringify(resBody), {
       status:200,
       headers: {
@@ -169,6 +238,44 @@ async function handleRequest(request, env) {
         ...getCorsHeaders(request),
         'Set-Cookie': expiredCookie 
       } 
+    })
+  }
+
+  // POST /api/invalidate-cache/:srn
+  // Endpoint to invalidate cached credentials (useful when password changes)
+  if (request.method === 'POST' && url.pathname.startsWith('/api/invalidate-cache/')) {
+    const srn = url.pathname.split('/').pop()
+    
+    if (!srn) {
+      return new Response(JSON.stringify({ success: false, message: 'SRN required' }), { 
+        status: 400, 
+        headers: { ...JSON_HEADERS, ...getCorsHeaders(request) } 
+      })
+    }
+
+    await invalidateCachedAuth(env, srn)
+    
+    return new Response(JSON.stringify({ 
+      success: true, 
+      message: `Cached credentials invalidated for ${srn}` 
+    }), { 
+      status: 200, 
+      headers: { ...JSON_HEADERS, ...getCorsHeaders(request) } 
+    })
+  }
+
+  // GET /api/cache-stats
+  // Endpoint to get cache statistics (useful for monitoring)
+  if (request.method === 'GET' && url.pathname === '/api/cache-stats') {
+    const list = await env.SESSIONS.list({ prefix: 'auth_cache:' })
+    
+    return new Response(JSON.stringify({ 
+      success: true, 
+      cached_profiles: list.keys.length,
+      sample_keys: list.keys.slice(0, 5).map(k => k.name)
+    }), { 
+      status: 200, 
+      headers: { ...JSON_HEADERS, ...getCorsHeaders(request) } 
     })
   }
 
