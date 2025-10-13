@@ -33,7 +33,7 @@ function parseCookies(header) {
 }
 
 function makeCookieHeader(token, maxAgeSec) {
-  return `session_token=${token}; Max-Age=${maxAgeSec}; Path=/; HttpOnly; Secure; SameSite=Lax`
+  return `session_token=${token}; Max-Age=${maxAgeSec}; Path=/; HttpOnly; SameSite=None; Secure`
 }
 
 // Helper to hash password for cache key (using Web Crypto API)
@@ -230,7 +230,7 @@ async function handleRequest(request, env) {
     if (token) {
       await env.SESSIONS.delete(token)
     }
-    const expiredCookie = 'session_token=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax'
+    const expiredCookie = 'session_token=; Max-Age=0; Path=/; HttpOnly; SameSite=None; Secure'
     return new Response(JSON.stringify({ success:true }), { 
       status:200, 
       headers: { 
