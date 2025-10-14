@@ -182,12 +182,14 @@ document.addEventListener('DOMContentLoaded', async function() {
             } else {
                 showError(data.message || 'Invalid SRN/PRN or password. Please try again.');
                 loginModal.style.display = 'block';
+                window.turnstile?.reset()
             }
         } catch (error) {
             console.error(error)
             loadingOverlay.style.display = 'none';
             showError('Network error. Please check your connection and try again.');
             loginModal.style.display = 'block';
+            window.turnstile?.reset()
         }
     }
 
