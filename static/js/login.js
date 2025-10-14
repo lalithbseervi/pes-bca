@@ -75,7 +75,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     async function tryServerSession() {
         try {
-            const res = await fetch('http://localhost:8787/api/session', { 
+            const res = await fetch('https://cors-proxy.devpages.workers.dev/api/session', { 
                 method: 'GET', 
                 credentials: 'include',
                 headers: {
@@ -129,7 +129,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 redirectPath = localStorage.getItem('postLoginRedirect');
                 localStorage.removeItem('postLoginRedirect');
             }
-            const loginUrl = `http://localhost:8787/api/login?redirect=${encodeURIComponent(redirectPath)}`;
+            const loginUrl = `https://cors-proxy.devpages.workers.dev/api/login?redirect=${encodeURIComponent(redirectPath)}`;
             const res = await fetch(loginUrl, {
                 method: 'POST',
                 headers: { 
