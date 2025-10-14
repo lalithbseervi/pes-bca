@@ -117,13 +117,21 @@ document.addEventListener('DOMContentLoaded', async function() {
         loadingOverlay.style.display = 'flex';
 
         try {
+
             const payload = {
                 srn,
                 password,
                 turnstileToken: turnstileResponse,
             };
 
-            const res = await fetch('https://cors-proxy.devpages.workers.dev/api/login', {
+            // Use postLoginRedirect from localStorage if available
+            let redirectPath = '/';
+            if (localStorage.getItem('postLoginRedirect')) {
+                redirectPath = localStorage.getItem('postLoginRedirect');
+                localStorage.removeItem('postLoginRedirect');
+            }
+            const loginUrl = `https://cors-proxy.devpages.workers.dev/api/login?redirect=${encodeURIComponent(redirectPath)}`;
+            const res = await fetch(loginUrl, {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',

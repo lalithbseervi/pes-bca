@@ -61,12 +61,11 @@ async function verifyCachedCredentials(env, srn, password) {
   return { success: false, cached: false }
 }
 
-// Helper to cache successful authentication
 async function cacheAuthResult(env, srn, password, profile) {
   const passwordHash = await hashPassword(password)
   const cacheKey = `auth_cache:${srn}:${passwordHash}`
   
-  // Cache for 7 days (in case password changes, it will expire)
+  // expire cached data to avoid permitting incorrect creds
   const cacheTTL = 60 * 60 * 24 * 14 // 14 days
   await env.SESSIONS.put(cacheKey, JSON.stringify(profile), { expirationTtl: cacheTTL })
 }
@@ -114,7 +113,7 @@ async function handleRequest(request, env) {
 
   // POST /api/login
   if (request.method === 'POST' && url.pathname === '/api/login') {
-    let body
+    let body;
     try { body = await request.json() } catch (e) {
       return new Response(JSON.stringify({ success:false, message:'invalid json' }), { status:400, headers: { ...JSON_HEADERS, ...getCorsHeaders(request) } })
     }
@@ -143,17 +142,10 @@ async function handleRequest(request, env) {
       profile = cachedAuth.profile
       console.log(`Cache HIT for ${srn} - fast login`)
     } else {
-      // Cache miss - authenticate via AUTH_API (slow path)
       console.log(`Cache MISS for ${srn} - calling auth API`)
       
       const authApi = env.AUTH_API
-      if (!authApi) {
-        // Demo fallback (NOT for production)
-        if (password !== 'demo') {
-          return new Response(JSON.stringify({ success:false, message:'invalid credentials (no AUTH_API configured)' }), { status:401, headers: { ...JSON_HEADERS, ...getCorsHeaders(request) } })
-        }
-        profile = { name:'Demo User', branch:'BCA', semester:'1' }
-      } else {
+      if (!authApi) { return new Response(JSON.stringify({ success:false, message:'invalid config (no AUTH_API given)' }), { status:401, headers: { ...JSON_HEADERS, ...getCorsHeaders(request) } })      } else {
         try {
           const authResp = await fetch(authApi, {
             method: 'POST',
@@ -194,10 +186,27 @@ async function handleRequest(request, env) {
 
     const cookieHeader = makeCookieHeader(token, ttlSec)
 
+    // Determine redirect path
+    let redirectPath = '/';
+    // Priority: query param > Referer header > default
+    if (url.searchParams.has('redirect')) {
+      redirectPath = url.searchParams.get('redirect');
+    } else {
+      const referer = request.headers.get('referer');
+      if (referer) {
+        try {
+          const refUrl = new URL(referer);
+          if (refUrl.pathname && refUrl.pathname !== '/api/login') {
+            redirectPath = refUrl.pathname;
+          }
+        } catch {}
+      }
+    }
+
     const resBody = { 
       success: true, 
       session: { srn: session.srn, profile: session.profile, expiresAt: session.expiresAt }, 
-      redirect: '/',
+      redirect: redirectPath,
       cached: cachedAuth.success // Let frontend know if it was a cache hit
     }
     return new Response(JSON.stringify(resBody), {

@@ -191,6 +191,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Show access denied message
     function showAccessDenied() {
+        localStorage.setItem('postLoginRedirect', window.location.href);
         document.getElementById('pdf-container').innerHTML = `
             <div style="text-align: center; padding: 50px;">
                 <h2 style="color: #e74c3c;">Access Denied</h2>
