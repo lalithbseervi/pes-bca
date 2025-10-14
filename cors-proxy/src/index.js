@@ -269,31 +269,6 @@ async function handleRequest(request, env) {
   // GET /api/cache-stats
   // Endpoint to get cache statistics (requires authentication)
   if (request.method === 'GET' && url.pathname === '/api/cache-stats') {
-    // Require authentication - check for valid session
-    const cookies = parseCookies(request.headers.get('cookie'))
-    const token = cookies['session_token']
-    
-    if (!token) {
-      return new Response(JSON.stringify({ 
-        success: false, 
-        message: 'Authentication required' 
-      }), { 
-        status: 401, 
-        headers: { ...JSON_HEADERS, ...getCorsHeaders(request) } 
-      })
-    }
-    
-    const sessionData = await env.SESSIONS.get(token)
-    if (!sessionData) {
-      return new Response(JSON.stringify({ 
-        success: false, 
-        message: 'Invalid or expired session' 
-      }), { 
-        status: 401, 
-        headers: { ...JSON_HEADERS, ...getCorsHeaders(request) } 
-      })
-    }
-    
     // User is authenticated, return stats
     const list = await env.SESSIONS.list({ prefix: 'auth_cache:' })
     
