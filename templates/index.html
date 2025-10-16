@@ -2,42 +2,6 @@
 {% macro home_page(section) %}
 <link rel="stylesheet" href="/css/index.css">
 <link rel="stylesheet" href="/css/alerts.css">
-<link rel="stylesheet" href="/css/loading_animation.css">
-<link rel="stylesheet" href="/css/login_form.css">
-<script src="/js/login.js"></script>
-<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
-<script>
-    // Turnstile callback to capture the token
-    function onSuccess(token) {
-        window._turnstileToken = token;
-        console.log('Turnstile verification successful');
-        
-        // Show visual feedback that verification is complete
-        const widget = document.getElementById('turnstile-widget');
-        const hint = document.querySelector('#turnstile-widget + small');
-        if (widget) {
-            widget.style.borderLeft = '3px solid #10b981'; // green border
-        }
-        if (hint) {
-            hint.innerHTML = 'Verification complete - you can now login';
-            hint.style.color = '#10b981';
-        }
-    }
-    
-    // Optional: Add callback for when Turnstile expires
-    function onExpire() {
-        window._turnstileToken = null;
-        const widget = document.getElementById('turnstile-widget');
-        const hint = document.querySelector('#turnstile-widget + small');
-        if (widget) {
-            widget.style.borderLeft = '3px solid #f59e0b'; // orange border
-        }
-        if (hint) {
-            hint.innerHTML = 'Verification expired - please complete it again';
-            hint.style.color = '#f59e0b';
-        }
-    }
-</script>
 <script>
     !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init Ce js Ls Te Fs Ds capture Ye calculateEventProperties Us register register_once register_for_session unregister unregister_for_session Ws getFeatureFlag getFeatureFlagPayload isFeatureEnabled reloadFeatureFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSurveysLoaded onSessionId getSurveys getActiveMatchingSurveys renderSurvey displaySurvey canRenderSurvey canRenderSurveyAsync identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException loadToolbar get_property getSessionProperty Bs zs createPersonProfile Hs Ms Gs opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing get_explicit_consent_status is_capturing clear_opt_in_out_capturing Ns debug L qs getPageViewId captureTraceFeedback captureTraceMetric".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
     posthog.init('phc_78cRhH8qoYmTyUHbMXdUxqrFPFfrdVp3yxzK0gdqB6Q', {
@@ -65,66 +29,7 @@
 })();
 </script>
 <main>
-    <div id="login-modal" class="login-modal">
-        <div class="login-modal-content">
-            <div class="login-modal-header">
-                <h2>Student Login</h2>
-            </div>
-            <div class="login-modal-body">
-                <form id="login-form">
-                    <div class="error-message" id="error-message"></div>
-                    
-                    <div class="form-group">
-                        <label for="srn-input">SRN/PRN:</label>
-                        <input type="text" id="srn-input" placeholder="Enter your SRN or PRN" autocomplete="username" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="password-input">Password:</label>
-                        <div class="password-input-wrapper">
-                            <input type="password" id="password-input" placeholder="Enter your password" autocomplete="current-password" required>
-                            <button type="button" class="password-toggle" id="password-toggle" title="Show/Hide Password">
-                                👁️
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <!-- Verification Challenge -->
-                    <div class="form-group">
-                        <label for="turnstile-widget">Verification:</label>
-                        <div id="turnstile-widget">
-                            <!-- real key: 0x4AAAAAAB6JZsI_79_Jn2wo 
-                                dummy key: 3x00000000000000000000FF-->
-                            <!-- Use Cloudflare's dummy test key 3x00000000000000000000FF for local development -->
-                            <!-- For production, replace with your real site key -->
-                            <div class="cf-turnstile" 
-                                 data-sitekey="0x4AAAAAAB6JZsI_79_Jn2wo" 
-                                 data-theme="auto" 
-                                 data-size="flexible" 
-                                 data-callback="onSuccess"
-                                 data-expired-callback="onExpire"></div>
-                        </div>
-                        <small style="color: #666; display: block; margin-top: 0.5rem;">
-                            Please complete the verification challenge above before logging in
-                        </small>
-                    </div>
-                    
-                    <div class="login-buttons">
-                        <button type="submit" class="btn btn-primary">Login</button>
-                        <button type="button" class="btn btn-secondary" id="cancel-login">Cancel</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Loading overlay -->
-    <div id="loading-overlay" class="loading-overlay">
-        <div class="loading-content">
-            <div class="spinner"></div>
-            <div class="loading-text">Verifying details<span class="loading-dots"></span></div>
-        </div>
-    </div>
+    {% include "components/login.html" %}
     
     <!-- Main content -->
     <article>
@@ -170,35 +75,15 @@ document.addEventListener('click', function(event) {
     const link = event.target.closest('a');
     if (link && link.href && link.href.includes('/pdf-viewer/')) {
         event.preventDefault();
+
+        // Open PDF viewer with file path and title
+        const url = new URL(link.href);
+        const cleanUrl = new URL(url.origin + url.pathname);
+        cleanUrl.searchParams.set('file', url.searchParams.get('file'));
+        cleanUrl.searchParams.set('title', link.innerText);
         
-        // Check session exists
-        const sessionData = sessionStorage.getItem('user_session');
-        if (!sessionData) {
-            window.location.href = '/';
-            return;
-        }
-
-        try {
-            const session = JSON.parse(sessionData);
-            const now = new Date();
-            const expiresAt = new Date(session.expiresAt);
-            
-            if (now >= expiresAt) {
-                window.location.href = '/';
-                return;
-            }
-
-            // Open PDF viewer with file path and title
-            const url = new URL(link.href);
-            const cleanUrl = new URL(url.origin + url.pathname);
-            cleanUrl.searchParams.set('file', url.searchParams.get('file'));
-            cleanUrl.searchParams.set('title', link.innerText);
-            
-            window.open(cleanUrl.href, '_blank');
-        } catch (error) {
-            window.location.href = '/';
-        }
-    }
+        window.open(cleanUrl.href, '_blank');
+    } 
 });
 </script>
 <script>

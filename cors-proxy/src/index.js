@@ -4,6 +4,7 @@ import { getSession } from "./api/session.js"
 import { logoutHandler } from "./api/logout.js"
 import { invalidateCache } from "./api/invalidate-cache.js"
 import { getCacheStats } from "./api/cache-stats.js"
+// JWT utils are used inside route handlers
 
 addEventListener('fetch', event => {
   event.respondWith(handleRequest(event.request, event.env || globalThis))

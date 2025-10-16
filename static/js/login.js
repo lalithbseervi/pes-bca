@@ -73,9 +73,17 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     }
 
+    // Determine API base URL based on environment
+    function getApiBaseUrl() {
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            return 'http://localhost:8787';
+        }
+        return 'https://cors-proxy.devpages.workers.dev';
+    }
+
     async function tryServerSession() {
         try {
-            const res = await fetch('https://cors-proxy.devpages.workers.dev/api/session', { 
+            const res = await fetch(getApiBaseUrl() + '/api/session', { 
                 method: 'GET', 
                 credentials: 'include',
                 headers: {
@@ -129,7 +137,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 redirectPath = localStorage.getItem('postLoginRedirect');
                 localStorage.removeItem('postLoginRedirect');
             }
-            const loginUrl = `https://cors-proxy.devpages.workers.dev/api/login?redirect=${encodeURIComponent(redirectPath)}`;
+            const loginUrl = `${getApiBaseUrl()}/api/login?redirect=${encodeURIComponent(redirectPath)}`;
             const res = await fetch(loginUrl, {
                 method: 'POST',
                 headers: { 
@@ -208,23 +216,23 @@ document.addEventListener('DOMContentLoaded', async function() {
                         session_restored: true,
                     });
                 }
-                content.style.display = 'block';
+                return content.style.display = 'block';
             } else {
                 // fallback to existing BroadcastChannel flow (request other tabs for session)
                 if (loginChannel) {
                     loginChannel.postMessage({ type: 'request_session', requestId: Date.now() });
-                    setTimeout(() => {
+                    return setTimeout(() => {
                         if (!sessionStorage.getItem('logged_in')) {
                             loginModal.style.display = 'block';
                         }
                     }, 500);
                 } else {
-                    loginModal.style.display = 'block';
+                    return loginModal.style.display = 'block';
                 }
             }
         } else if (!isSessionValid()) {
             clearSession();
-            loginModal.style.display = 'block';
+            return loginModal.style.display = 'block';
         } else {
             const sessionData = JSON.parse(sessionStorage.getItem('user_session'));
             if (sessionData && window.posthog) {
@@ -239,45 +247,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             content.style.display = 'block';
         }
     })();
-
-    // For new tabs: Check if there's an active session in another tab
-    if (!sessionStorage.getItem('logged_in') && localStorage.getItem('has_active_session')) {
-        // Request session data from other tabs
-        if (loginChannel) {
-            loginChannel.postMessage({
-                type: 'request_session',
-                requestId: Date.now()
-            });
-            
-            // Wait a moment for response
-            setTimeout(() => {
-                if (!sessionStorage.getItem('logged_in')) {
-                    // No response, show login modal
-                    loginModal.style.display = 'block';
-                }
-            }, 500);
-        } else {
-            // BroadcastChannel not supported, show login modal
-            loginModal.style.display = 'block';
-        }
-    } else if (!sessionStorage.getItem('logged_in') || !isSessionValid()) {
-        // No active session at all
-        clearSession();
-        loginModal.style.display = 'block';
-    } else {
-        // Valid session exists
-        const sessionData = JSON.parse(sessionStorage.getItem('user_session'));
-        if (sessionData && window.posthog) {
-            posthog.identify(sessionData.srn, {
-                srn: sessionData.srn,
-                name: sessionData.profile?.name || 'Unknown',
-                branch: sessionData.profile?.branch,
-                semester: sessionData.profile?.semester,
-                session_restored: true,
-            });
-        }
-        content.style.display = 'block';
-    }
 
     // Event listeners
     loginForm.addEventListener('submit', handleLogin);

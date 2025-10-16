@@ -1,8 +1,8 @@
-import { verifyTurnstile } from "../utils/cf-turnstile";
-import { invalidateCachedAuth, verifyCachedCredentials } from "../utils/auth-cache";
-import { cacheAuthResult } from "../utils/auth-cache";
-import { makeCookieHeader } from "../utils/cookies";
-import { getCorsHeaders } from "../utils/cors";
+import { verifyTurnstile } from "../utils/cf-turnstile.js";
+import { invalidateCachedAuth, verifyCachedCredentials, cacheAuthResult } from "../utils/auth-cache.js";
+import { makeCookie } from "../utils/cookies.js";
+import { getCorsHeaders } from "../utils/cors.js";
+import { signJWT } from "../utils/sign_jwt.js";
 
 export async function loginHandler(request, env) {
   const url = new URL(request.url)
@@ -67,51 +67,30 @@ export async function loginHandler(request, env) {
     }
   }
 
-  // create opaque session token and store in KV (SESSIONS binding)
-  const array = crypto.getRandomValues(new Uint8Array(32))
-  const token = Array.from(array).map(b => b.toString(16).padStart(2,'0')).join('')
-  const ttlSec = 60 * 60 * 24 * 3 // 72 hours
-  const session = {
-    srn,
-    profile: profile, // Use profile from cache or API
-    createdAt: new Date().toISOString(),
-    expiresAt: new Date(Date.now() + ttlSec * 1000).toISOString()
-  }
-  
-  await env.SESSIONS.put(token, JSON.stringify(session), { expirationTtl: ttlSec })
-  
-  const cookieHeader = makeCookieHeader(token, ttlSec)
-  
+  // Issue JWT cookies (no KV session storage)
+  const accessTTL = 10 // 15 minutes
+  const refreshTTL = 7 * 24 * 60 * 60 // 7 days
+
+  const accessJwt = await signJWT({ sub: srn, type: 'access', profile }, env.JWT_SECRET, accessTTL)
+  const refreshJwt = await signJWT({ sub: srn, type: 'refresh' }, env.JWT_SECRET, refreshTTL)
+
   // Determine redirect path
-  let redirectPath = '/';
-  // Priority: query param > Referer header > default
-  if (url.searchParams.has('redirect')) {
-    redirectPath = url.searchParams.get('redirect');
-  } else {
-    const referer = request.headers.get('referer');
-    if (referer) {
-      try {
-        const refUrl = new URL(referer);
-        if (refUrl.pathname && refUrl.pathname !== '/api/login') {
-          redirectPath = refUrl.pathname;
-        }
-      } catch {}
-    }
-  }
-  
+  const redirectPath = url.searchParams.get('redirect') || request.headers.get('Referer') || '/'
+
   const resBody = { 
     success: true, 
-    session: { srn: session.srn, profile: session.profile, expiresAt: session.expiresAt }, 
+    session: { srn, profile, expiresAt: new Date(Date.now() + accessTTL * 1000).toISOString() }, 
     redirect: redirectPath,
-    cached: cachedAuth.success // Let frontend know if it was a cache hit
+    cached: cachedAuth.success
   }
-  
-  return new Response(JSON.stringify(resBody), {
-    status:200,
-    headers: {
-      ...JSON_HEADERS,
-      ...getCorsHeaders(request),
-      'Set-Cookie': cookieHeader
-    }
+
+  // Set both cookies
+  const headers = new Headers({
+    ...JSON_HEADERS,
+    ...getCorsHeaders(request)
   })
+  headers.append('Set-Cookie', makeCookie('access_token', accessJwt, accessTTL, request))
+  headers.append('Set-Cookie', makeCookie('refresh_token', refreshJwt, refreshTTL, request))
+
+  return new Response(JSON.stringify(resBody), { status: 200, headers })
 }
