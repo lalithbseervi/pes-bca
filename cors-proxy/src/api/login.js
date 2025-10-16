@@ -68,7 +68,7 @@ export async function loginHandler(request, env) {
   }
 
   // Issue JWT cookies (no KV session storage)
-  const accessTTL = 10 // 15 minutes
+  const accessTTL = 24 * 60 * 60 // 24 hours
   const refreshTTL = 7 * 24 * 60 * 60 // 7 days
 
   const accessJwt = await signJWT({ sub: srn, type: 'access', profile }, env.JWT_SECRET, accessTTL)

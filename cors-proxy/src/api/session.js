@@ -21,7 +21,7 @@ export async function getSession(request, env) {
   if (refresh) {
     const vr = await verifyJWT(refresh, env.JWT_SECRET)
     if (vr.valid && vr.payload?.type === 'refresh') {
-      const accessTTL = 3 * 24 * 60 * 60
+      const accessTTL = 24 * 60 * 60
       // Optionally load lightweight profile here if you don't embed it in refresh
       const newAccess = await signJWT({ sub: vr.payload.sub, type: 'access' }, env.JWT_SECRET, accessTTL)
       const headers = new Headers({ ...JSON_HEADERS, ...cors })
