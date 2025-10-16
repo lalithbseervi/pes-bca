@@ -1,5 +1,7 @@
+{% import "macros/getSubjectTemplate.html" as subject_macros %}
 {% extends "base.html" %}
-{% macro home_page(section) %}
+
+{% block main_content %}
 <link rel="stylesheet" href="/css/index.css">
 <link rel="stylesheet" href="/css/alerts.css">
 <link rel="stylesheet" href="/css/loading_animation.css">
@@ -62,6 +64,8 @@
     } else {
         console.log('Desktop detected - mobile navigation skipped');
     }
+
+    console.log(isMobileOrTablet)
 })();
 </script>
 <main>
@@ -93,12 +97,10 @@
                     <div class="form-group">
                         <label for="turnstile-widget">Verification:</label>
                         <div id="turnstile-widget">
-                            <!-- real key: 0x4AAAAAAB6JZsI_79_Jn2wo 
-                                dummy key: 3x00000000000000000000FF-->
-                            <!-- Use Cloudflare's dummy test key 3x00000000000000000000FF for local development -->
+                            <!-- Use Cloudflare's dummy test key 0x4AAAAAAB6JZsI_79_Jn2wo for local development -->
                             <!-- For production, replace with your real site key -->
                             <div class="cf-turnstile" 
-                                 data-sitekey="0x4AAAAAAB6JZsI_79_Jn2wo" 
+                                 data-sitekey="3x00000000000000000000FF" 
                                  data-theme="auto" 
                                  data-size="flexible" 
                                  data-callback="onSuccess"
@@ -125,8 +127,6 @@
             <div class="loading-text">Verifying details<span class="loading-dots"></span></div>
         </div>
     </div>
-    
-    <!-- Main content -->
     <article>
         <section class="body" style="display: none;">
             <br>
@@ -141,24 +141,12 @@
                     </div>
                 </div>
             </div><br>
-            {{ post_macros::page_header(title=section.title) }}
-            {{ section.content | safe }}
+            {{ post_macros::page_header(title=page.title) }}
+            {{ page.content | safe }}
             <div class="parent-parent">
             <ul class="parent" style="list-style-type: none;">
-                <li id="subject-wd">
-                    {% include 'web_design.html' %}
-                </li>
-                <li id="subject-cfp">
-                    {% include 'cfp.html' %}
-                </li>
-                <li id="subject-mp">
-                    {% include 'mp.html' %}
-                </li>
-                <li id="subject-mfca">
-                    {% include 'mfca.html' %}
-                </li>
-                <li id="subject-pce">
-                    {% include 'pce.html' %}
+                <li>
+                    {{ subject_macros::subject_include(subject_template=page.extra.subject_template) }}
                 </li>
             </ul>
             </div>
@@ -202,8 +190,30 @@ document.addEventListener('click', function(event) {
 });
 </script>
 <script>
-    // Close all child <details> when a parent <details> is closed
+    // Open first 2 levels of <details> tags on page load and handle toggle behavior
     document.addEventListener('DOMContentLoaded', function () {
+        // Function to get nesting level of a details element
+        function getDetailsLevel(element) {
+            let level = 0;
+            let parent = element.parentElement;
+            while (parent) {
+                if (parent.tagName === 'DETAILS') {
+                    level++;
+                }
+                parent = parent.parentElement;
+            }
+            return level;
+        }
+
+        // Open first 2 levels
+        document.querySelectorAll('details').forEach(function (details) {
+            const level = getDetailsLevel(details);
+            if (level < 2) {
+                details.open = true;
+            }
+        });
+
+        // Close all child <details> when a parent <details> is closed
         document.querySelectorAll('details').forEach(function (details) {
             details.addEventListener('toggle', function () {
                 if (!details.open) {
@@ -215,8 +225,4 @@ document.addEventListener('click', function(event) {
         });
     });
 </script>
-{% endmacro home_page %}
-
-{% block main_content %}
-{{ self::home_page(section=section) }}
 {% endblock main_content %}

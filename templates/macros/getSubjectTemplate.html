@@ -1,0 +1,14 @@
+{# filepath: /media/shared/pesu-lms/lms/templates/macros/getSubjectTemplate #}
+{% macro subject_include(subject_template) %}
+    {% if subject_template == "web_design.html" %}
+        {% include "web_design.html" %}
+    {% elif subject_template == "cfp.html" %}
+        {% include "cfp.html" %}
+    {% elif subject_template == "mp.html" %}
+        {% include "mp.html" %}
+    {% elif subject_template == "pce.html" %}
+        {% include "pce.html" %}
+    {% elif subject_template == "mfca.html" %}
+        {% include "mfca.html" %}
+    {% endif %}
+{% endmacro %}
