@@ -28,6 +28,7 @@
     }
 })();
 </script>
+<script src="/js/openLinkHandler.js"></script>
 <main>
     {% include "components/login.html" %}
     
@@ -70,22 +71,6 @@
         </section>
     </article>
 </main>
-<script>
-document.addEventListener('click', function(event) {
-    const link = event.target.closest('a');
-    if (link && link.href && link.href.includes('/pdf-viewer/')) {
-        event.preventDefault();
-
-        // Open PDF viewer with file path and title
-        const url = new URL(link.href);
-        const cleanUrl = new URL(url.origin + url.pathname);
-        cleanUrl.searchParams.set('file', url.searchParams.get('file'));
-        cleanUrl.searchParams.set('title', link.innerText);
-        
-        window.open(cleanUrl.href, '_blank');
-    } 
-});
-</script>
 <script>
     // Close all child <details> when a parent <details> is closed
     document.addEventListener('DOMContentLoaded', function () {
