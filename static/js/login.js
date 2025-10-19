@@ -75,7 +75,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // Determine API base URL based on environment
     function getApiBaseUrl() {
-        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        if (window.location.hostname != 'pes-bca.pages.dev') {
             return 'http://localhost:8787';
         }
         return 'https://cors-proxy.devpages.workers.dev';
