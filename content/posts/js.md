@@ -4,13 +4,11 @@ date = 2025-09-14
 updated = "2025-10-20T13:19:50+05:30"
 template = "js.html"
 draft=false
-+++
-+++
-+++
-+++
-+++
-+++
-+++
+[extra]
+meta = [
+        { property = "og:title", content = "Learn JS | PES-BCA" },
+        { property = "og:description", content = "Resources for learning Javascript" },
+    ]
 +++
 
 If you are comfortable with a lot of reading and want to get deep into JS, then <a href="https://eloquentjavascript.net" target="_blank" rel="norefferer">eloquentjavascript.net</a> is a good option. However, it can take a lot of time to finish the entire book.
