@@ -1,3 +1,5 @@
+Sitemap: https://pes-bca.pages.dev/sitemap.xml
+
 User-agent: CCBot
 Disallow: /
 
@@ -5,12 +7,6 @@ User-agent: ChatGPT-User
 Disallow: /
 
 User-agent: GPTBot
-Disallow: /
-
-User-agent: Google-Extended
-Disallow: /
-
-User-agent: Google-CloudVertexBot
 Disallow: /
 
 User-agent: Applebot-Extended 
