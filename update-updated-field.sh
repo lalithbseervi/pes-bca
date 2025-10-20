@@ -29,36 +29,48 @@ find content -name '*.md' | while read file; do
     lastmod="$md_lastmod"
   fi
 
-  # Remove any existing updated field and insert the new one
-  awk -v lastmod="$lastmod" '
-    BEGIN {in_front=0; inserted=0; in_extra=0}
-    /^(\+\+\+|---)$/ {
-      print
-      if (!in_front) { in_front=1; next }
-      in_front=0; in_extra=0; next
-    }
-    in_front && /^updated = / { next }
-    in_front && /^date = / {
-      print
-      print "updated = \""lastmod"\""
-      inserted=1
-      next
-    }
-    in_front && /^\[extra\]/ {
-      print
-      in_extra=1
-      next
-    }
-    in_front && in_extra && !inserted && !/^updated = / && !/^\[/ {
-      print "updated = \""lastmod"\""
-      inserted=1
-      in_extra=0
-    }
-    { print }
-    END {
-      if (in_front && !inserted) {
-        print "updated = \""lastmod"\""
+  # Check if updated key exists in front matter
+  if awk '/^\+\+\+|^---/ {c++} c==1 && /^updated = / {found=1} END{exit !found}' "$file"; then
+    # Just update the value in place
+    awk -v lastmod="$lastmod" '
+      BEGIN {in_front=0}
+      /^(\+\+\+|---)$/ {print; if (!in_front) {in_front=1; next} in_front=0; next}
+      in_front && /^updated = / {print "updated = \""lastmod"\""; next}
+      {print}
+    ' "$file" > "$file.tmp" && mv "$file.tmp" "$file"
+  else
+    # Insert as before (after date, or under [extra], or after +++)
+    awk -v lastmod="$lastmod" '
+      BEGIN {in_front=0; inserted=0; in_extra=0}
+      /^(\+\+\+|---)$/ {
+        print
+        if (!in_front) { in_front=1; next }
+        in_front=0; in_extra=0; next
       }
-    }
-  ' "$file" > "$file.tmp" && mv "$file.tmp" "$file"
+      in_front && /^date = / {
+        print
+        if (!inserted) {
+          print "updated = \""lastmod"\""
+          inserted=1
+        }
+        next
+      }
+      in_front && /^\[extra\]/ {
+        print
+        in_extra=1
+        next
+      }
+      in_front && in_extra && !inserted && !/^updated = / && !/^\[/ {
+        print "updated = \""lastmod"\""
+        inserted=1
+        in_extra=0
+      }
+      { print }
+      END {
+        if (in_front && !inserted) {
+          print "updated = \""lastmod"\""
+        }
+      }
+    ' "$file" > "$file.tmp" && mv "$file.tmp" "$file"
+  fi
 done

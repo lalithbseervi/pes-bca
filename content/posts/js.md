@@ -1,7 +1,7 @@
 +++
 title = "Getting started with JS"
 date = 2025-09-14
-updated = "2025-10-20T14:21:44+05:30"
+updated = "2025-10-20T14:34:46+05:30"
 template = "js.html"
 draft=false
 [extra]
