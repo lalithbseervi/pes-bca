@@ -1,0 +1,8 @@
+#!/bin/bash
+# .github/hooks/pre-commit
+
+# Run the update-updated-field script
+./update-updated-field.sh
+
+# Add any changed markdown files to the commit
+git add content/**/*.md
