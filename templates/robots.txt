@@ -1,5 +1,9 @@
 Sitemap: https://pes-bca.pages.dev/sitemap.xml
 
+User-agent: Googlebot
+Disallow:
+Sitemap: https://pes-bca.pages.dev/sitemap.xml
+
 User-agent: CCBot
 Disallow: /
 
