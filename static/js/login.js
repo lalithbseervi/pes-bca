@@ -225,6 +225,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 if (content) {
                     content.style.display = 'block';
                 }
+                window.loadPdfViewer();
                 return;
             } else {
                 // fallback to existing BroadcastChannel flow (request other tabs for session)
@@ -256,6 +257,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             if (content) {
                 content.style.display = 'block';
             }
+            window.loadPdfViewer();
         }
     })();
 

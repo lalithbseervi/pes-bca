@@ -129,8 +129,8 @@ document.addEventListener('DOMContentLoaded', function() {
     window.loadPdfViewer = loadPdfViewer;
 
     // Optionally, try to load PDF if already logged in
-    if (sessionStorage.getItem('logged_in') === 'true') {
-        loadPdfViewer();
+    if (sessionStorage.getItem('logged_in') === 'true' && typeof window.loadPdfViewer === 'function') {
+        window.loadPdfViewer();
     }
 });
 </script>
