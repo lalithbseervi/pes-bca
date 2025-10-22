@@ -64,6 +64,7 @@
 <script>
     // Open first 2 levels of <details> tags on page load and handle toggle behavior
     document.addEventListener('DOMContentLoaded', function () {
+        localStorage.setItem('postLoginRedirect', window.location.href);
         // Function to get nesting level of a details element
         function getDetailsLevel(element) {
             let level = 0;

@@ -10,15 +10,8 @@
     min-height: 70vh;
     text-align: center;
 }
-
-.loading-message h2 {
-    margin-bottom: 10px;
-    color: #4a90e2;
-}
-
-.loading-message p {
-    color: #888;
-}
+.loading-message h2 { margin-bottom: 10px; color: #4a90e2; }
+.loading-message p { color: #888; }
 </style>
 
 <!-- Include login component for session management -->
@@ -26,7 +19,7 @@
 
 <!-- PostHog Analytics -->
 <script>
-    !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init Ce js Ls Te Fs Ds capture Ye calculateEventProperties Us register register_once register_for_session unregister unregister_for_session Ws getFeatureFlag getFeatureFlagPayload isFeatureEnabled reloadFeatureFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSurveysLoaded onSessionId getSurveys getActiveMatchingSurveys renderSurvey displaySurvey canRenderSurvey canRenderSurveyAsync identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException loadToolbar get_property getSessionProperty Bs zs createPersonProfile Hs Ms Gs opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing get_explicit_consent_status is_capturing clear_opt_in_out_capturing Ns debug L qs getPageViewId captureTraceFeedback captureTraceMetric".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+    !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init Ce js Ls Te Fs Ds capture Ye calculateEventProperties Us register register_once register_for_session unregister unregister_for_session Ws getFeatureFlag getFeatureFlagPayload isFeatureEnabled reloadFeatureFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSurveysLoaded onSessionId getSurveys getActiveMatchingSurveys renderSurvey displaySurvey canRenderSurveyAsync identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException loadToolbar get_property getSessionProperty Bs zs createPersonProfile Hs Ms Gs opt_in_capturing opt_out_capturing has_opted_in_capturing get_explicit_consent_status is_capturing clear_opt_in_out_capturing Ns debug L qs getPageViewId captureTraceFeedback captureTraceMetric".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
     posthog.init('phc_78cRhH8qoYmTyUHbMXdUxqrFPFfrdVp3yxzK0gdqB6Q', {
         api_host: 'https://us.i.posthog.com',
         defaults: '2025-05-24',
@@ -43,6 +36,7 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    localStorage.setItem('postLoginRedirect', window.location.href);
     // Get URL parameters
     const urlParams = new URLSearchParams(window.location.search);
     const pdfPath = urlParams.get('file');
@@ -54,7 +48,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     if (!pdfPath) {
         document.getElementById('pdf-container').innerHTML = '<h2>Error: No file specified</h2>';
-        
         if (window.posthog) {
             posthog.capture('pdf_viewer_error', {
                 error: 'No file specified',
@@ -64,23 +57,13 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
     }
 
-    // BroadcastChannel for cross-tab session monitoring
-    let loginChannel;
-    try {
-        loginChannel = new BroadcastChannel('login_channel');
-    } catch (e) {
-        console.error('BroadcastChannel not supported. PWA cross-tab sync disabled.');
-    }
+    // Session validation is handled by login.js and login.html
+    // If session is valid, login.js will show content and hide login modal
+    // If not, login modal will be shown and access denied handled there
 
-    // Check if session exists and is valid
-    function hasValidSession() {
-        return sessionStorage.getItem('logged_in') === 'true';
-    }
-
-    // Load PDF viewer
+    // Load PDF viewer if session is valid (login.js will handle showing/hiding)
     function loadPdfViewer() {
         const pdfViewerUrl = `/pdfjs/web/viewer.html?file=${encodeURIComponent(pdfPath)}`;
-        
         document.getElementById('pdf-container').innerHTML = `
             <div style="width: 100%; height: 90vh;">
                 <iframe src="${pdfViewerUrl}" 
@@ -96,8 +79,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (window.posthog && sessionData) {
             try {
                 const session = JSON.parse(sessionData);
-                
-                // Identify user
                 posthog.identify(session.srn, {
                     srn: session.srn,
                     name: session.profile?.name || 'Unknown',
@@ -105,8 +86,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     semester: session.profile?.semester,
                     is_pwa: window.matchMedia('(display-mode: standalone)').matches
                 });
-
-                // Track PDF view event
                 posthog.capture('pdf_viewed', {
                     pdf_path: pdfPath,
                     pdf_title: title || 'Unknown',
@@ -135,81 +114,6 @@ document.addEventListener('DOMContentLoaded', function() {
         return match ? `Unit ${match[1]}` : 'Unknown';
     }
 
-    // Show access denied message
-    function showAccessDenied() {
-        localStorage.setItem('postLoginRedirect', window.location.href);
-        document.getElementById('pdf-container').innerHTML = `
-            <div style="text-align: center; padding: 50px;">
-                <h2 style="color: #e74c3c;">Access Denied</h2>
-                <p>Your session has expired or is invalid.</p>
-                <p>Please open this PDF from a logged-in tab, or log in again.</p>
-                <p><a href="/" style="color: #4a90e2; text-decoration: none; font-weight: bold;">Go to Login</a></p>
-            </div>
-        `;
-
-        if (window.posthog) {
-            posthog.capture('pdf_viewer_access_denied', {
-                pdf_path: pdfPath,
-                title: title,
-                reason: 'Session expired or invalid',
-                timestamp: new Date().toISOString(),
-                is_pwa: window.matchMedia('(display-mode: standalone)').matches
-            });
-        }
-    }
-
-    // Main session validation logic - wait for login.js to complete
-    function validateAndLoadPdf() {
-        // Poll for session every 1s for up to 10 seconds
-        let attempts = 0;
-        const maxAttempts = 10;
-        
-        const checkInterval = setInterval(() => {
-            attempts++;
-            
-            if (hasValidSession()) {
-                clearInterval(checkInterval);
-                loadPdfViewer();
-            } else if (attempts >= maxAttempts) {
-                clearInterval(checkInterval);
-                // Check if login modal is visible (means session failed)
-                const loginModal = document.getElementById('login-modal');
-                if (loginModal && loginModal.style.display === 'block') {
-                    showAccessDenied();
-                } else {
-                    // Still loading, give it more time
-                    setTimeout(() => {
-                        if (!hasValidSession()) {
-                            showAccessDenied();
-                        }
-                    }, 1000);
-                }
-            }
-        }, 1000);
-    }
-
-    // Listen for login success from login.js
-    if (loginChannel) {
-        loginChannel.onmessage = function(event) {
-            if (event.data.type === 'logout') {
-                if (window.posthog) {
-                    posthog.capture('pdf_viewer_logged_out', {
-                        pdf_path: pdfPath,
-                        title: title,
-                        logout_source: 'broadcast_channel',
-                        timestamp: new Date().toISOString()
-                    });
-                }
-                showAccessDenied();
-            } else if (event.data.type === 'login_success') {
-                // Reload PDF if we were showing access denied
-                if (document.getElementById('pdf-container').innerHTML.includes('Access Denied')) {
-                    loadPdfViewer();
-                }
-            }
-        };
-    }
-
     // Track page view
     if (window.posthog) {
         posthog.capture('$pageview', {
@@ -220,40 +124,14 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Start validation
-    validateAndLoadPdf();
+    // Load PDF viewer if session is valid (login.js will handle session check)
+    // You may want to expose a global callback for login.js to call loadPdfViewer() after successful login
+    window.loadPdfViewer = loadPdfViewer;
 
-    // Track when user leaves the page
-    window.addEventListener('beforeunload', function() {
-        if (window.posthog) {
-            posthog.capture('pdf_viewer_closed', {
-                pdf_path: pdfPath,
-                title: title,
-                time_on_page: Math.floor((Date.now() - performance.timing.navigationStart) / 1000),
-                timestamp: new Date().toISOString()
-            });
-        }
-    });
-
-    // Track visibility changes
-    let visibilityStartTime = Date.now();
-    document.addEventListener('visibilitychange', function() {
-        if (window.posthog) {
-            if (document.hidden) {
-                posthog.capture('pdf_viewer_hidden', {
-                    pdf_path: pdfPath,
-                    title: title,
-                    time_visible: Math.floor((Date.now() - visibilityStartTime) / 1000)
-                });
-            } else {
-                visibilityStartTime = Date.now();
-                posthog.capture('pdf_viewer_visible', {
-                    pdf_path: pdfPath,
-                    title: title
-                });
-            }
-        }
-    });
+    // Optionally, try to load PDF if already logged in
+    if (sessionStorage.getItem('logged_in') === 'true') {
+        loadPdfViewer();
+    }
 });
 </script>
 {% endblock main_content %}
