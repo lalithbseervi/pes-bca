@@ -186,6 +186,9 @@ document.addEventListener('DOMContentLoaded', async function() {
                     content.style.display = 'block';
                     if (typeof window.loadPdfViewer === 'function') window.loadPdfViewer()
                 }
+                if (typeof window.loadPdfViewer === 'function') {
+                    window.loadPdfViewer();
+                }
 
                 if (data.redirect != '/') window.location.href = data.redirect
                 return;
