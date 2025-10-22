@@ -36,8 +36,16 @@ done < <(find content -name '*.md')
 if [ -n "$most_recent_file" ]; then
   formatted=$(date -r "$most_recent_file" +"%d-%m-%Y, %H:%M:%S")
   target="templates/index.html"
-  tmpfile=$(mktemp)
-  sed "89s/\\(Last Updated: \\)[^<]*/\\1$formatted/" "$target" > "$tmpfile" && mv "$tmpfile" "$target"
+  
+  # Find the line number containing "Last Updated:"
+  line_num=$(grep -n "Last Updated:" "$target" | cut -d: -f1)
+  
+  if [ -n "$line_num" ]; then
+    tmpfile=$(mktemp)
+    sed "${line_num}s/\\(Last Updated: \\)[^<]*/\\1$formatted/" "$target" > "$tmpfile" && mv "$tmpfile" "$target"
+  else
+    echo "Warning: 'Last Updated:' text not found in $target"
+  fi
 else
   echo "No markdown or template files found to determine last updated time."
   exit 1
