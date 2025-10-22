@@ -36,7 +36,8 @@ done < <(find content -name '*.md')
 if [ -n "$most_recent_file" ]; then
   formatted=$(date -r "$most_recent_file" +"%d-%m-%Y, %H:%M:%S")
   target="templates/index.html"
-  sed -i "74s/\\(Last Updated: \\)[^<]*/\\1$formatted/" "$target"
+  tmpfile=$(mktemp)
+  sed "89s/\\(Last Updated: \\)[^<]*/\\1$formatted/" "$target" > "$tmpfile" && mv "$tmpfile" "$target"
 else
   echo "No markdown or template files found to determine last updated time."
   exit 1
