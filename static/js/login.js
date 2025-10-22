@@ -184,6 +184,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
                 if (content) {
                     content.style.display = 'block';
+                    if (typeof window.loadPdfViewer === 'function') window.loadPdfViewer()
                 }
 
                 if (data.redirect != '/') window.location.href = data.redirect
