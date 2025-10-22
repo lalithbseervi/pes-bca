@@ -259,8 +259,9 @@ document.addEventListener('DOMContentLoaded', async function() {
     loginForm.addEventListener('submit', handleLogin);
     
     cancelButton.addEventListener('click', function() {
-        content.remove();
+        if (content) content.remove();
         loginModal.style.display = 'none';
+        return window.showAccessDenied();
     });
 
     // Close modal when clicking outside
@@ -270,3 +271,19 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     });
 });
+
+function showAccessDenied() {
+    document.getElementsByClassName('content')[0].innerHTML = `
+        <div class="loading-message">
+            <h2>Access Denied</h2>
+            <p>You must be logged in to view this document.<br>
+            Redirecting to login...</p>
+        </div>
+    `;
+    setTimeout(function() {
+        window.location.href = '/';
+    }, 3000);
+}
+
+// Expose globally for login.js to call
+window.showAccessDenied = showAccessDenied;
