@@ -182,7 +182,9 @@ document.addEventListener('DOMContentLoaded', async function() {
                     console.log('Fast login using cached credentials');
                 }
 
-                content.style.display = 'block';
+                if (content) {
+                    content.style.display = 'block';
+                }
 
                 if (data.redirect != '/') window.location.href = data.redirect
                 return;
@@ -216,7 +218,10 @@ document.addEventListener('DOMContentLoaded', async function() {
                         session_restored: true,
                     });
                 }
-                return content.style.display = 'block';
+                if (content) {
+                    content.style.display = 'block';
+                }
+                return;
             } else {
                 // fallback to existing BroadcastChannel flow (request other tabs for session)
                 if (loginChannel) {
@@ -244,7 +249,9 @@ document.addEventListener('DOMContentLoaded', async function() {
                     session_restored: true,
                 });
             }
-            content.style.display = 'block';
+            if (content) {
+                content.style.display = 'block';
+            }
         }
     })();
 
