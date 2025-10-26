@@ -81,7 +81,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const session = JSON.parse(sessionData);
                 posthog.identify(session.srn, {
                     srn: session.srn,
-                    name: session.profile?.name || 'Unknown',
+                    name: session.profile?.name || session.srn,
                     branch: session.profile?.branch,
                     semester: session.profile?.semester,
                     is_pwa: window.matchMedia('(display-mode: standalone)').matches
