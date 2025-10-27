@@ -182,12 +182,16 @@ document.addEventListener('DOMContentLoaded', async function() {
                     console.log('Fast login using cached credentials');
                 }
 
-                if (content) {
-                    content.style.display = 'block';
-                    if (typeof window.loadPdfViewer === 'function') window.loadPdfViewer()
-                }
-                if (typeof window.loadPdfViewer === 'function') {
-                    window.loadPdfViewer();
+                try {
+                    if (content) {
+                        content.style.display = 'block';
+                        if (typeof window.loadPdfViewer === 'function') window.loadPdfViewer()
+                    }
+                    if (typeof window.loadPdfViewer === 'function') {
+                        window.loadPdfViewer();
+                    }
+                } catch (e) {
+                    console.error(e);
                 }
 
                 if (data.redirect != '/') window.location.href = data.redirect
@@ -225,7 +229,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 if (content) {
                     content.style.display = 'block';
                 }
-                window.loadPdfViewer();
+                if (typeof window.loadPdfViewer === 'function') window.loadPdfViewer();
                 return;
             } else {
                 // fallback to existing BroadcastChannel flow (request other tabs for session)
@@ -257,7 +261,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             if (content) {
                 content.style.display = 'block';
             }
-            window.loadPdfViewer();
+            if (typeof window.loadPdfViewer === 'function') window.loadPdfViewer();
         }
     })();
 
