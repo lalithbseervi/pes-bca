@@ -12,6 +12,23 @@
 }
 .loading-message h2 { margin-bottom: 10px; color: #4a90e2; }
 .loading-message p { color: #888; }
+
+.pdf-nav {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+    margin: 0.5rem 0;
+}
+.pdf-nav a {
+    display: none;
+    background: #ffffffcc;
+    color: #222;
+    padding: 0.4rem 0.75rem;
+    border-radius: 6px;
+    text-decoration: none;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+.pdf-nav a:active { transform: translateY(1px); }
 </style>
 
 <!-- Include login component for session management -->
@@ -32,6 +49,11 @@
         <h2>Loading document...</h2>
         <p>Verifying access permissions...</p>
     </div>
+</div>
+
+<div class="pdf-nav" aria-hidden="true">
+    <a id="pdf-prev" href="#" title="Previous document">← Prev</a>
+    <a id="pdf-next" href="#" title="Next document">Next →</a>
 </div>
 
 <script>
@@ -133,5 +155,178 @@ document.addEventListener('DOMContentLoaded', function() {
         window.loadPdfViewer();
     }
 });
+</script>
+<script>
+/* IndexedDB helper (simple promise wrapper) */
+
+// Ensure pdfPath, title and nav elements are available to this script (they were defined inside the earlier DOMContentLoaded block)
+const urlParams = new URLSearchParams(window.location.search);
+const pdfPath = urlParams.get('file');
+const title = urlParams.get('title');
+
+// Nav elements
+const prevBtn = document.getElementById('pdf-prev');
+const nextBtn = document.getElementById('pdf-next');
+
+// Derive folder path (includes trailing slash)
+const folder = (pdfPath && pdfPath.lastIndexOf('/') > -1) ? pdfPath.slice(0, pdfPath.lastIndexOf('/') + 1) : '/';
+
+const DB_NAME = 'pes_res_index';
+const DB_VERSION = 1;
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('resources')) {
+        const os = db.createObjectStore('resources', { keyPath: 'path' });
+        os.createIndex('by-added', 'addedAt');
+      }
+    };
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+async function getResourcesWithPrefix(prefix) {
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction('resources','readonly');
+    const store = tx.objectStore('resources');
+    const out = [];
+    const req = store.openCursor();
+    req.onsuccess = evt => {
+      const cur = evt.target.result;
+      if (!cur) { res(out); return; }
+      const p = cur.value.path;
+      if (p.startsWith(prefix)) out.push(cur.value);
+      cur.continue();
+    };
+    req.onerror = () => rej(req.error);
+  });
+}
+
+/* Build navigation using IndexedDB first, fall back to sitemap */
+async function buildNav() {
+  try {
+    console.debug('buildNav: start');
+    console.debug('buildNav: pdfPath=', pdfPath, 'folder=', folder);
+
+    const folderPrefix = folder.endsWith('/') ? folder : folder + '/';
+
+    // 1) Try DB
+    let dbEntries = await getResourcesWithPrefix(folderPrefix).catch(e => {
+      console.warn('buildNav: DB read failed', e);
+      return [];
+    });
+    let candidates = dbEntries.map(x => x.path);
+    console.debug('buildNav: candidates from DB', candidates);
+
+    // 2) If not enough, try sitemap
+    if (candidates.length < 2) {
+      try {
+        console.debug('buildNav: fetching sitemap');
+        const res = await fetch('/sitemap.xml', { cache: 'no-store' });
+        console.debug('buildNav: sitemap status', res.status);
+        if (res.ok) {
+          const text = await res.text();
+          const xml = new DOMParser().parseFromString(text, 'application/xml');
+          const locs = Array.from(xml.getElementsByTagName('loc')).map(n => n.textContent).filter(Boolean);
+          const files = locs.map(loc => {
+            try {
+              const u = new URL(loc, window.location.origin);
+              if (u.pathname.startsWith('/pdf-viewer')) {
+                const p = u.searchParams.get('file') || '';
+                const dp = decodeURIComponent(p);
+                return dp.startsWith('/') ? dp.replace(/\/+$/, '') : '/' + dp.replace(/\/+$/, '');
+              }
+              if (u.pathname.includes('/static/')) {
+                const p = u.pathname.replace('/static/', '/');
+                return decodeURIComponent(p).replace(/\/+$/, '') || null;
+              }
+              return null;
+            } catch (e) { return null; }
+          }).filter(Boolean);
+          console.debug('buildNav: files from sitemap', files.length);
+          // write into DB (non-blocking)
+          for (const fp of files) putResource({ path: fp, title: fp.split('/').pop(), addedAt: Date.now() }).catch(()=>{});
+          candidates = files.filter(p => p.startsWith(folderPrefix));
+          console.debug('buildNav: candidates after sitemap filter', candidates);
+        }
+      } catch (e) {
+        console.warn('buildNav: sitemap fetch/parsing failed', e);
+      }
+    }
+
+    // 3) Fallback: scan current page anchors for links in same folder
+    if (candidates.length < 2) {
+      console.debug('buildNav: fallback scanning page anchors');
+      const anchors = Array.from(document.querySelectorAll('a[href]'));
+      const found = [];
+      for (const a of anchors) {
+        try {
+          const u = new URL(a.href, window.location.origin);
+          let p = null;
+          if (u.pathname.startsWith('/pdf-viewer')) {
+            const fp = u.searchParams.get('file');
+            if (fp) p = decodeURIComponent(fp).replace(/\/+$/,'');
+          } else if (u.pathname.includes('/static/')) {
+            p = decodeURIComponent(u.pathname.replace('/static/','')).replace(/\/+$/,'');
+          }
+          if (p && p.startsWith(folderPrefix)) found.push(p);
+        } catch (e) { /* ignore invalid */ }
+      }
+      // de-duplicate and sort
+      candidates = Array.from(new Set(found));
+      console.debug('buildNav: candidates from page scan', candidates);
+      // also persist to DB so next time DB has entries
+      for (const fp of candidates) putResource({ path: fp, title: fp.split('/').pop(), addedAt: Date.now() }).catch(()=>{});
+    }
+
+    if (candidates.length < 2) {
+      console.debug('buildNav: not enough candidates to build nav (count=' + candidates.length + ')');
+      // For debugging only: uncomment to force show buttons
+      // if (prevBtn) { prevBtn.style.display = 'inline-block'; prevBtn.href = '#'; }
+      // if (nextBtn) { nextBtn.style.display = 'inline-block'; nextBtn.href = '#'; }
+      return;
+    }
+
+    // sort and normalize
+    candidates.sort((a,b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+    const normalizedRequested = (pdfPath ? (pdfPath.startsWith('/') ? decodeURIComponent(pdfPath).replace(/\/+$/,'') : '/' + decodeURIComponent(pdfPath).replace(/\/+$/,'')) : '').replace(/\/+$/,'');
+    console.debug('buildNav: normalizedRequested=', normalizedRequested, 'candidates=', candidates);
+
+    let idx = candidates.indexOf(normalizedRequested);
+    if (idx === -1) {
+      const requestedName = normalizedRequested.split('/').pop();
+      idx = candidates.findIndex(p => p.split('/').pop() === requestedName);
+      console.debug('buildNav: fallback filename idx=', idx, 'requestedName=', requestedName);
+    }
+
+    if (idx === -1) {
+      console.debug('buildNav: requested file not found among candidates');
+      return;
+    }
+
+    if (prevBtn && idx > 0) {
+      const prevPath = candidates[idx - 1];
+      prevBtn.href = `/pdf-viewer/?file=${encodeURIComponent(prevPath)}&title=${encodeURIComponent(prevPath.split('/').pop())}`;
+      prevBtn.style.display = 'inline-block';
+      prevBtn.setAttribute('aria-hidden', 'false');
+      console.debug('buildNav: prev set ->', prevBtn.href);
+    }
+    if (nextBtn && idx < candidates.length - 1) {
+      const nextPath = candidates[idx + 1];
+      nextBtn.href = `/pdf-viewer/?file=${encodeURIComponent(nextPath)}&title=${encodeURIComponent(nextPath.split('/').pop())}`;
+      nextBtn.style.display = 'inline-block';
+      nextBtn.setAttribute('aria-hidden', 'false');
+      console.debug('buildNav: next set ->', nextBtn.href);
+    }
+  } catch (err) {
+    console.warn('buildNav failed', err);
+  }
+}
+/* Initialize nav: prefer DB-driven build */
+buildNav();
 </script>
 {% endblock main_content %}
