@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block main_content %}
+<style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        form {
+            margin: 20px;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        input[type="submit"] {
+            padding: 10px 20px;
+            border: none;
+            background-color: #4CAF50;
+            color: white;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        input[type="submit"]:hover {
+            background-color: #45a049;
+        }
+    </style>
+
+    <h1>Contribute to this site</h1>
+    <p>We'd love for you to contribute to the site!</p>
+    <p>Please provide your social ID (GitHub, Twitter, Telegram, etc.) so we can contact you.</p>
+
+    <form id="contact-form">
+        <label for="social_id">Social ID (e.g., Twitter handle, Discord ID, LinkedIn):</label><br>
+        <input type="text" id="social_id" name="social_id" placeholder="linkedin.com/in/username" required><br><br>
+        <input type="submit" value="Submit">
+    </form>
+
+    <p id="response-message"></p>
+
+    <script src="/js/form.js"></script>
+{% endblock main_content %}

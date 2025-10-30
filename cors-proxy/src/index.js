@@ -4,6 +4,7 @@ import { getSession } from "./api/session.js"
 import { logoutHandler } from "./api/logout.js"
 import { invalidateCache } from "./api/invalidate-cache.js"
 import { getCacheStats } from "./api/cache-stats.js"
+import { handleFormReq } from "./api/contributeForm.js"
 // JWT utils are used inside route handlers
 
 addEventListener('fetch', event => {
@@ -46,6 +47,12 @@ async function handleRequest(request, env) {
   // Endpoint to invalidate cached credentials (useful when password changes)
   if (request.method === 'POST' && url.pathname.startsWith('/api/invalidate-cache/')) {
     return invalidateCache(request, env)
+  }
+
+  // POST /api/contribute/
+  // Endpoint for storing social ID of interested contributor
+  if (request.method === 'POST' && url.pathname.startsWith('/api/contribute')) {
+    return handleFormReq(request, env)
   }
 
   // GET /api/cache-stats
