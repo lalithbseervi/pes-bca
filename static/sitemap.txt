@@ -7,7 +7,9 @@ https://pes-bca.pages.dev/sem-1/web-design/
 https://pes-bca.pages.dev/sem-1/mp/
 https://pes-bca.pages.dev/posts/
 https://pes-bca.pages.dev/posts/js/
+https://pes-bca.pages.dev/posts/py/
 https://pes-bca.pages.dev/posts/page/1/
+https://pes-bca.pages.dev/contribute/
 https://pes-bca.pages.dev/privacy-policy/
 https://pes-bca.pages.dev/terms-of-service/
 https://pes-bca.pages.dev/pdf-viewer/
