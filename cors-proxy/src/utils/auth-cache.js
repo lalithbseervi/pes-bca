@@ -11,6 +11,7 @@ export async function verifyCachedCredentials(env, srn, password) {
   const passwordHash = await hashPassword(password)
   const cacheKey = `auth_cache:${srn}:${passwordHash}`
   const cached = await env.SESSIONS.get(cacheKey)
+  console.info('cached profile: ', cached)
   if (cached) {
     return { success: true, profile: JSON.parse(cached), cached: true }
   }

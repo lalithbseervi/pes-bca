@@ -79,7 +79,7 @@ export async function loginHandler(request, env) {
 
   const resBody = { 
     success: true, 
-    session: { srn, profile, expiresAt: new Date(Date.now() + accessTTL * 1000).toISOString() }, 
+    session: { srn, profile: profile, expiresAt: new Date(Date.now() + accessTTL * 1000).toISOString() }, 
     redirect: redirectPath,
     cached: cachedAuth.success
   }
