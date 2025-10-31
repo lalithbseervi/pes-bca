@@ -285,9 +285,6 @@ async function buildNav() {
 
     if (candidates.length < 2) {
       console.debug('buildNav: not enough candidates to build nav (count=' + candidates.length + ')');
-      // For debugging only: uncomment to force show buttons
-      // if (prevBtn) { prevBtn.style.display = 'inline-block'; prevBtn.href = '#'; }
-      // if (nextBtn) { nextBtn.style.display = 'inline-block'; nextBtn.href = '#'; }
       return;
     }
 
