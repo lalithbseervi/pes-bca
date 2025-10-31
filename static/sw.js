@@ -5,12 +5,13 @@ const OFFLINE_URL = '/offline.html';
 const STATIC_ASSETS = [
   '/',
   '/css/main.css',
+  '/css/login_form.css',
+  '/css/loading_animation.css',
+  '/css/index.css',
   '/js/login.js',
-  '/js/session-guard.js',
-  '/pdfjs/web/viewer.html',
-  '/pdfjs/web/viewer.js',
-  '/pdfjs/build/pdf.js',
-  '/pdfjs/build/pdf.worker.js',
+  '/js/analytics-preferences.js',
+  '/js/main.js',
+  '/js/openLinkHandler.js',
   '/manifest.json',
   '/android-chrome-192x192.png',
   '/android-chrome-512x512.png',
@@ -20,35 +21,58 @@ const STATIC_ASSETS = [
   OFFLINE_URL
 ];
 
-// Install event - cache static assets
+console.log('[SW] Script loaded');
+self.addEventListener('error', e => console.error('[SW] Error event:', e));
+self.addEventListener('unhandledrejection', e => console.error('[SW] Unhandled rejection:', e.reason));
+
+// Install event - cache static assets (with detailed logging)
 self.addEventListener('install', event => {
+  console.log('[SW] Install event triggered');
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then(cache => {
-        console.log('Caching static assets');
-        return cache.addAll(STATIC_ASSETS);
+      .then(async cache => {
+        console.log('[SW] Caching static assets (robust mode)...');
+        for (const url of STATIC_ASSETS) {
+          try {
+            const req = new Request(url, { cache: 'no-cache' });
+            const res = await fetch(req);
+            if (res && res.ok) {
+              await cache.put(req, res.clone());
+              console.log(`[SW] Cached: ${url}`);
+            } else {
+              console.warn(`[SW] Skipped (not ok): ${url} - status: ${res && res.status}`);
+            }
+          } catch (err) {
+            console.error(`[SW] Failed to fetch/cache: ${url}`, err);
+          }
+        }
+        console.log('[SW] Static asset caching complete');
       })
       .then(() => {
-        console.log('Service Worker installed');
+        console.log('[SW] Service Worker installed');
         return self.skipWaiting();
+      })
+      .catch(err => {
+        console.error('[SW] Install failed:', err);
       })
   );
 });
 
 // Activate event - clean up old caches
 self.addEventListener('activate', event => {
+  console.log('[SW] Activate event triggered');
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames.map(cacheName => {
           if (cacheName !== CACHE_NAME) {
-            console.log('Deleting old cache:', cacheName);
+            console.log('[SW] Deleting old cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
       );
     }).then(() => {
-      console.log('Service Worker activated');
+      console.log('[SW] Service Worker activated');
       return self.clients.claim();
     })
   );
@@ -56,13 +80,8 @@ self.addEventListener('activate', event => {
 
 // Fetch event - serve from cache, fallback to network
 self.addEventListener('fetch', event => {
-  // Skip non-GET requests
-  if (event.request.method !== 'GET') {
-    return;
-  }
-
-  // Skip external requests
-  if (!event.request.url.startsWith(self.location.origin)) {
+  // Skip non-GET or external requests
+  if (event.request.method !== 'GET' || !event.request.url.startsWith(self.location.origin)) {
     return;
   }
 
@@ -74,29 +93,27 @@ self.addEventListener('fetch', event => {
         }
 
         return fetch(event.request).then(response => {
-          // Don't cache non-successful responses
           if (!response || response.status !== 200 || response.type !== 'basic') {
             return response;
           }
 
-          // Clone the response
           const responseToCache = response.clone();
 
-          // Cache PDFs and other resources
-          if (event.request.url.includes('.pdf') || 
-              event.request.url.includes('/css/') ||
-              event.request.url.includes('/js/')) {
+          // Cache CSS, JS and images dynamically (avoid caching PDFs or large unknown files)
+          if (
+            event.request.url.includes('/css/') ||
+            event.request.url.includes('/js/') ||
+            event.request.destination === 'image'
+          ) {
             caches.open(CACHE_NAME)
-              .then(cache => {
-                cache.put(event.request, responseToCache);
-              });
+              .then(cache => cache.put(event.request, responseToCache))
+              .catch(err => console.error('[SW] Failed to cache dynamic asset:', event.request.url, err));
           }
 
           return response;
         });
       })
       .catch(() => {
-        // If both cache and network fail, show offline page
         if (event.request.destination === 'document') {
           return caches.match(OFFLINE_URL);
         }
