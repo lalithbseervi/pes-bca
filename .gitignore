@@ -6,6 +6,16 @@ public/
 .sass-cache/
 # Node modules (if using npm/yarn for assets)
 node_modules/
+
+# Cloudflare Workers sensitive files
+.dev.vars
+.env
+.env.local
+.env.*.local
+*.env
+.wrangler/
+wrangler.toml
+
 # OS/Editor files
 .DS_Store
 Thumbs.db
