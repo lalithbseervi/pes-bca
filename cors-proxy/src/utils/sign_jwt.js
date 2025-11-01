@@ -32,7 +32,8 @@ export async function signJWT(payload, secret, ttlSec) {
   const signingInput = `${encHeader}.${encPayload}`
 
   const key = await importKey(secret)
-  const sigBuf = await crypto.subtle.sign('HMAC', key, te.encode(signingInput))
+  // use algorithm object for clarity
+  const sigBuf = await crypto.subtle.sign({ name: 'HMAC', hash: 'SHA-256' }, key, te.encode(signingInput))
   const signature = b64urlEncode(new Uint8Array(sigBuf))
   return `${signingInput}.${signature}`
 }
@@ -43,14 +44,29 @@ export async function verifyJWT(token, secret) {
     if (!h || !p || !s) return { valid: false, reason: 'format' }
     const key = await importKey(secret)
     const signingInput = `${h}.${p}`
-    const sigOk = await crypto.subtle.verify('HMAC', key, b64urlDecode(s), te.encode(signingInput))
+    const sigOk = await crypto.subtle.verify({ name: 'HMAC', hash: 'SHA-256' }, key, b64urlDecode(s), te.encode(signingInput))
     if (!sigOk) return { valid: false, reason: 'sig' }
+
     const payload = JSON.parse(td.decode(b64urlDecode(p)))
     const now = Math.floor(Date.now() / 1000)
     if (payload.nbf && now < payload.nbf) return { valid: false, reason: 'nbf', payload }
     if (payload.exp && now >= payload.exp) return { valid: false, reason: 'exp', payload, expired: true }
+
+    // return payload for caller to inspect (including profile if present)
     return { valid: true, payload }
   } catch (e) {
-    return { valid: false, reason: 'error' }
+    // return error message so callers can log it and debug
+    return { valid: false, reason: 'error', error: e && e.message ? e.message : String(e) }
+  }
+}
+
+// helper for debugging — decode payload without verifying signature
+export function decodeJWT(token) {
+  try {
+    const parts = token.split('.')
+    if (parts.length !== 3) return null
+    return JSON.parse(td.decode(b64urlDecode(parts[1])))
+  } catch (e) {
+    return null
   }
 }
