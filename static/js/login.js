@@ -81,6 +81,8 @@ document.addEventListener('DOMContentLoaded', async function() {
         return 'https://cors-proxy.devpages.workers.dev';
     }
 
+    window.getApiBaseUrl = getApiBaseUrl;
+
     async function tryServerSession() {
         try {
             const res = await fetch(getApiBaseUrl() + '/api/session', { 

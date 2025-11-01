@@ -10,7 +10,7 @@ export async function getSession(request, env) {
   const access = cookies['access_token']
   if (access) {
     const v = await verifyJWT(access, env.JWT_SECRET)
-    console.log(`getSession: refresh verify result: ${JSON.stringify(v)}`)
+    console.log(`getSession: access verify result: ${JSON.stringify(v)}`)
     if (v.valid && v.payload?.type === 'access') {
       const exp = v.payload.exp ? new Date(v.payload.exp * 1000).toISOString() : undefined
       return new Response(JSON.stringify({ success: true, session: { srn: v.payload.sub, profile: v.payload.profile, expiresAt: exp } }), { status: 200, headers: { ...JSON_HEADERS, ...cors } })

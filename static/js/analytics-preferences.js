@@ -24,12 +24,24 @@
     // Opt out of analytics
     function optOut() {
         localStorage.setItem('analytics_opt_out', 'true');
-        
+
+        fetch(getApiBaseUrl() + '/api/analytics/cookieless', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                event: 'analytics_rejected',
+                props: {
+                    source: 'consent_banner',
+                    ts: new Date().toISOString(),
+                    ua: navigator.userAgent
+                }
+            }),
+            keepalive: true
+        }).then(res => console.debug('cookieless endpoint response', res && res.status)).catch(err => console.warn('cookieless fetch failed', err));
+
+        // ensure client-side SDK (if present) stops capturing
         waitForPostHog(() => {
-            posthog.opt_out_capturing();
-            posthog.capture('analytics_opted_out', {
-                timestamp: new Date().toISOString()
-            });
+            try { posthog.opt_out_capturing(); } catch(e){ console.warn('posthog opt_out failed', e); }
         });
     }
 
