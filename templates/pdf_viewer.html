@@ -69,12 +69,59 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
     }
 
+    async function checkPdfAvailable(path) {
+        try {
+            const absUrl = new URL(path, window.location.origin).href;
+            // Try HEAD first (small, efficient)
+            let r = await fetch(absUrl, { method: 'HEAD', cache: 'no-store' });
+            if (r.ok) return { ok: true, status: r.status, contentType: r.headers.get('content-type') };
+            // Some servers reject HEAD -> try a tiny GET with Range to minimize data
+            r = await fetch(absUrl, {
+                method: 'GET',
+                headers: { 'Range': 'bytes=0-0' },
+                cache: 'no-store'
+            });
+            if (r.ok || r.status === 206) return { ok: true, status: r.status, contentType: r.headers.get('content-type') };
+            return { ok: false, status: r.status, statusText: r.statusText };
+        } catch (err) {
+            return { ok: false, error: err.message || String(err) };
+        }
+    }
+
+    function showPdfError(message, details) {
+        const container = document.getElementById('pdf-container');
+        container.innerHTML = `
+            <div class="loading-message" role="alert">
+                <h2>Unable to load document</h2>
+                <p>${message}</p>
+                <p style="color:#aaa;font-size:0.9rem">${details || ''}</p>
+            </div>
+        `;
+        if (window.posthog) {
+            posthog.capture('pdf_view_error', {
+                pdf_path: pdfPath,
+                error_message: message,
+                details: details || null,
+                url: window.location.href
+            });
+        }
+    }
+
     // Session validation is handled by login.js and login.html
     // If session is valid, login.js will show content and hide login modal
     // If not, login modal will be shown and access denied handled there
 
     // Load PDF viewer if session is valid (login.js will handle showing/hiding)
-    function loadPdfViewer() {
+    async function loadPdfViewer() {
+        // check availability first
+        const info = await checkPdfAvailable(pdfPath);
+        if (!info.ok) {
+            const msg = info.status ? `HTTP ${info.status} ${info.statusText || ''}` : (info.error || 'File not found or network error');
+            showPdfError('The requested PDF could not be found or accessed.', `${msg}`);
+            console.warn('PDF check failed', info);
+            return;
+        }
+
         const pdfViewerUrl = `/pdfjs/web/viewer.html?file=${encodeURIComponent(pdfPath)}`;
         document.getElementById('pdf-container').innerHTML = `
             <div style="width: 100%; height: 90vh;">
@@ -124,16 +171,6 @@ document.addEventListener('DOMContentLoaded', function() {
     function extractUnitFromPath(path) {
         const match = path.match(/unit[-_]?(\d+)/i);
         return match ? `Unit ${match[1]}` : 'Unknown';
-    }
-
-    // Track page view
-    if (window.posthog) {
-        posthog.capture('$pageview', {
-            page_type: 'pdf_viewer',
-            pdf_path: pdfPath,
-            title: title,
-            is_pwa: window.matchMedia('(display-mode: standalone)').matches
-        });
     }
 
     // Load PDF viewer if session is valid (login.js will handle session check)
