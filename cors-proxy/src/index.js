@@ -5,6 +5,7 @@ import { logoutHandler } from "./api/logout.js"
 import { invalidateCache } from "./api/invalidate-cache.js"
 import { getCacheStats } from "./api/cache-stats.js"
 import { handleFormReq } from "./api/contributeForm.js"
+import { handleCookielessEvent } from "./api/analytics.js"
 // JWT utils are used inside route handlers
 
 addEventListener('fetch', event => {
@@ -41,6 +42,11 @@ async function handleRequest(request, env) {
   // POST /api/logout
   if (request.method === 'POST' && url.pathname === '/api/logout') {
     return logoutHandler(request, env)
+  }
+
+  // POST /api/analytics/cookieless
+  if (request.method === 'POST' && url.pathname === '/api/analytics/cookieless') {
+    return handleCookielessEvent(request, env)
   }
 
   // POST /api/invalidate-cache/:srn
