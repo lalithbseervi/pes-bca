@@ -10,7 +10,7 @@ export async function getSession(request, env) {
   const access = cookies['access_token']
   if (access) {
     const v = await verifyJWT(access, env.JWT_SECRET)
-    console.log(`getSession: refresh verify result: ${v}`)
+    console.log(`getSession: refresh verify result: ${JSON.stringify(v)}`)
     if (v.valid && v.payload?.type === 'access') {
       const exp = v.payload.exp ? new Date(v.payload.exp * 1000).toISOString() : undefined
       return new Response(JSON.stringify({ success: true, session: { srn: v.payload.sub, profile: v.payload.profile, expiresAt: exp } }), { status: 200, headers: { ...JSON_HEADERS, ...cors } })
@@ -21,7 +21,7 @@ export async function getSession(request, env) {
   const refresh = cookies['refresh_token']
   if (refresh) {
     const vr = await verifyJWT(refresh, env.JWT_SECRET)
-    console.log(`getSession: refresh verify result: ${vr}`)
+    console.log(`getSession: refresh verify result: ${JSON.stringify(vr)}`)
     if (vr.valid && vr.payload?.type === 'refresh') {
       const accessTTL = 24 * 60 * 60
 
