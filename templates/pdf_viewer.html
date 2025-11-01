@@ -48,7 +48,7 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    localStorage.setItem('postLoginRedirect', window.location.href);
+    if (!sessionStorage.getItem('user_session')) { localStorage.setItem('postLoginRedirect', window.location.href); }
     // Get URL parameters
     const urlParams = new URLSearchParams(window.location.search);
     const pdfPath = urlParams.get('file');

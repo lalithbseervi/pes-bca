@@ -16,13 +16,7 @@
         script.src = '/js/mobile-nav.js';
         script.async = true;
         document.head.appendChild(script);
-        
-        console.log('Mobile navigation loaded');
-    } else {
-        console.log('Desktop detected - mobile navigation skipped');
     }
-
-    console.log(isMobileOrTablet)
 })();
 </script>
 <main>
@@ -56,7 +50,7 @@
 <script>
     // Open first 2 levels of <details> tags on page load and handle toggle behavior
     document.addEventListener('DOMContentLoaded', function () {
-        localStorage.setItem('postLoginRedirect', window.location.href);
+        if (!sessionStorage.getItem('user_session')) { localStorage.setItem('postLoginRedirect', window.location.href); }
         // Function to get nesting level of a details element
         function getDetailsLevel(element) {
             let level = 0;
