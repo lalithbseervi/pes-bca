@@ -1,0 +1,368 @@
+{% extends "base.html" %}
+
+{% block main_content %}
+<style>
+  :root {
+    --primary: #2b7cff;
+    --card-bg: #fff;
+    --muted: #6b7280;
+    --field-bg: #fbfcfd;
+    --field-border: #d6dbe6;
+    --accent-border: rgba(18,38,63,0.06);
+    --danger: #7b1e1e;
+    --success: #046b3c;
+  }
+
+  .upload-card {
+    max-width: 880px;
+    margin: 1.5rem auto;
+    padding: 1.25rem;
+    background: var(--card-bg);
+    border-radius: 10px;
+    box-shadow: 0 6px 18px rgba(18, 38, 63, 0.06);
+    border: 1px solid var(--accent-border);
+    color: inherit;
+  }
+
+  .upload-grid {
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: 1fr;
+  }
+
+  .form-row {
+    display: flex;
+    flex-direction: column;
+  }
+  label.small {
+    font-size: 0.85rem;
+    color: #333;
+    margin-bottom: 0.35rem;
+  }
+
+  select, .custom-file {
+    padding: 0.5rem 0.6rem;
+    font-size: 0.95rem;
+    border-radius: 6px;
+    border: 1px solid var(--field-border);
+    background: var(--field-bg);
+    color: #111;
+  }
+
+  input[type="file"] {
+    font-size: 0.95rem;
+    color: #111;
+    background: transparent;
+    border-radius: 6px;
+    border: 1px solid var(--field-border);
+    padding: 0.4rem 0.5rem;
+    height: auto;
+  }
+  input[type="file"]::file-selector-button {
+    margin: 0 0.5rem 0 0;
+    padding: 0.45rem 0.8rem;
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  input[type="file"]::file-selector-button:hover {
+    filter: brightness(0.95);
+  }
+
+  .controls {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+  }
+
+  button.primary {
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    padding: 0.65rem 0.95rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  button.primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  .file-list {
+    margin-top: 0.5rem;
+    font-size: 0.98rem;
+    color: #222;
+  }
+  .file-list small {
+    color: #444;
+    font-weight: 500;
+  }
+
+  .file-item {
+    display:flex;
+    align-items:center;
+    gap:.5rem;
+    padding:.25rem 0;
+    border-bottom:1px dashed #f1f3f6;
+  }
+  .file-name { flex:1; word-break: break-word; color: #111; }
+
+  .link-title {
+    flex: 1.8;
+    padding: 0.35rem 0.5rem;
+    border: 1px solid var(--field-border);
+    border-radius: 6px;
+    font-size: 0.95rem;
+    background: #fff;
+    color: #111;
+  }
+
+  .remove-file {
+    background: transparent;
+    border: 1px solid rgba(0,0,0,0.06);
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #7b1e1e;
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+  }
+  .remove-file:hover {
+    background: rgba(0,0,0,0.03);
+    border-color: rgba(0,0,0,0.12);
+  }
+
+  .alert {
+    padding: 0.6rem 0.75rem;
+    border-radius: 6px;
+    margin-top: 0.75rem;
+    font-size: 0.95rem;
+  }
+  .alert.success { background: #f0fbf6; color: var(--success); border: 1px solid rgba(4, 107, 60, 0.08) }
+  .alert.error   { background: #fff6f6; color: var(--danger); border: 1px solid rgba(123,30,30,0.06) }
+
+  @media (min-width: 720px) {
+    .upload-grid { grid-template-columns: 1fr 1fr; }
+    .controls { justify-content: flex-end; }
+    .upload-grid .wide { grid-column: 1 / -1; }
+  }
+
+  select:focus, input[type="file"]:focus, button:focus, .link-title:focus {
+    outline: 3px solid rgba(43,124,255,0.15);
+    outline-offset: 2px;
+  }
+</style>
+
+<div class="upload-card">
+  <form id="upload-form" class="upload-grid" autocomplete="off">
+    <div class="form-row">
+      <label class="small" for="subject">Subject</label>
+      <select id="subject" name="subject" required>
+        <option value="">Select subject</option>
+        <option value="wd">Web Design</option>
+        <option value="cfp">Computing Fundamentals with Python</option>
+        <option value="mp">Macro Programming</option>
+        <option value="mfca">Mathematical Foundation for Computer Applications</option>
+        <option value="ciep">Constitution, IP Law, Ethics</option>
+      </select>
+    </div>
+
+    <div class="form-row">
+      <label class="small" for="resource_type">Resource type</label>
+      <select id="resource_type" name="resource_type" required>
+        <option value="slides">Slideshow</option>
+        <option value="notes">Notes</option>
+        <option value="qb">Question Bank</option>
+        <option value="qa">Question Answers</option>
+      </select>
+    </div>
+
+    <div class="form-row">
+      <label class="small" for="unit">Unit</label>
+      <select id="unit" name="unit" required>
+        <option value="1">Unit 1</option>
+        <option value="2">Unit 2</option>
+        <option value="3">Unit 3</option>
+        <option value="4">Unit 4</option>
+      </select>
+    </div>
+
+    <div class="form-row wide">
+      <label class="small" for="file">PDF file(s)</label>
+      <input id="file" type="file" name="file" accept="application/pdf" multiple />
+      <div id="file-list" class="file-list" aria-live="polite"><small>No files selected</small></div>
+    </div>
+
+    <div class="form-row wide controls">
+      <div style="flex:1"></div>
+      <button id="submit-btn" class="primary" type="submit">Upload</button> <!-- trigger loading animation -->
+    </div>
+
+    <div id="alert" class="wide" aria-live="polite"></div>
+  </form>
+</div>
+
+<script>
+function getApiBaseUrl() {
+  if (window.location.hostname !== 'pes-bca.pages.dev') return 'http://localhost:8787';
+  return 'https://cors-proxy.devpages.workers.dev';
+}
+
+const form = document.getElementById('upload-form');
+const fileInput = document.getElementById('file');
+const fileList = document.getElementById('file-list');
+const alertBox = document.getElementById('alert');
+const submitBtn = document.getElementById('submit-btn');
+
+let selectedFiles = []; // array of { file: File, title: string }
+
+function updateFileInputFromSelected() {
+  try {
+    const dt = new DataTransfer();
+    selectedFiles.forEach(sf => dt.items.add(sf.file));
+    fileInput.files = dt.files;
+  } catch (e) {
+    console.warn('DataTransfer update failed', e);
+  }
+}
+
+function renderSelectedFiles(list) {
+  const arr = list || [];
+  if (!arr.length) {
+    fileList.innerHTML = '<small>No files selected</small>';
+    return;
+  }
+  fileList.innerHTML = '';
+  arr.forEach((sf, idx) => {
+    const item = document.createElement('div');
+    item.className = 'file-item';
+
+    const name = document.createElement('div');
+    name.className = 'file-name';
+    name.textContent = sf.file.name + ' — ' + (Math.round(sf.file.size / 1024) + ' KB');
+    item.appendChild(name);
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'link-title';
+    input.value = sf.title || sf.file.name;
+    input.placeholder = 'Link title';
+    input.dataset.index = idx;
+    item.appendChild(input);
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'remove-file';
+    btn.setAttribute('aria-label', `Remove ${sf.file.name}`);
+    btn.dataset.index = idx;
+    btn.innerHTML = '&times;';
+    item.appendChild(btn);
+
+    fileList.appendChild(item);
+  });
+}
+
+fileInput.addEventListener('change', () => {
+  selectedFiles = Array.from(fileInput.files || []).map(f => ({ file: f, title: f.name }));
+  renderSelectedFiles(selectedFiles);
+});
+
+fileList.addEventListener('input', (e) => {
+  const input = e.target.closest('.link-title');
+  if (!input) return;
+  const idx = Number(input.dataset.index);
+  if (Number.isNaN(idx)) return;
+  selectedFiles[idx].title = input.value;
+});
+
+fileList.addEventListener('click', (e) => {
+  const btn = e.target.closest('.remove-file');
+  if (!btn) return;
+  const idx = Number(btn.dataset.index);
+  if (Number.isNaN(idx)) return;
+  selectedFiles.splice(idx, 1);
+  // reindex titles and regenerate DOM
+  renderSelectedFiles(selectedFiles);
+  updateFileInputFromSelected();
+});
+
+renderSelectedFiles(selectedFiles);
+
+function showAlert(message, type='success') {
+  alertBox.innerHTML = message;
+  alertBox.className = 'alert ' + (type === 'error' ? 'error' : 'success');
+  setTimeout(() => {
+    alertBox.innerHTML = '';
+    alertBox.className = '';
+  }, 6000);
+}
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  alertBox.innerHTML = '';
+  submitBtn.disabled = true;
+
+  const fd = new FormData();
+  const subject = form.querySelector('[name=subject]').value;
+  const resource_type = form.querySelector('[name=resource_type]').value;
+  const unit = form.querySelector('[name=unit]').value;
+  fd.append('subject', subject);
+  fd.append('resource_type', resource_type);
+  if (unit) fd.append('unit', unit);
+
+  const filesToSend = selectedFiles.length ? selectedFiles : Array.from(fileInput.files || []).map(f => ({ file: f, title: f.name }));
+  if (!filesToSend.length) {
+    showAlert('Please select at least one file', 'error');
+    submitBtn.disabled = false;
+    return;
+  }
+
+  // Append each file and its linkTitle (same order)
+  for (const sf of filesToSend) {
+    fd.append('file', sf.file, sf.file.name);
+    // include linkTitle field per file (server should read linkTitle entries in order)
+    fd.append('linkTitle', sf.title || sf.file.name);
+  }
+
+  try {
+    const res = await fetch(getApiBaseUrl() + '/api/resources/upload', {
+      method: 'POST',
+      body: fd,
+      credentials: 'include'
+    });
+    const j = await res.json().catch(()=>({ success: false, error: 'invalid_json' }));
+    if (!res.ok || !j || !j.success) {
+      const err = (j && (j.error || JSON.stringify(j))) || res.status;
+      showAlert('Upload failed: ' + err, 'error');
+    } else {
+      if (Array.isArray(j.results)) {
+        const lines = j.results.map(r => {
+          if (r.error) return `${r.filename}: ERROR (${r.error})`;
+          if (r.existing) return `${r.filename}: already exists (id=${r.id})`;
+          return `${r.filename}: uploaded (id=${r.id})`;
+        });
+        showAlert(lines.join('<br/>'));
+      } else if (j.id) {
+        showAlert('Uploaded id: ' + j.id);
+      } else {
+        showAlert('Upload completed');
+      }
+      selectedFiles = [];
+      try { fileInput.value = ''; } catch (e) {}
+      renderSelectedFiles([]);
+    }
+  } catch (err) {
+    console.error(err);
+    showAlert('Upload failed: network or server error', 'error');
+  } finally {
+    submitBtn.disabled = false;
+  }
+});
+</script>
+{% endblock main_content %}
+// ...existing code...

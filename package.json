@@ -2,5 +2,10 @@
   "devDependencies": {
     "miniflare": "^4.20251008.0",
     "wrangler": "^4.45.3"
+  },
+  "scripts": {
+    "generate-wd": "bash tools/gen-json.sh && python3 tools/gen-html.py",
+    "build": "npm run generate-wd && zola build",
+    "serve": "npm run generate-wd && zola serve"
   }
 }
