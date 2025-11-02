@@ -60,12 +60,37 @@ echo "$resp" \
   | while read -r line; do
       subj=$(echo "$line" | jq -r '.subject')
       out="${OUT_DIR}/${subj}.json"
-      echo "$line" | jq '{ units: .units }' > "$out"
-      echo "Wrote $out"
+      tmp=$(mktemp "${OUT_DIR}/.${subj}.json.XXXXXX")
+      echo "$line" | jq '{ units: .units }' > "$tmp"
+      if [ -f "$out" ]; then
+        if cmp -s "$tmp" "$out"; then
+          echo "Unchanged $out"
+          rm -f "$tmp"
+        else
+          mv "$tmp" "$out"
+          echo "Updated $out"
+        fi
+      else
+        mv "$tmp" "$out"
+        echo "Wrote $out"
+      fi
     done
 
 # If no rows returned, still ensure at least an empty misc file
 if [ -z "$(ls -A "$OUT_DIR" 2>/dev/null)" ]; then
-  echo '{"units":[]}' > "${OUT_DIR}/misc.json"
-  echo "Wrote ${OUT_DIR}/misc.json (empty)"
+  tmp_misc=$(mktemp "${OUT_DIR}/.misc.json.XXXXXX")
+  echo '{"units":[]}' > "$tmp_misc"
+  misc_out="${OUT_DIR}/misc.json"
+  if [ -f "$misc_out" ]; then
+    if cmp -s "$tmp_misc" "$misc_out"; then
+      echo "Unchanged $misc_out"
+      rm -f "$tmp_misc"
+    else
+      mv "$tmp_misc" "$misc_out"
+      echo "Updated $misc_out (empty)"
+    fi
+  else
+    mv "$tmp_misc" "$misc_out"
+    echo "Wrote ${misc_out} (empty)"
+  fi
 fi
