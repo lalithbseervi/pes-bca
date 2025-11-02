@@ -21,3 +21,12 @@ wrangler.toml
 Thumbs.db
 *.swp
 *.swo
+
+# build-time generated
+templates/cfp.html
+templates/mfca.html
+templates/mp.html
+templates/pce.html
+templates/wd.html
+
+data/*
