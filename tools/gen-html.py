@@ -5,6 +5,9 @@ from pathlib import Path
 import sys
 import re
 from urllib.parse import quote
+import tempfile
+import os
+import filecmp
 
 DATA_DIR = Path("data")
 TEMPLATES_DIR = Path("templates")
@@ -106,5 +109,27 @@ for json_file in sorted(DATA_DIR.glob("*.json")):
     parts.append('  </ul>')
     parts.append('</details>')
     out_path = TEMPLATES_DIR / f"{subj}.html"
-    out_path.write_text("\n".join(parts) + "\n", encoding="utf-8")
-    print(f"Wrote template {out_path}")
+    content = "\n".join(parts) + "\n"
+    tmp_path = None
+    try:
+        fd, tmp_path = tempfile.mkstemp(prefix=f".{subj}.", suffix=".tmp", dir=str(TEMPLATES_DIR))
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(content)
+        # If target exists, compare and only replace when different
+        if out_path.exists():
+            if filecmp.cmp(tmp_path, out_path, shallow=False):
+                print(f"Unchanged template {out_path}")
+                os.remove(tmp_path)
+            else:
+                os.replace(tmp_path, out_path)
+                print(f"Updated template {out_path}")
+        else:
+            os.replace(tmp_path, out_path)
+            print(f"Wrote template {out_path}")
+    except Exception as e:
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
+        print(f"Failed to write {out_path}: {e}", file=sys.stderr)
