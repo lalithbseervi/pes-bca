@@ -35,9 +35,8 @@ ignore = ["offline"]
 
 menu = [
     { name = "/posts", url = "/posts", weight = 1 },
-    { name = "/tags", url = "/tags", weight = 2 },
-    { name = "/upload material", url = "/upload", weight = 3 },
-    { name = "/contribute or report issue", url = "/contribute", weight = 4 }
+    { name = "/upload material", url = "/upload", weight = 2 },
+    { name = "/contribute or report issue", url = "/contribute", weight = 3 }
 ]
 
 socials = [
