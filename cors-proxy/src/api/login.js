@@ -72,7 +72,7 @@ export async function loginHandler(request, env) {
   const refreshTTL = 7 * 24 * 60 * 60 // 7 days
 
   const accessJwt = await signJWT({ sub: srn, type: 'access', profile }, env.JWT_SECRET, accessTTL)
-  const refreshJwt = await signJWT({ sub: srn, type: 'refresh' }, env.JWT_SECRET, refreshTTL)
+  const refreshJwt = await signJWT({ sub: srn, type: 'refresh', profile }, env.JWT_SECRET, refreshTTL)
 
   // Determine redirect path
   const redirectPath = url.searchParams.get('redirect') || request.headers.get('Referer') || '/'
