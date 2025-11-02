@@ -6,6 +6,7 @@ import { invalidateCache } from "./api/invalidate-cache.js"
 import { getCacheStats } from "./api/cache-stats.js"
 import { handleFormReq } from "./api/contributeForm.js"
 import { handleCookielessEvent } from "./api/analytics.js"
+import { uploadResourceToSupabase, resourceStreamFromSupabase } from "./api/rw-supabase.js"
 // JWT utils are used inside route handlers
 
 addEventListener('fetch', event => {
@@ -42,6 +43,18 @@ async function handleRequest(request, env) {
   // POST /api/logout
   if (request.method === 'POST' && url.pathname === '/api/logout') {
     return logoutHandler(request, env)
+  }
+
+  // POST /api/resources/upload
+  if (request.method === 'POST' && url.pathname === '/api/resources/upload') {
+    return uploadResourceToSupabase(request, env)
+  }
+
+  // HEAD or GET /api/resources/:id/stream
+  const streamMatch = url.pathname.match(/^\/api\/resources\/([^/]+)\/stream\/?$/);
+  if (streamMatch && (request.method === 'GET' || request.method === 'HEAD')) {
+      const ctx = { params: { id: streamMatch[1] } };
+      return resourceStreamFromSupabase(request, env, ctx);
   }
 
   // POST /api/analytics/cookieless

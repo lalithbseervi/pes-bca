@@ -1,0 +1,604 @@
+{% extends "base.html" %}
+
+{% block main_content %}
+<style>
+  :root {
+    --primary: #2b7cff;
+    --card-bg: #fff;
+    --muted: #6b7280;
+    --field-bg: #fbfcfd;
+    --field-border: #d6dbe6;
+    --accent-border: rgba(18,38,63,0.06);
+    --danger: #7b1e1e;
+    --success: #046b3c;
+  }
+
+  .upload-card {
+    max-width: 880px;
+    margin: 1.5rem auto;
+    padding: 1.25rem;
+    background: var(--card-bg);
+    border-radius: 10px;
+    box-shadow: 0 6px 18px rgba(18, 38, 63, 0.06);
+    border: 1px solid var(--accent-border);
+    color: inherit;
+  }
+
+  .upload-grid {
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: 1fr;
+  }
+
+  .form-row {
+    display: flex;
+    flex-direction: column;
+  }
+  label.small {
+    font-size: 0.85rem;
+    color: #333;
+    margin-bottom: 0.35rem;
+  }
+
+  select, .custom-file {
+    padding: 0.5rem 0.6rem;
+    font-size: 0.95rem;
+    border-radius: 6px;
+    border: 1px solid var(--field-border);
+    background: var(--field-bg);
+    color: #111;
+  }
+
+  input[type="file"] {
+    font-size: 0.95rem;
+    color: #111;
+    background: transparent;
+    border-radius: 6px;
+    border: 1px solid var(--field-border);
+    padding: 0.4rem 0.5rem;
+    height: auto;
+  }
+  input[type="file"]::file-selector-button {
+    margin: 0 0.5rem 0 0;
+    padding: 0.45rem 0.8rem;
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  input[type="file"]::file-selector-button:hover {
+    filter: brightness(0.95);
+  }
+
+  .controls {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+  }
+
+  button.primary {
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    padding: 0.65rem 0.95rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  button.primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  .file-list {
+    margin-top: 0.5rem;
+    font-size: 0.98rem;
+    color: #222;
+  }
+  .file-list small {
+    color: #444;
+    font-weight: 500;
+  }
+
+  .file-item {
+    display:flex;
+    align-items:center;
+    gap:.5rem;
+    padding:.25rem 0;
+    border-bottom:1px dashed #f1f3f6;
+  }
+  .file-name { flex:1; word-break: break-word; color: #111; }
+
+  .link-title {
+    flex: 1.8;
+    padding: 0.35rem 0.5rem;
+    border: 1px solid var(--field-border);
+    border-radius: 6px;
+    font-size: 0.95rem;
+    background: #fff;
+    color: #111;
+  }
+
+  .remove-file {
+    background: transparent;
+    border: 1px solid rgba(0,0,0,0.06);
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #7b1e1e;
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+  }
+  .remove-file:hover {
+    background: rgba(0,0,0,0.03);
+    border-color: rgba(0,0,0,0.12);
+  }
+
+  /* Inline spinner for upload button */
+  .spinner-inline {
+    display: inline-block;
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    vertical-align: -0.12em;
+    margin-right: 0.5rem;
+  }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+  .alert {
+    padding: 0.6rem 0.75rem;
+    border-radius: 6px;
+    margin-top: 0.75rem;
+    font-size: 0.95rem;
+  }
+  .alert.success { background: #f0fbf6; color: var(--success); border: 1px solid rgba(4, 107, 60, 0.08) }
+  .alert.error   { background: #fff6f6; color: var(--danger); border: 1px solid rgba(123,30,30,0.06) }
+
+  @media (min-width: 720px) {
+    .upload-grid { grid-template-columns: 1fr 1fr; }
+    .controls { justify-content: flex-end; }
+    .upload-grid .wide { grid-column: 1 / -1; }
+  }
+
+  select:focus, input[type="file"]:focus, button:focus, .link-title:focus {
+    outline: 3px solid rgba(43,124,255,0.15);
+    outline-offset: 2px;
+  }
+</style>
+
+<div class="upload-card">
+  <form id="upload-form" class="upload-grid" autocomplete="off">
+    <div class="form-row">
+      <label class="small" for="course">Course</label>
+      <select id="course" name="course" required>
+        <option value="BCA">BCA</option>
+      </select>
+    </div>
+
+    <div class="form-row">
+      <label class="small" for="semester">Semester</label>
+      <select id="semester" name="semester" required>
+        <option value="Semester-1">Semester 1</option>
+        <option value="Semester-2">Semester 2</option>
+        <option value="Semester-3">Semester 3</option>
+        <option value="Semester-4">Semester 4</option>
+        <option value="Semester-5">Semester 5</option>
+        <option value="Semester-6">Semester 6</option>
+      </select>
+    </div>
+
+    <div class="form-row">
+      <label class="small" for="subject">Subject</label>
+      <select id="subject" name="subject" required>
+        <option value="">Select subject</option>
+      </select>
+    </div>
+    
+    <div class="form-row" id="elective-container" style="display:none">
+      <label class="small" for="elective_choice">Elective option</label>
+      <select id="elective_choice" name="elective_choice">
+        <option value="">Select elective</option>
+      </select>
+    </div>
+
+    <div class="form-row">
+      <label class="small" for="resource_type">Resource type</label>
+      <select id="resource_type" name="resource_type" required>
+        <option value="Textbook">Textbook</option>
+        <option value="Slides">Slides</option>
+        <option value="Notes">Notes</option>
+        <option value="QB">Question Bank</option>
+        <option value="QA">Question Answers</option>
+      </select>
+    </div>
+
+    <div class="form-row">
+      <label class="small" for="unit">Unit</label>
+      <select id="unit" name="unit" required>
+        <option value="1">Unit 1</option>
+        <option value="2">Unit 2</option>
+        <option value="3">Unit 3</option>
+        <option value="4">Unit 4</option>
+      </select>
+    </div>
+
+    <div class="form-row wide">
+      <label class="small" for="file">PDF file(s)</label>
+      <input id="file" type="file" name="file" accept="application/pdf" multiple />
+      <div id="file-list" class="file-list" aria-live="polite"><small>No files selected</small></div>
+    </div>
+
+    <div class="form-row wide controls">
+      <div style="flex:1"></div>
+      <button id="submit-btn" class="primary" type="submit">Upload</button>
+    </div>
+
+    <div id="alert" class="wide" aria-live="polite"></div>
+  </form>
+</div>
+
+<script>
+function getApiBaseUrl() {
+  if (window.location.hostname !== 'pes-bca.pages.dev') return 'http://localhost:8787';
+  return 'https://cors-proxy.devpages.workers.dev';
+}
+
+const form = document.getElementById('upload-form');
+const fileInput = document.getElementById('file');
+const fileList = document.getElementById('file-list');
+const alertBox = document.getElementById('alert');
+const submitBtn = document.getElementById('submit-btn');
+
+// New controls: course and semester
+const courseSelect = document.getElementById('course');
+const semesterSelect = document.getElementById('semester');
+const subjectSelect = document.getElementById('subject');
+
+let selectedFiles = []; // array of { file: File, title: string }
+// Save original submit HTML so we can restore after upload
+let originalSubmitHTML = submitBtn.innerHTML;
+
+// Produce a cleaned, title-cased default link title from a filename.
+// Rules:
+// - remove extension (.pdf)
+// - strip trailing token like `_UQ25CAXXX` (underscore + alphanum) if present
+// - remove leading numeric prefixes (e.g. `01_`, `001-`)
+// - replace underscores and dashes with spaces
+// - collapse multiple spaces and trim
+// - convert to Title Case
+function formatDefaultTitle(filename) {
+  if (!filename) return '';
+  // strip extension
+  let name = String(filename).replace(/\.[^./\\]+$/i, '');
+  // remove trailing underscore-token like _UQ25CAXXX or other alnum tokens
+  name = name.replace(/_[A-Za-z0-9-]+$/i, '');
+  // remove leading numeric prefix (with optional separators)
+  name = name.replace(/^\s*0*\d+[\s._-]*/,'');
+  // replace underscores and dashes with spaces
+  name = name.replace(/[_.-]+/g, ' ');
+  // collapse spaces
+  name = name.replace(/\s+/g, ' ').trim();
+  if (!name) return '';
+  // Title case each word
+  const parts = name.split(' ');
+  const titled = parts.map(p => {
+    if (!p) return p;
+    return p.charAt(0).toUpperCase() + p.slice(1).toLowerCase();
+  }).join(' ');
+  return titled;
+}
+
+function setUploading(on) {
+  if (on) {
+    // show spinner and disable non-submit controls
+    submitBtn.disabled = true;
+    submitBtn.dataset._orig = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<span class="spinner-inline"></span>Uploading...';
+    const controls = form.querySelectorAll('input,select,button,textarea');
+    controls.forEach(el => { if (el !== submitBtn) el.disabled = true; });
+  } else {
+    // restore
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = submitBtn.dataset._orig || originalSubmitHTML || 'Upload';
+    const controls = form.querySelectorAll('input,select,button,textarea');
+    controls.forEach(el => { if (el !== submitBtn) el.disabled = false; });
+  }
+}
+
+function updateFileInputFromSelected() {
+  try {
+    const dt = new DataTransfer();
+    selectedFiles.forEach(sf => dt.items.add(sf.file));
+    fileInput.files = dt.files;
+  } catch (e) {
+    console.warn('DataTransfer update failed', e);
+  }
+}
+
+function renderSelectedFiles(list) {
+  const arr = list || [];
+  if (!arr.length) {
+    fileList.innerHTML = '<small>No files selected</small>';
+    return;
+  }
+  fileList.innerHTML = '';
+  arr.forEach((sf, idx) => {
+    const item = document.createElement('div');
+    item.className = 'file-item';
+
+    const name = document.createElement('div');
+    name.className = 'file-name';
+    name.textContent = sf.file.name + ' — ' + (Math.round(sf.file.size / 1024) + ' KB');
+    item.appendChild(name);
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'link-title';
+    input.value = sf.title || sf.file.name;
+    input.placeholder = 'Link title';
+    input.dataset.index = idx;
+    item.appendChild(input);
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'remove-file';
+    btn.setAttribute('aria-label', `Remove ${sf.file.name}`);
+    btn.dataset.index = idx;
+    btn.innerHTML = '&times;';
+    item.appendChild(btn);
+
+    fileList.appendChild(item);
+  });
+}
+
+// semester -> subjects mapping (from user-provided list)
+const semesterSubjects = {
+  'Semester-1': [
+    { v: 'cfp', t: 'Computing Fundamentals with Python' },
+    { v: 'wd', t: 'Web Design' },
+    { v: 'mfca', t: 'Mathematical Foundation for Computer Applications' },
+    { v: 'mp', t: 'Macro Programming' },
+    { v: 'pce', t: 'Professional Communication and Ethics' },
+    { v: 'indc', t: 'Indian Constitution' }
+  ],
+  'Semester-2': [
+    { v: 'cprog', t: 'Programming with C' },
+    { v: 'db', t: 'Database Systems' },
+    { v: 'pos', t: 'Platforms and Operating Systems' },
+    { v: 'coa', t: 'Computer Organization and Architecture' },
+    { v: 'pd', t: 'Personality Development' },
+    { v: 'evs', t: 'Environmental Studies' }
+  ],
+  'Semester-3': [
+    { v: 'ds', t: 'Data Structures' },
+    { v: 'oop', t: 'Object Oriented Programming' },
+    { v: 'dc', t: 'Data Communication' },
+    { v: 'elec1', t: 'Elective I' },
+    { v: 'dm', t: 'Digital Marketing' }
+  ],
+  'Semester-4': [
+    { v: 'da', t: 'Design of Algorithms' },
+    { v: 'wad', t: 'Web Application Design' },
+    { v: 'se', t: 'Software Engineering' },
+    { v: 'elec2', t: 'Elective II' },
+    { v: 'cyberlaw', t: 'Cyber Law' },
+    { v: 'proj1', t: 'Project Phase I' }
+  ],
+  'Semester-5': [
+    { v: 'waf', t: 'Web Application Framework' },
+    { v: 'stats', t: 'Statistics and R Programming' },
+    { v: 'elec3', t: 'Elective III' },
+    { v: 'elec4', t: 'Elective IV' },
+    { v: 'entre', t: 'Entrepreneurship' },
+    { v: 'proj2', t: 'Project Phase II' }
+  ],
+  'Semester-6': [
+    { v: 'cloud', t: 'Cloud Technologies' },
+    { v: 'intern', t: 'Internship/Swayam/MOOC*' },
+    { v: 'proj3', t: 'Project Phase III' }
+  ]
+};
+
+function populateSubjectsForSemester(sem) {
+  const list = semesterSubjects[sem] || [];
+  // clear
+  subjectSelect.innerHTML = '';
+  const emptyOpt = document.createElement('option');
+  emptyOpt.value = '';
+  emptyOpt.textContent = 'Select subject';
+  subjectSelect.appendChild(emptyOpt);
+  for (const s of list) {
+    const o = document.createElement('option');
+    o.value = s.v;
+    o.textContent = s.t;
+    subjectSelect.appendChild(o);
+  }
+}
+
+// initialize subjects for initial semester
+populateSubjectsForSemester(semesterSelect.value || 'Semester-1');
+
+semesterSelect.addEventListener('change', (e) => {
+  const prev = subjectSelect.value;
+  populateSubjectsForSemester(e.target.value);
+  // try to keep previous selection if present
+  if (prev) {
+    const found = Array.from(subjectSelect.options).some(opt => opt.value === prev);
+    if (found) subjectSelect.value = prev;
+  }
+});
+
+// Elective mapping for sub-selection
+const electiveOptions = {
+  elec1: [
+    { v: 'hci', t: 'Human Computer Interaction' },
+    { v: 'wcm', t: 'Web Content Management' },
+    { v: 'ecom', t: 'E-Commerce Application Development (Shopify)' },
+    { v: 'afm', t: 'Accounting and Financial Management' },
+    { v: 'dataviz', t: 'Data Visualization' }
+  ],
+  elec2: [
+    { v: 'linux', t: 'Linux Administration' },
+    { v: 'cgg', t: 'Computer Graphics' },
+    { v: 'debug', t: 'Debugging and Testing' }
+  ],
+  elec3: [
+    { v: 'dbadmin', t: 'Database Administration' },
+    { v: 'anim', t: '2D/ 3D Animation' },
+    { v: 'autotest', t: 'Automation Testing' }
+  ],
+  elec4: [
+    { v: 'netadmin', t: 'Network Administration' },
+    { v: 'gaming', t: 'Gaming (AR)' },
+    { v: 'rpa', t: 'Robotic Process Automation' }
+  ]
+};
+
+const electiveContainer = document.getElementById('elective-container');
+const electiveSelect = document.getElementById('elective_choice');
+
+function populateElectiveOptions(elecKey) {
+  // clear
+  electiveSelect.innerHTML = '';
+  const empty = document.createElement('option');
+  empty.value = '';
+  empty.textContent = 'Select elective';
+  electiveSelect.appendChild(empty);
+  const list = electiveOptions[elecKey] || [];
+  for (const it of list) {
+    const o = document.createElement('option');
+    o.value = it.v;
+    o.textContent = it.t;
+    electiveSelect.appendChild(o);
+  }
+}
+
+// Show elective choices when subject is an elective key
+subjectSelect.addEventListener('change', (e) => {
+  const val = e.target.value;
+  if (['elec1','elec2','elec3','elec4'].includes(val)) {
+    populateElectiveOptions(val);
+    electiveContainer.style.display = '';
+    electiveSelect.required = true;
+  } else {
+    electiveContainer.style.display = 'none';
+    electiveSelect.required = false;
+    electiveSelect.value = '';
+  }
+});
+
+fileInput.addEventListener('change', () => {
+  selectedFiles = Array.from(fileInput.files || []).map(f => ({ file: f, title: formatDefaultTitle(f.name) || f.name }));
+  renderSelectedFiles(selectedFiles);
+});
+
+fileList.addEventListener('input', (e) => {
+  const input = e.target.closest('.link-title');
+  if (!input) return;
+  const idx = Number(input.dataset.index);
+  if (Number.isNaN(idx)) return;
+  selectedFiles[idx].title = input.value;
+});
+
+fileList.addEventListener('click', (e) => {
+  const btn = e.target.closest('.remove-file');
+  if (!btn) return;
+  const idx = Number(btn.dataset.index);
+  if (Number.isNaN(idx)) return;
+  selectedFiles.splice(idx, 1);
+  // reindex titles and regenerate DOM
+  renderSelectedFiles(selectedFiles);
+  updateFileInputFromSelected();
+});
+
+renderSelectedFiles(selectedFiles);
+
+function showAlert(message, type='success') {
+  alertBox.innerHTML = message;
+  alertBox.className = 'alert ' + (type === 'error' ? 'error' : 'success');
+  setTimeout(() => {
+    alertBox.innerHTML = '';
+    alertBox.className = '';
+  }, 6000);
+}
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  alertBox.innerHTML = '';
+
+  const fd = new FormData();
+  const subject = form.querySelector('[name=subject]').value;
+  const resource_type = form.querySelector('[name=resource_type]').value;
+  const unit = form.querySelector('[name=unit]').value;
+  const course = form.querySelector('[name=course]').value;
+  const semester = form.querySelector('[name=semester]').value;
+  fd.append('subject', subject);
+  if (course) fd.append('course', course);
+  if (semester) fd.append('semester', semester);
+  fd.append('resource_type', resource_type);
+  if (unit) fd.append('unit', unit);
+
+  const filesToSend = selectedFiles.length ? selectedFiles : Array.from(fileInput.files || []).map(f => ({ file: f, title: formatDefaultTitle(f.name) || f.name }));
+  if (!filesToSend.length) {
+    showAlert('Please select at least one file', 'error');
+    setUploading(false);
+    return;
+  }
+
+  // Append each file and its linkTitle (same order)
+  for (const sf of filesToSend) {
+    fd.append('file', sf.file, sf.file.name);
+    // include linkTitle field per file (server should read linkTitle entries in order)
+    fd.append('linkTitle', sf.title || sf.file.name);
+  }
+
+  // include elective choice if present
+  const electiveChoice = form.querySelector('[name=elective_choice]')?.value;
+  if (electiveChoice) fd.append('elective_choice', electiveChoice);
+
+  // show uploading UI only after we've prepared the FormData
+  setUploading(true);
+
+  try {
+    const res = await fetch(getApiBaseUrl() + '/api/resources/upload', {
+      method: 'POST',
+      body: fd,
+      credentials: 'include'
+    });
+    const j = await res.json().catch(()=>({ success: false, error: 'invalid_json' }));
+    if (!res.ok || !j || !j.success) {
+      const err = (j && (j.error || JSON.stringify(j))) || res.status;
+      showAlert('Upload failed: ' + err, 'error');
+    } else {
+      if (Array.isArray(j.results)) {
+        const lines = j.results.map(r => {
+          if (r.error) return `${r.filename}: ERROR (${r.error})`;
+          if (r.existing) return `${r.filename}: already exists (id=${r.id})`;
+          return `${r.filename}: uploaded (id=${r.id})`;
+        });
+        showAlert(lines.join('<br/>'));
+      } else if (j.id) {
+        showAlert('Uploaded id: ' + j.id);
+      } else {
+        showAlert('Upload completed');
+      }
+      selectedFiles = [];
+      try { fileInput.value = ''; } catch (e) {}
+      renderSelectedFiles([]);
+    }
+  } catch (err) {
+    console.error(err);
+    showAlert('Upload failed: network or server error', 'error');
+  } finally {
+    setUploading(false);
+  }
+});
+</script>
+{% endblock main_content %}
+// ...existing code...
