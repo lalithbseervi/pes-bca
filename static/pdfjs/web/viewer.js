@@ -1638,11 +1638,14 @@ exports.PDFViewerApplication = PDFViewerApplication;
     }
     try {
       const viewerOrigin = new URL(window.location.href).origin || "null";
-      if (HOSTED_VIEWER_ORIGINS.includes(viewerOrigin)) {
+      // Allow files when viewer is hosted on known origins or when the file
+      // origin matches either the viewer origin or the embedding page (document.referrer).
+      const parentOrigin = document.referrer ? new URL(document.referrer).origin : viewerOrigin;
+      if (HOSTED_VIEWER_ORIGINS.includes(viewerOrigin) || HOSTED_VIEWER_ORIGINS.includes(parentOrigin)) {
         return;
       }
       const fileOrigin = new URL(file, window.location.href).origin;
-      if (fileOrigin !== viewerOrigin) {
+      if (fileOrigin !== viewerOrigin && fileOrigin !== parentOrigin) {
         throw new Error("file origin does not match viewer's");
       }
     } catch (ex) {
