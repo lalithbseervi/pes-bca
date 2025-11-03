@@ -444,48 +444,44 @@
         return;
       }
 
-      // Instead of guessing subject from the path, iterate a small set of
-      // known subjects and candidate roots and pick the JSON that actually
-      // contains the current resource id. This is simpler and more robust.
-  const subjects = ['wd', 'cfp', 'mp', 'mfca', 'pce'];
-  // Prefer public/static copies first so navigation uses sanitized JSON
-  const roots = ['/static/data', '/public/data', 'data', '/data'];
-      let data = null;
-      let dataUrl = null;
-      for (const subj of subjects) {
-        for (const root of roots) {
-          const cand = `${root}/${subj}.json`;
-          try {
-            console.debug('buildNav: trying data json', cand);
-            const resp = await fetch(cand, { cache: 'no-store' });
-            if (!resp.ok) continue;
-            const parsed = await resp.json().catch(() => null);
-            if (!parsed) continue;
+      // Use a single public root for subject JSON files; they are hosted at
+      // an external static server. This avoids probing multiple local/public
+      // locations and simplifies fetching in the viewer.
+      const subjects = ['wd', 'cfp', 'mp', 'mfca', 'pce'];
+      const DATA_ROOT = '/data';
+          let data = null;
+          let dataUrl = null;
+          for (const subj of subjects) {
+            const cand = `${DATA_ROOT}/${subj}.json`;
+            try {
+              console.debug('buildNav: trying data json', cand);
+              const resp = await fetch(cand, { cache: 'no-store' });
+              if (!resp.ok) continue;
+              const parsed = await resp.json().catch(() => null);
+              if (!parsed) continue;
 
-            // quick scan flatten files and check for currentId
-            const filesFlat = [];
-            if (Array.isArray(parsed.units)) {
-              for (const unit of parsed.units) {
-                if (!Array.isArray(unit.groups)) continue;
-                for (const group of unit.groups) {
-                  if (!Array.isArray(group.files)) continue;
-                  for (const f of group.files) filesFlat.push(f);
+              // quick scan flatten files and check for currentId
+              const filesFlat = [];
+              if (Array.isArray(parsed.units)) {
+                for (const unit of parsed.units) {
+                  if (!Array.isArray(unit.groups)) continue;
+                  for (const group of unit.groups) {
+                    if (!Array.isArray(group.files)) continue;
+                    for (const f of group.files) filesFlat.push(f);
+                  }
                 }
               }
+              const found = filesFlat.find(f => String(f.id) === String(currentId) || (f.url || '').includes(String(currentId)));
+              if (found) {
+                data = parsed;
+                dataUrl = cand;
+                break;
+              }
+            } catch (e) {
+              console.debug('buildNav: candidate fetch failed', cand, e);
+              continue;
             }
-            const found = filesFlat.find(f => String(f.id) === String(currentId) || (f.url || '').includes(String(currentId)));
-            if (found) {
-              data = parsed;
-              dataUrl = cand;
-              break;
-            }
-          } catch (e) {
-            console.debug('buildNav: candidate fetch failed', cand, e);
-            continue;
           }
-        }
-        if (data) break;
-      }
       if (!data) {
         console.warn('buildNav: no data JSON found that contains resource', currentId);
         return;
