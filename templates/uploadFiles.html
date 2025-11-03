@@ -294,7 +294,9 @@ function formatDefaultTitle(filename) {
     if (!p) return p;
     return p.charAt(0).toUpperCase() + p.slice(1).toLowerCase();
   }).join(' ');
-  return titled;
+  // Exceptions that should remain lowercase when they appear as separate words
+  // e.g. "to", "of", "and", "on"
+  return titled.replace(/\b(To|Of|And|On)\b/g, (m) => m.toLowerCase());
 }
 
 function setUploading(on) {
