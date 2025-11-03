@@ -193,6 +193,20 @@ export async function uploadResourceToSupabase(request, env) {
     const subject = form.get('subject');
     const resource_type = form.get('resource_type');
     const unit = form.get('unit') ? Number(form.get('unit')) : null;
+    // normalize semester (accepted values from form: e.g. "Semester-1", "Sem-1", "1", "sem-1")
+    const rawSemester = form.get('semester');
+    let semester = 'sem-1';
+    if (rawSemester) {
+        let s = String(rawSemester).toLowerCase().trim();
+        s = s.replace(/\s+/g, '-');
+        // convert "semester-1" -> "sem-1"
+        s = s.replace(/^semester-?/, 'sem-');
+        // if user passed just a number like "1", prefix sem-
+        if (/^\d+$/.test(s)) s = `sem-${s}`;
+        // ensure only allowed chars
+        s = s.replace(/[^a-z0-9\-]+/g, '');
+        if (s) semester = s;
+    }
     // get all linkTitle entries (may be empty array)
     const linkTitles = form.getAll('linkTitle') || [];
 
@@ -228,7 +242,8 @@ export async function uploadResourceToSupabase(request, env) {
 
             // check existing by checksum
             try {
-                const checkUrl = `${env.SUPABASE_URL.replace(/\/+$/, '')}/rest/v1/fileStore?select=id&checksum=eq.${checksum}`;
+                    // check existing by checksum for the same semester only (avoid cross-semester collisions)
+                    const checkUrl = `${env.SUPABASE_URL.replace(/\/+$/, '')}/rest/v1/fileStore?select=id&checksum=eq.${checksum}&semester=eq.${encodeURIComponent(semester)}`;
                 const checkResp = await fetch(checkUrl, { headers: supaHeaders });
                 if (checkResp.ok) {
                     const arr = await checkResp.json().catch(() => []);
@@ -253,9 +268,14 @@ export async function uploadResourceToSupabase(request, env) {
             // We still computed checksum above for dedup checks and metadata.
             const id = crypto && crypto.randomUUID ? crypto.randomUUID() : `res-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
             const origName = file.name || `${id}.pdf`;
+            // expose filename variable for metadata insertion
+            const filename = origName;
             // sanitize filename to avoid directory traversal and remove path chars
-            const safeName = String(origName).replace(/[\\/]+/g, '_').replace(/^[.\s]+/, '').slice(0, 240);
-            const objectPath = `${subject}/${resource_type}/${safeName}`;
+            const safeName = String(origName).replace(/[\\\/]+/g, '_').replace(/^[.\s]+/, '').slice(0, 240);
+            // include semester and unit prefix in storage path: e.g. sem-1/subject/resource_type/unit-1/safeName
+            // Ensure unit segment exists to avoid grouping all files into a single folder
+            const unitSegment = (unit !== null && !Number.isNaN(Number(unit))) ? `unit-${Number(unit)}` : 'unit-1';
+            const objectPath = `${semester}/${subject}/${resource_type}/${unitSegment}/${safeName}`;
 
             // upload bytes
             const uploadUrl = `${env.SUPABASE_URL.replace(/\/+$/, '')}/storage/v1/object/${encodeURIComponent(BUCKET)}/${encodeURIComponent(objectPath)}`;
@@ -284,7 +304,7 @@ export async function uploadResourceToSupabase(request, env) {
             // insert metadata row
             const supaUrl = `${env.SUPABASE_URL.replace(/\/+$/, '')}/rest/v1/fileStore`;
             const body = [{
-                id, subject, resource_type, unit, filename,
+                id, semester, subject, resource_type, unit, filename,
                 storage_key: objectPath, content_type: file.type || 'application/pdf', size: file.size || null, checksum, uploaded_by: null,
                 link_title
             }];
