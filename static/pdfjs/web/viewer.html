@@ -29,11 +29,15 @@ See https://github.com/adobe-type-tools/cmap-resources
 
 <!-- This snippet is used in production (included from viewer.html) -->
 <link rel="resource" type="application/l10n" href="locale/locale.properties">
-<script src="../build/pdf.js"></script>
 
-    <link rel="stylesheet" href="viewer.css">
+<!-- Preload critical pdf.js script and viewer styles to improve startup time -->
+<link rel="preload" href="../build/pdf.js" as="script">
+<script defer src="../build/pdf.js"></script>
 
-  <script src="viewer.js"></script>
+<link rel="preload" href="viewer.css" as="style" onload="this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="viewer.css"></noscript>
+
+<script defer src="viewer.js"></script>
   </head>
 
   <body tabindex="1">
