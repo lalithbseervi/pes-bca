@@ -22,7 +22,7 @@
 
   .pdf-nav {
     display: flex;
-    gap: 0.5rem;
+    gap: 2rem;
     justify-content: center;
     margin: 0.5rem 0;
   }
@@ -50,12 +50,12 @@
     <h2>Loading document...</h2>
     <p>Verifying access permissions...</p>
   </div>
-</div>
+</div><br>
 
 <div class="pdf-nav" aria-hidden="true">
   <a id="pdf-prev" href="#" title="Previous document">← Prev</a>
   <a id="pdf-next" href="#" title="Next document">Next →</a>
-</div>
+</div><br>
 
 <script>
   document.addEventListener('DOMContentLoaded', async function () {
@@ -273,16 +273,20 @@
         return;
       }
 
-      const pdfViewerUrl = `/pdfjs/web/viewer.html?file=${encodeURIComponent(fileToUse)}`;
-      document.getElementById('pdf-container').innerHTML = `
-            <div style="width: 100%; height: 90vh;">
-                <iframe src="${pdfViewerUrl}" 
-                        style="width: 100%; height: 100%; border: none;"
-                        allow="fullscreen">
-                    <p>Loading PDF viewer...</p>
-                </iframe>
-            </div>
-        `;
+    let pdfViewerUrl = `/pdfjs/web/viewer.html?file=${encodeURIComponent(fileToUse)}`;
+    try {
+    const orig = (title && title.trim()) ? title.trim() : null;
+    if (orig) pdfViewerUrl += `&origFilename=${encodeURIComponent(orig)}`;
+    } catch (e) {}
+    document.getElementById('pdf-container').innerHTML = `
+      <div style="width: 100%; height: 90vh;">
+        <iframe src="${pdfViewerUrl}" 
+            style="width: 100%; height: 100%; border: none;"
+            allow="fullscreen">
+          <p>Loading PDF viewer...</p>
+        </iframe>
+      </div>
+    `;
 
       // Track PDF view with PostHog
       const sessionData = sessionStorage.getItem('user_session');
@@ -513,7 +517,7 @@
       }
 
       // Helper to build viewer link for a file entry
-      const mkLink = f => {
+      const makeLink = f => {
         try {
           const raw = f.url || f.path || '';
           const sessionToken = sessionStorage.getItem('stream_token');
@@ -529,13 +533,15 @@
 
       if (prevBtn && idx > 0) {
         const prev = files[idx - 1];
-        prevBtn.href = mkLink(prev);
+        prevBtn.href = makeLink(prev);
+        prevBtn.innerText = '← ' + (prev.linkTitle || prev.filename ||  'Prev');
         prevBtn.style.display = 'inline-block';
         prevBtn.setAttribute('aria-hidden', 'false');
       }
       if (nextBtn && idx < files.length - 1) {
         const next = files[idx + 1];
-        nextBtn.href = mkLink(next);
+        nextBtn.href = makeLink(next);
+        nextBtn.innerText = (next.linkTitle || next.filename ||  'Next') + ' →';
         nextBtn.style.display = 'inline-block';
         nextBtn.setAttribute('aria-hidden', 'false');
       }
