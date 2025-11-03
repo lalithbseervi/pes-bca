@@ -7,6 +7,8 @@ set -euo pipefail
 
 OUT_DIR="data"
 mkdir -p "$OUT_DIR"
+PUBLIC_DIR="static/data"
+mkdir -p "$PUBLIC_DIR"
 
 # Determine API proxy base:
 # - use API_PROXY_BASE if set
@@ -62,17 +64,39 @@ echo "$resp" \
       out="${OUT_DIR}/${subj}.json"
       tmp=$(mktemp "${OUT_DIR}/.${subj}.json.XXXXXX")
       echo "$line" | jq '{ units: .units }' > "$tmp"
+      # Also write a sanitized public copy (filename, url, linkTitle only)
+      pub_tmp=$(mktemp "${PUBLIC_DIR}/.${subj}.json.XXXXXX")
+      echo "$line" | jq '{ units: (.units | map({ unit: .unit, groups: (.groups | map({ type: .type, files: (.files | map({ filename: .filename, url: .url, linkTitle: .linkTitle })) })) })) }' > "$pub_tmp"
       if [ -f "$out" ]; then
         if cmp -s "$tmp" "$out"; then
           echo "Unchanged $out"
           rm -f "$tmp"
+          # keep public copy in sync if unchanged original
+          pub_out="${PUBLIC_DIR}/${subj}.json"
+          if [ -f "$pub_out" ]; then
+            if cmp -s "$pub_tmp" "$pub_out"; then
+              rm -f "$pub_tmp"
+            else
+              mv "$pub_tmp" "$pub_out"
+              echo "Updated public $pub_out"
+            fi
+          else
+            mv "$pub_tmp" "$pub_out"
+            echo "Wrote public $pub_out"
+          fi
         else
           mv "$tmp" "$out"
           echo "Updated $out"
+          pub_out="${PUBLIC_DIR}/${subj}.json"
+          mv "$pub_tmp" "$pub_out"
+          echo "Updated public $pub_out"
         fi
       else
         mv "$tmp" "$out"
         echo "Wrote $out"
+        pub_out="${PUBLIC_DIR}/${subj}.json"
+        mv "$pub_tmp" "$pub_out"
+        echo "Wrote public $pub_out"
       fi
     done
 

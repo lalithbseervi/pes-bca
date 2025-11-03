@@ -1,0 +1,314 @@
+{
+  "units": [
+    {
+      "unit": "1",
+      "groups": [
+        {
+          "type": "Notes",
+          "files": [
+            {
+              "filename": "Induction_Examples_UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/7c9426b4-d006-4249-9df5-fcaf2e7e8c85/stream",
+              "linkTitle": "Examples of Mathematical Induction"
+            }
+          ]
+        },
+        {
+          "type": "QA",
+          "files": [
+            {
+              "filename": "QA_Unit-1-Maths-UQ25CA141A_.pdf",
+              "url": "http://localhost:8787/api/resources/003ce78c-ef26-439f-9ee8-6181624be5c7/stream",
+              "linkTitle": "Unit-1 QA"
+            }
+          ]
+        },
+        {
+          "type": "QB",
+          "files": [
+            {
+              "filename": "QB_Unit-1-Maths-UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/9feebc2c-4976-4713-a6e4-aa0d08b862aa/stream",
+              "linkTitle": "Unit-1 QB"
+            }
+          ]
+        },
+        {
+          "type": "Slides",
+          "files": [
+            {
+              "filename": "1_Intro_to_sets_UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/bf231651-e246-4944-8020-8528897a00c9/stream",
+              "linkTitle": "Introduction To Sets"
+            },
+            {
+              "filename": "10_Matrix_Theory_UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/3ca8d5b9-d2dd-4f1c-b6da-0bcc507214de/stream",
+              "linkTitle": "Matrix Theory"
+            },
+            {
+              "filename": "11_Cramer's_Rule_UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/ae3f6f0c-b15b-45c4-8c61-6758c1f09399/stream",
+              "linkTitle": "Cramer's Rule"
+            },
+            {
+              "filename": "2_Subsets_UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/7c4c5fcf-2f14-43c2-9d8e-0632d77c1cdb/stream",
+              "linkTitle": "Subsets"
+            },
+            {
+              "filename": "3_Set_Operations_UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/ae52e206-80a7-4278-a58f-6ab82327b544/stream",
+              "linkTitle": "Set Operations"
+            },
+            {
+              "filename": "4_Laws_of_Set_Theory_UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/cee39721-85ee-4322-88f3-e543be2ac236/stream",
+              "linkTitle": "Laws Of Set Theory"
+            },
+            {
+              "filename": "5_Inclusion_and_Exclusion_Principle_UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/f965d15d-1778-4bc3-be3b-ca712dfed991/stream",
+              "linkTitle": "Principle of Inclusion And Exclusion"
+            },
+            {
+              "filename": "6_PIE_Problems_UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/6fd91323-3cc0-4816-af70-7e0b154fd8be/stream",
+              "linkTitle": "Principle of Inclusion And Exclusion Problems"
+            },
+            {
+              "filename": "7_Mathematical_Induction_UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/9f29479a-ec37-407b-b0d2-48da4d9ab6a8/stream",
+              "linkTitle": "Mathematical Induction"
+            },
+            {
+              "filename": "8_MI_Problems_UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/1ca7a469-667b-4b3f-9370-5305c95e48df/stream",
+              "linkTitle": "Problems on MI"
+            },
+            {
+              "filename": "9_Prime_Numbers_UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/c85457dd-6018-45ca-96d0-86d497ba3920/stream",
+              "linkTitle": "Prime Numbers"
+            }
+          ]
+        },
+        {
+          "type": "Textbook",
+          "files": [
+            {
+              "filename": "UQ25CA141A_Textbook_647fcb0c-bbb8-49a7-9012-f0737c5aaca7_20250819101941.pdf",
+              "url": "http://localhost:8787/api/resources/099d0c1e-b3ca-4c58-8658-946e9bcd0070/stream",
+              "linkTitle": "Unit-1 Textbook"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "unit": "2",
+      "groups": [
+        {
+          "type": "Notes",
+          "files": [
+            {
+              "filename": "MFCA_Unit-2_Additional_Problems_UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/114a8ed5-ce9e-450b-9591-26f8dc658b6c/stream",
+              "linkTitle": "MFCA Unit 2 Additional Problems"
+            },
+            {
+              "filename": "MFCA_Unit-2_Notes_UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/2ca86507-e54f-4d79-a8aa-fefce204ce17/stream",
+              "linkTitle": "MFCA Unit 2 Notes"
+            }
+          ]
+        },
+        {
+          "type": "QA",
+          "files": [
+            {
+              "filename": "unit-2-qa_UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/ea6bdb41-b499-4273-94a3-4c4319171fbe/stream",
+              "linkTitle": "Unit-2 QA"
+            }
+          ]
+        },
+        {
+          "type": "QB",
+          "files": [
+            {
+              "filename": "unit-2_qb_UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/ef7a7ff6-d55f-4427-946a-8cd915452039/stream",
+              "linkTitle": "Unit-2 QB"
+            }
+          ]
+        },
+        {
+          "type": "Slides",
+          "files": [
+            {
+              "filename": "1_Sum_Rule_UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/869edc04-842a-4158-995f-d33b9a4482d2/stream",
+              "linkTitle": "Sum Rule"
+            },
+            {
+              "filename": "10_circular_arramgements_UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/7408b2df-2e1f-4e8d-93f5-f315426507d7/stream",
+              "linkTitle": "Circular Arrangements"
+            },
+            {
+              "filename": "2_Product_Rule_UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/ef2c2fb8-deba-4c9e-b387-c9723fcbfb2e/stream",
+              "linkTitle": "Product Rule"
+            },
+            {
+              "filename": "3_Product_And_Sum_UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/dbc4cca1-a229-45b9-afdc-1e3966768e1d/stream",
+              "linkTitle": "Product And Sum"
+            },
+            {
+              "filename": "4_Pigeonhole_Principle_UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/94a915f9-1259-4525-ab87-59576410716e/stream",
+              "linkTitle": "Pigeonhole Principle"
+            },
+            {
+              "filename": "5_permutation_with_multiset_UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/e2b3e3c3-26ad-4dd8-a7ac-e48adb74a6c3/stream",
+              "linkTitle": "Permutation With Multiset"
+            },
+            {
+              "filename": "6_permutations_UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/1acd7fe2-289f-43be-815b-a0b13dbf6888/stream",
+              "linkTitle": "Permutations"
+            },
+            {
+              "filename": "7_permutation_problems_UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/d21fe1e1-771d-4a18-baa8-cf218a73049c/stream",
+              "linkTitle": "Permutation Problems"
+            },
+            {
+              "filename": "8_Combinations_UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/bb812c6f-7955-4bdf-84fc-68111e611e93/stream",
+              "linkTitle": "Combinations"
+            },
+            {
+              "filename": "9_permutations_and_combinations_UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/0167df29-eaec-457a-8ec7-e1d679f1a23f/stream",
+              "linkTitle": "Permutations And Combinations"
+            }
+          ]
+        },
+        {
+          "type": "Textbook",
+          "files": [
+            {
+              "filename": "Permutation_and_Combination_textbook_UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/1151fbc0-0758-4696-bd44-38406acdb34e/stream",
+              "linkTitle": "Permutation And Combination Textbook"
+            },
+            {
+              "filename": "Pigeonhole_Combination_Permutation_Text_UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/eeb35ad0-bbd2-4e16-a02b-fad6d93f4321/stream",
+              "linkTitle": "Pigeonhole Principle, Combinations, and Permutations"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "unit": "3",
+      "groups": [
+        {
+          "type": "Notes",
+          "files": [
+            {
+              "filename": "Logic Notes UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/177db527-f91c-4999-b97d-82763ad5410b/stream",
+              "linkTitle": "Mathematical Logic Notes"
+            }
+          ]
+        },
+        {
+          "type": "QA",
+          "files": [
+            {
+              "filename": "unit-3_qa_UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/ebfe61bd-cda7-4dc2-859b-9c9b37f6cfc9/stream",
+              "linkTitle": "Unit-3 QA"
+            }
+          ]
+        },
+        {
+          "type": "QB",
+          "files": [
+            {
+              "filename": "unit-3_qb_UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/c3ad6b34-59ba-4151-a85d-cbcf61e997fb/stream",
+              "linkTitle": "Unit-3 QB"
+            }
+          ]
+        },
+        {
+          "type": "Slides",
+          "files": [
+            {
+              "filename": "01_Propositional_Logic_UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/2b87fd58-a2f4-4e41-8b5d-dfa73734fe19/stream",
+              "linkTitle": "Propositional Logic"
+            },
+            {
+              "filename": "02_Conditional_Statements_UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/e3e0d564-4d8d-47ff-8225-0415d79bdce1/stream",
+              "linkTitle": "Conditional Statements"
+            },
+            {
+              "filename": "03_Propositional_Equivalences_UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/432c31cb-b151-4f9b-9bd2-754c0b14c74d/stream",
+              "linkTitle": "Propositional Equivalences"
+            },
+            {
+              "filename": "04_Problems_On_Logical_Equivalence_UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/4f749aab-6b78-4ee9-9afd-e1ffbaea1607/stream",
+              "linkTitle": "Problems On Logical Equivalence"
+            },
+            {
+              "filename": "05_Predicate Calculus_UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/57e359d1-9e97-44b2-9e6e-0989147d7aa0/stream",
+              "linkTitle": "Predicate Calculus"
+            },
+            {
+              "filename": "06_Negating Quanitfied Expressions_UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/2cdda18b-a21b-48f4-a55e-a9ba3956b831/stream",
+              "linkTitle": "Negating Quanitfied Expressions"
+            },
+            {
+              "filename": "07_Inference Rules_UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/d059d2b9-2afb-4bcd-bd16-42825108969b/stream",
+              "linkTitle": "Inference Rules"
+            },
+            {
+              "filename": "08_Problems on Inference Rules_UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/ba64cecd-e98a-42a4-9785-d3859f1685ab/stream",
+              "linkTitle": "Problems On Inference Rules"
+            },
+            {
+              "filename": "09_Conditional Statements_UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/af92c44e-e04e-45fe-822f-f68cc323dce1/stream",
+              "linkTitle": "Conditional Statements"
+            },
+            {
+              "filename": "10_Normal_Forms_UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/75b5cdb3-b140-43ff-ad74-7c8dc62deff1/stream",
+              "linkTitle": "Normal Forms"
+            },
+            {
+              "filename": "11_Normal_Forms_PCNF_UQ25CA141A.pdf",
+              "url": "http://localhost:8787/api/resources/a4ed55f8-44c2-4377-aa74-1b656a1834e7/stream",
+              "linkTitle": "Normal Forms-PCNF"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

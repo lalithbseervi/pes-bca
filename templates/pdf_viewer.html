@@ -187,15 +187,24 @@
         // and absolute URLs (including blob: and other origins) are preserved.
         const absUrl = new URL(path, window.location.href).href;
         // Try HEAD first (small, efficient)
-        let r = await fetch(absUrl, { method: 'HEAD', cache: 'no-store' });
-        if (r.ok) return { ok: true, status: r.status, contentType: r.headers.get('content-type') };
+            let r = await fetch(absUrl, { method: 'HEAD', cache: 'no-store' });
+            if (r.ok) {
+              const newToken = r.headers.get('X-Stream-Token') || r.headers.get('x-stream-token');
+              if (newToken) try { sessionStorage.setItem('stream_token', newToken); } catch (e) {}
+              return { ok: true, status: r.status, contentType: r.headers.get('content-type') };
+            }
         // Some servers reject HEAD -> try a tiny GET with Range to minimize data
-        r = await fetch(absUrl, {
-          method: 'GET',
-          headers: { 'Range': 'bytes=0-0' },
-          cache: 'no-store'
-        });
-        if (r.ok || r.status === 206) return { ok: true, status: r.status, contentType: r.headers.get('content-type') };
+      r = await fetch(absUrl, {
+        method: 'GET',
+        headers: { 'Range': 'bytes=0-0' },
+        cache: 'no-store',
+        credentials: 'include'
+      });
+      if (r.ok || r.status === 206) {
+        const newToken = r.headers.get('X-Stream-Token') || r.headers.get('x-stream-token');
+        if (newToken) try { sessionStorage.setItem('stream_token', newToken); } catch (e) {}
+        return { ok: true, status: r.status, contentType: r.headers.get('content-type') };
+      }
         return { ok: false, status: r.status, statusText: r.statusText };
       } catch (err) {
         return { ok: false, error: err.message || String(err) };
@@ -434,8 +443,9 @@
       // Instead of guessing subject from the path, iterate a small set of
       // known subjects and candidate roots and pick the JSON that actually
       // contains the current resource id. This is simpler and more robust.
-      const subjects = ['wd', 'cfp', 'mp', 'mfca', 'pce'];
-      const roots = ['data', '/data', '/static/data', '/public/data'];
+  const subjects = ['wd', 'cfp', 'mp', 'mfca', 'pce'];
+  // Prefer public/static copies first so navigation uses sanitized JSON
+  const roots = ['/static/data', '/public/data', 'data', '/data'];
       let data = null;
       let dataUrl = null;
       for (const subj of subjects) {

@@ -460,6 +460,32 @@ export async function resourceStreamFromSupabase(request, env, ctx) {
         }
     }
 
+    // Decode payload from a base64url(token) without verifying signature.
+    function decodeSignedPayload(token) {
+        if (!token) return null;
+        const parts = token.split('.');
+        if (parts.length !== 2) return null;
+        try {
+            const payloadStr = base64UrlDecodeToString(parts[0]);
+            return JSON.parse(payloadStr);
+        } catch (e) {
+            return null;
+        }
+    }
+
+    // Create a stream token (id or '*' for wildcard) with TTL seconds
+    async function createStreamToken(id = '*', ttl = 600, env) {
+        const payload = JSON.stringify({ id, exp: Math.floor(Date.now() / 1000) + ttl });
+        const b64payload = btoa(unescape(encodeURIComponent(payload))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(env.STREAM_SIGNING_SECRET), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+        const sigBuf = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(payload));
+        const bytes = new Uint8Array(sigBuf);
+        let binary = '';
+        for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+        const b64sig = btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        return `${b64payload}.${b64sig}`;
+    }
+
     const urlObj = new URL(request.url);
     const providedToken = urlObj.searchParams.get('token') || (request.headers.get('authorization') || '').split(' ')[1] || null;
     if (!env.STREAM_SIGNING_SECRET) {
@@ -469,11 +495,59 @@ export async function resourceStreamFromSupabase(request, env, ctx) {
             headers: { 'Content-Type': 'application/json', ...cors },
         });
     }
-    if (!(await verifySignedToken(providedToken, id, env))) {
-        return new Response(JSON.stringify({ success: false, error: 'unauthorized' }), {
-            status: 401,
-            headers: { 'Content-Type': 'application/json', ...cors },
-        });
+    // If token is valid for this resource (or wildcard), continue.
+    let tokenValid = await verifySignedToken(providedToken, id, env);
+    let freshlyMintedToken = null;
+    if (!tokenValid) {
+        // If token is missing or invalid, check if it is merely expired. If
+        // expired and the caller is authenticated (cookie or Authorization
+        // JWT), mint a fresh wildcard token and allow access.
+        const decoded = decodeSignedPayload(providedToken);
+        const now = Math.floor(Date.now() / 1000);
+        const isExpired = decoded && decoded.exp && now > decoded.exp;
+
+        // Try to validate session via JWT (access_token cookie or Authorization header)
+        const authHeader = request.headers.get('authorization');
+        const cookieHeader = request.headers.get('cookie');
+        let sessionToken = null;
+        try {
+            if (authHeader && authHeader.startsWith('Bearer ')) sessionToken = authHeader.split(' ')[1];
+            if (!sessionToken && cookieHeader) {
+                const parts = cookieHeader.split(';').map(s => s.trim());
+                for (const p of parts) {
+                    if (p.startsWith('access_token=')) { sessionToken = p.slice('access_token='.length); break; }
+                }
+            }
+        } catch (e) {
+            sessionToken = null;
+        }
+
+        let sessionValid = false;
+        if (sessionToken) {
+            try {
+                const res = await verifyJWT(sessionToken, env.JWT_SECRET);
+                if (res && res.valid) sessionValid = true;
+            } catch (e) {
+                sessionValid = false;
+            }
+        }
+
+        if (sessionValid) {
+            // Mint a fresh wildcard token for the client to use; include it in
+            // the response headers so the client can update session storage.
+            try {
+                freshlyMintedToken = await createStreamToken('*', 600, env);
+                tokenValid = true;
+            } catch (e) {
+                console.error('failed to mint fresh stream token', e);
+            }
+        } else {
+            // not valid session and token not valid -> unauthorized
+            return new Response(JSON.stringify({ success: false, error: 'unauthorized' }), {
+                status: 401,
+                headers: { 'Content-Type': 'application/json', ...cors },
+            });
+        }
     }
     // --- end token verification ---
 
@@ -558,6 +632,10 @@ export async function resourceStreamFromSupabase(request, env, ctx) {
                     if (v) respHeaders[h] = v;
                 }
 
+                // attach freshly minted token (if any) so clients can refresh
+                if (freshlyMintedToken) {
+                    respHeaders['X-Stream-Token'] = freshlyMintedToken;
+                }
                 return new Response(upstream.body, { status: upstream.status, headers: respHeaders });
             } catch (e) {
                 console.error('error obtaining signed url or proxying', e);

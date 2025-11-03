@@ -1,0 +1,139 @@
+{
+  "units": [
+    {
+      "unit": "1",
+      "groups": [
+        {
+          "type": "Slides",
+          "files": [
+            {
+              "filename": "01_Intro_To_Comm_UQ25CA131A.pdf",
+              "url": "http://localhost:8787/api/resources/3a158592-2612-4398-8eb3-f07f28c6a47d/stream",
+              "linkTitle": "Intro To Communication"
+            },
+            {
+              "filename": "03_Language_As_A_Tool_Tech_Comm_UQ25CA131A.pdf",
+              "url": "http://localhost:8787/api/resources/8676f6e7-e896-48ca-a0fb-363cd7cd82a2/stream",
+              "linkTitle": "Language As A Tool and Technical Communication"
+            },
+            {
+              "filename": "07_Barries_to_Comm_UQ25CA131A.pdf",
+              "url": "http://localhost:8787/api/resources/bb6d33b6-aa05-49dc-be50-1738f3e6c394/stream",
+              "linkTitle": "Barries To Communication"
+            },
+            {
+              "filename": "08_Verbal_and_Non_Verbal_UQ25CA131A.pdf",
+              "url": "http://localhost:8787/api/resources/ec752284-2d06-42b7-b60e-847575c89f76/stream",
+              "linkTitle": "Verbal And Non Verbal"
+            },
+            {
+              "filename": "09_Tech_in_Comm_UQ25CA131A.pdf",
+              "url": "http://localhost:8787/api/resources/20c6985e-5ac9-4ba2-8448-515fcbeaf2c1/stream",
+              "linkTitle": "Technology In Communication"
+            },
+            {
+              "filename": "14_identifying_comm_UQ25CA131A.pdf",
+              "url": "http://localhost:8787/api/resources/dbb5c08c-6289-4d2c-be57-d6fd4b716455/stream",
+              "linkTitle": "Identifying Communication Barriers"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "unit": "2",
+      "groups": [
+        {
+          "type": "Slides",
+          "files": [
+            {
+              "filename": "01_intro_to_group_comm_UQ25CA131A.pdf",
+              "url": "http://localhost:8787/api/resources/27e54286-e7fd-4ba0-b325-0de866dd23da/stream",
+              "linkTitle": "Intro To Group Communication"
+            },
+            {
+              "filename": "02_organizational_gd_meeting_conference_UQ25CA131A.pdf",
+              "url": "http://localhost:8787/api/resources/cd018ec0-124f-4469-8c59-d115b88b0ae7/stream",
+              "linkTitle": "Organizational GD, Meetings, and Conferences"
+            },
+            {
+              "filename": "03_aspects_of_group_behaviour_UQ25CA131A.pdf",
+              "url": "http://localhost:8787/api/resources/090bdddd-b7ca-4da7-9985-154fd32b8512/stream",
+              "linkTitle": "Aspects Of Group Behaviour"
+            },
+            {
+              "filename": "04_intro_to_written_comm_UQ25CA131A.pdf",
+              "url": "http://localhost:8787/api/resources/4829bd73-ad2a-4f5a-9533-609f2682cbe1/stream",
+              "linkTitle": "Intro To Written Communication"
+            },
+            {
+              "filename": "05_paragraph_development_business_letters_UQ25CA131A.pdf",
+              "url": "http://localhost:8787/api/resources/cba270c5-eb01-47f9-8885-bc188c7d46e7/stream",
+              "linkTitle": "Paragraph Development, Business Letters"
+            },
+            {
+              "filename": "06_memos_email_cv_resume_UQ25CA131A.pdf",
+              "url": "http://localhost:8787/api/resources/0a2f215e-37d0-4cb7-ba25-be5ef3d0e1a6/stream",
+              "linkTitle": "Memos, Email, CV, Resume"
+            },
+            {
+              "filename": "07_report_writing_UQ25CA131A.pdf",
+              "url": "http://localhost:8787/api/resources/acff13bb-b050-440d-9b1d-fba10798755e/stream",
+              "linkTitle": "Report Writing"
+            },
+            {
+              "filename": "08_official_letters_UQ25CA131A.pdf",
+              "url": "http://localhost:8787/api/resources/15857c7d-3185-4a01-a923-bea1eb15fc2e/stream",
+              "linkTitle": "Official Letters"
+            },
+            {
+              "filename": "09_essay_writing_UQ25CA131A.pdf",
+              "url": "http://localhost:8787/api/resources/3d27660a-fed5-46f0-8835-03b41553263f/stream",
+              "linkTitle": "Essay Writing"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "unit": "3",
+      "groups": [
+        {
+          "type": "Slides",
+          "files": [
+            {
+              "filename": "01_Intro_to_Presentations_UQ25CA131A.pdf",
+              "url": "http://localhost:8787/api/resources/2f77dc23-4581-4094-a1e0-524b20668dec/stream",
+              "linkTitle": "Intro To Presentations"
+            },
+            {
+              "filename": "02_Tools_for_Presentation_UQ25CA131A.pdf",
+              "url": "http://localhost:8787/api/resources/56714d5c-9052-4936-8198-cedd40640580/stream",
+              "linkTitle": "Tools For Presentation"
+            },
+            {
+              "filename": "03_Understanding_the_audience_UQ25CA131A.pdf",
+              "url": "http://localhost:8787/api/resources/59b14049-51f1-46e1-bb9a-1419b7353ba8/stream",
+              "linkTitle": "Understanding The Audience"
+            },
+            {
+              "filename": "04_Planning_Presentation_Content_UQ25CA131A.pdf",
+              "url": "http://localhost:8787/api/resources/ce1fdb23-4ca8-4154-9277-9d3ae474caf5/stream",
+              "linkTitle": "Planning and Organizaing Presentation Content"
+            },
+            {
+              "filename": "05_Handling_Questions_and_Feedback_UQ25CA131A.pdf",
+              "url": "http://localhost:8787/api/resources/1dd2d3e5-2327-402c-b3f5-f55df9ffdfdd/stream",
+              "linkTitle": "Handling Questions and Feedback"
+            },
+            {
+              "filename": "06_Poster_Designing_UQ25CA131A.pdf",
+              "url": "http://localhost:8787/api/resources/08244b9e-9710-44a0-b013-428ae25cbf72/stream",
+              "linkTitle": "Poster Designing: Principles and Examples"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
