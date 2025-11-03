@@ -7,6 +7,9 @@ public/
 # Node modules (if using npm/yarn for assets)
 node_modules/
 
+# Static Content
+*.pdf
+
 # Cloudflare Workers sensitive files
 .dev.vars
 .env
