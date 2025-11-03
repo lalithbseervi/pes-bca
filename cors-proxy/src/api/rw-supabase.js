@@ -1,4 +1,5 @@
 import { getCorsHeaders } from '../utils/cors.js';
+import { verifyJWT } from '../utils/sign_jwt.js';
 
 const BUCKET = 'fileStore';
 
@@ -313,10 +314,168 @@ export async function uploadResourceToSupabase(request, env) {
     return new Response(JSON.stringify({ success: true, results }), { status: 201, headers: { 'Content-Type': 'application/json', ...cors } });
 }
 
+// Mint a short-lived signed stream token for an authenticated user.
+// Expected: POST JSON { id: "<resource-id>" , ttl: seconds }
+// Authentication: caller must present an Authorization: Bearer <access_token>
+// that can be validated against Supabase Auth (/auth/v1/user). The worker
+// will verify the user then sign a token with STREAM_SIGNING_SECRET.
+export async function mintStreamToken(request, env) {
+    const cors = getCorsHeaders(request);
+
+    if (!env.STREAM_SIGNING_SECRET) {
+        console.error('mintStreamToken: STREAM_SIGNING_SECRET not configured');
+        return new Response(JSON.stringify({ success: false, error: 'server_misconfigured' }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json', ...cors },
+        });
+    }
+
+    if (request.method !== 'POST') {
+        return new Response(JSON.stringify({ success: false, error: 'method_not_allowed' }), { status: 405, headers: { 'Content-Type': 'application/json', ...cors } });
+    }
+
+    let body = null;
+    try {
+        body = await request.json();
+    } catch (e) {
+        return new Response(JSON.stringify({ success: false, error: 'invalid_json' }), { status: 400, headers: { 'Content-Type': 'application/json', ...cors } });
+    }
+
+    const id = body && body.id ? String(body.id) : '*';
+    const ttl = Number(body && body.ttl) || 600; // default 10 minutes
+
+    // Verify user: validate JWT issued by our login flow. Accept either
+    // Authorization: Bearer <jwt> or access_token cookie. Use verifyJWT with
+    // env.JWT_SECRET so we don't call Supabase for auth validation.
+    const authHeader = request.headers.get('authorization');
+    const cookieHeader = request.headers.get('cookie');
+    if (!authHeader && !cookieHeader) return new Response(JSON.stringify({ success: false, error: 'unauthenticated' }), { status: 401, headers: { 'Content-Type': 'application/json', ...cors } });
+
+    try {
+        let token = null;
+        if (authHeader && authHeader.startsWith('Bearer ')) token = authHeader.split(' ')[1];
+        if (!token && cookieHeader) {
+            // parse cookies to find access_token
+            const parts = cookieHeader.split(';').map(s => s.trim());
+            for (const p of parts) {
+                if (p.startsWith('access_token=')) {
+                    token = p.slice('access_token='.length);
+                    break;
+                }
+            }
+        }
+        if (!token) return new Response(JSON.stringify({ success: false, error: 'unauthenticated' }), { status: 401, headers: { 'Content-Type': 'application/json', ...cors } });
+
+        const res = await verifyJWT(token, env.JWT_SECRET);
+        if (!res || !res.valid) {
+            console.error('mintStreamToken: jwt verify failed', res && res.reason);
+            return new Response(JSON.stringify({ success: false, error: 'unauthenticated' }), { status: 401, headers: { 'Content-Type': 'application/json', ...cors } });
+        }
+        // res.payload available if you need profile info
+    } catch (e) {
+        console.error('mintStreamToken: user validation error', e);
+        return new Response(JSON.stringify({ success: false, error: 'auth_check_failed' }), { status: 502, headers: { 'Content-Type': 'application/json', ...cors } });
+    }
+
+    // Create payload and sign it using HMAC-SHA256 with STREAM_SIGNING_SECRET
+    try {
+        const payload = JSON.stringify({ id, exp: Math.floor(Date.now() / 1000) + ttl });
+
+        // encode payload base64url
+        const b64payload = btoa(unescape(encodeURIComponent(payload))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+        const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(env.STREAM_SIGNING_SECRET), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+        const sigBuf = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(payload));
+        const bytes = new Uint8Array(sigBuf);
+        let binary = '';
+        for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+        const b64sig = btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+        const token = `${b64payload}.${b64sig}`;
+        return new Response(JSON.stringify({ success: true, token }), { status: 200, headers: { 'Content-Type': 'application/json', ...cors } });
+    } catch (e) {
+        console.error('mintStreamToken: signing error', e);
+        return new Response(JSON.stringify({ success: false, error: 'signing_failed' }), { status: 500, headers: { 'Content-Type': 'application/json', ...cors } });
+    }
+}
+
 export async function resourceStreamFromSupabase(request, env, ctx) {
     const cors = getCorsHeaders(request);
 
     const id = ctx?.params?.id || new URL(request.url).pathname.split('/').pop();
+
+    // --- Signed token verification to prevent unauthenticated access ---
+    // Token may be provided as ?token=... or Authorization: Bearer <token>
+    function base64UrlFromArrayBuffer(buf) {
+        const bytes = new Uint8Array(buf);
+        let binary = '';
+        for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+        // btoa is available in Workers
+        return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
+
+    function base64UrlDecodeToString(str) {
+        // base64url -> base64
+        str = str.replace(/-/g, '+').replace(/_/g, '/');
+        while (str.length % 4) str += '=';
+        const bin = atob(str);
+        // Convert binary string to utf-8 string
+        try { return decodeURIComponent(escape(bin)); } catch (e) { return bin; }
+    }
+
+    async function verifySignedToken(token, expectedId, env) {
+        if (!token) return false;
+        const secret = env.STREAM_SIGNING_SECRET;
+        if (!secret) {
+            console.error('verifySignedToken: STREAM_SIGNING_SECRET not configured');
+            return false;
+        }
+        const parts = token.split('.');
+        if (parts.length !== 2) return false;
+        const [b64payload, b64sig] = parts;
+        let payloadStr;
+        try {
+            payloadStr = base64UrlDecodeToString(b64payload);
+        } catch (e) {
+            return false;
+        }
+        let payload;
+        try {
+            payload = JSON.parse(payloadStr);
+        } catch (e) {
+            return false;
+        }
+        // check expiry (payload.exp in seconds)
+        if (payload.exp && Date.now() / 1000 > payload.exp) return false;
+        // check id matches or wildcard
+        if (payload.id && payload.id !== '*' && String(payload.id) !== String(expectedId)) return false;
+        try {
+            const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+            const sigBuf = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(payloadStr));
+            const computed = base64UrlFromArrayBuffer(sigBuf);
+            return computed === b64sig;
+        } catch (e) {
+            console.error('verifySignedToken error', e);
+            return false;
+        }
+    }
+
+    const urlObj = new URL(request.url);
+    const providedToken = urlObj.searchParams.get('token') || (request.headers.get('authorization') || '').split(' ')[1] || null;
+    if (!env.STREAM_SIGNING_SECRET) {
+        console.error('resourceStreamFromSupabase: STREAM_SIGNING_SECRET not set');
+        return new Response(JSON.stringify({ success: false, error: 'server_misconfigured' }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json', ...cors },
+        });
+    }
+    if (!(await verifySignedToken(providedToken, id, env))) {
+        return new Response(JSON.stringify({ success: false, error: 'unauthorized' }), {
+            status: 401,
+            headers: { 'Content-Type': 'application/json', ...cors },
+        });
+    }
+    // --- end token verification ---
 
     let row = null;
     try {

@@ -2,140 +2,223 @@
 
 {% block main_content %}
 <style>
-.loading-message {
+  .loading-message {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     min-height: 70vh;
     text-align: center;
-}
-.loading-message h2 { margin-bottom: 10px; color: #4a90e2; }
-.loading-message p { color: #888; }
+  }
 
-.pdf-nav {
+  .loading-message h2 {
+    margin-bottom: 10px;
+    color: #4a90e2;
+  }
+
+  .loading-message p {
+    color: #888;
+  }
+
+  .pdf-nav {
     display: flex;
     gap: 0.5rem;
     justify-content: center;
     margin: 0.5rem 0;
-}
-.pdf-nav a {
+  }
+
+  .pdf-nav a {
     display: none;
     background: #ffffffcc;
     color: #222;
     padding: 0.4rem 0.75rem;
     border-radius: 6px;
     text-decoration: none;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
-}
-.pdf-nav a:active { transform: translateY(1px); }
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  }
+
+  .pdf-nav a:active {
+    transform: translateY(1px);
+  }
 </style>
 
 <!-- Include login component for session management -->
 {% include "components/login.html" %}
 
 <div id="pdf-container">
-    <div class="loading-message">
-        <h2>Loading document...</h2>
-        <p>Verifying access permissions...</p>
-    </div>
+  <div class="loading-message">
+    <h2>Loading document...</h2>
+    <p>Verifying access permissions...</p>
+  </div>
 </div>
 
 <div class="pdf-nav" aria-hidden="true">
-    <a id="pdf-prev" href="#" title="Previous document">← Prev</a>
-    <a id="pdf-next" href="#" title="Next document">Next →</a>
+  <a id="pdf-prev" href="#" title="Previous document">← Prev</a>
+  <a id="pdf-next" href="#" title="Next document">Next →</a>
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+  document.addEventListener('DOMContentLoaded', async function () {
     if (!sessionStorage.getItem('user_session')) { localStorage.setItem('postLoginRedirect', window.location.href); }
     // Get URL parameters
     const urlParams = new URLSearchParams(window.location.search);
-  const pdfPath = urlParams.get('file');
-  // Normalize absolute URLs that point to our proxy endpoint into same-origin paths.
-  // Some generators include an absolute URL (e.g. http://localhost:8787/api/resources/.../stream).
-  // PDF.js strict origin checks can fail in iframes when the viewer origin differs, or
-  // when document.referrer is absent. Convert known proxy URLs to a relative path so
-  // the viewer receives a same-origin file URL.
-  let normalizedPdfPath = pdfPath;
-  if (pdfPath) {
+    const pdfPath = urlParams.get('file');
+    // Normalize absolute URLs that point to our proxy endpoint into same-origin paths.
+    // Some generators include an absolute URL (e.g. http://localhost:8787/api/resources/.../stream).
+    // PDF.js strict origin checks can fail in iframes when the viewer origin differs, or
+    // when document.referrer is absent. Convert known proxy URLs to a relative path so
+    // the viewer receives a same-origin file URL.
+    let normalizedPdfPath = pdfPath;
+    if (pdfPath) {
+      try {
+        const parsed = new URL(pdfPath, window.location.href);
+        // If the path looks like our worker API resource stream, make it relative
+        if (parsed.pathname && parsed.pathname.startsWith('/api/resources/')) {
+          // Only convert to a relative path when the parsed origin matches the
+          // current page origin. If the parsed URL points at another origin
+          // (e.g. the worker on :8787), keep the absolute href so we can fetch
+          // it directly or handle it specially.
+          if (parsed.origin === window.location.origin) {
+            normalizedPdfPath = parsed.pathname + (parsed.search || '');
+          } else {
+            normalizedPdfPath = parsed.href;
+          }
+        }
+      } catch (e) {
+        // leave as-is if not a valid URL
+      }
+    }
+    // Helper: extract resource id from a /api/resources/<id>/stream style path
+    function extractResourceId(path) {
+      if (!path) return null;
+      try {
+        const u = new URL(path, window.location.href);
+        const parts = u.pathname.split('/').filter(Boolean);
+        const idx = parts.indexOf('resources');
+        if (idx !== -1 && parts.length > idx + 1) return parts[idx + 1];
+      } catch (e) {
+        const m = String(path).match(/api\/resources\/([-a-f0-9]{8,})/i);
+        if (m) return m[1];
+      }
+      return null;
+    }
+
+    // Ensure we have a stream token in sessionStorage for the given resource id.
+    // This calls the /api/mint-stream-token endpoint (server must validate
+    // that the caller is authenticated). If successful, token is stored under
+    // sessionStorage['stream_token'] for use by the viewer.
+    async function ensureStreamToken(resourceId) {
+      if (!resourceId) return;
+      if (sessionStorage.getItem('stream_token')) return;
+      try {
+        const sessionStr = sessionStorage.getItem('user_session');
+        const headers = { 'Content-Type': 'application/json' };
+        if (sessionStr) {
+          try {
+            const sess = JSON.parse(sessionStr);
+            // If your auth flow stores access token here, include it (optional).
+            if (sess && (sess.access_token || sess.token)) {
+              headers['Authorization'] = 'Bearer ' + (sess.access_token || sess.token);
+            }
+          } catch (e) { /* ignore parse errors */ }
+        }
+
+        // Send credentials so cookies (HttpOnly) are forwarded by the browser.
+        const resp = await fetch(getApiBaseUrl() + '/api/mint-stream-token', { method: 'POST', headers, credentials: 'include', body: JSON.stringify({ id: resourceId, ttl: 600 }) });
+        if (!resp.ok) {
+          console.warn('ensureStreamToken: mint endpoint failed', resp.status);
+          return;
+        }
+        const j = await resp.json().catch(() => null);
+        if (j && j.token) sessionStorage.setItem('stream_token', j.token);
+      } catch (e) {
+        console.warn('ensureStreamToken error', e);
+      }
+    }
+    // Before attempting to append a token, try to mint one for this resource
+    // (if the user is authenticated). Then append whatever token we have.
     try {
-      const parsed = new URL(pdfPath, window.location.href);
-      // If the path looks like our worker API resource stream, make it relative
-      if (parsed.pathname && parsed.pathname.startsWith('/api/resources/')) {
-        // Only convert to a relative path when the parsed origin matches the
-        // current page origin. If the parsed URL points at another origin
-        // (e.g. the worker on :8787), keep the absolute href so we can fetch
-        // it directly or handle it specially.
-        if (parsed.origin === window.location.origin) {
-          normalizedPdfPath = parsed.pathname + (parsed.search || '');
-        } else {
-          normalizedPdfPath = parsed.href;
+      const resourceId = extractResourceId(normalizedPdfPath || pdfPath);
+      await ensureStreamToken(resourceId);
+
+      const sessionToken = sessionStorage.getItem('stream_token');
+      if (sessionToken && normalizedPdfPath) {
+        try {
+          const u = new URL(normalizedPdfPath, window.location.href);
+          if (!u.searchParams.get('token') && u.pathname.startsWith('/api/resources/')) {
+            u.searchParams.set('token', sessionToken);
+            if (u.origin === window.location.origin) {
+              normalizedPdfPath = u.pathname + (u.search || '');
+            } else {
+              normalizedPdfPath = u.href;
+            }
+          }
+        } catch (e) {
+          // ignore URL parsing errors
         }
       }
     } catch (e) {
-      // leave as-is if not a valid URL
+      // sessionStorage or network may be unavailable in some contexts
     }
-  }
     const title = urlParams.get('title');
 
     if (title) {
-        document.title = title;
-    }
-    
-  if (!pdfPath) {
-        document.getElementById('pdf-container').innerHTML = '<h2>Error: No file specified</h2>';
-        if (window.posthog) {
-            posthog.capture('pdf_viewer_error', {
-                error: 'No file specified',
-                url: window.location.href
-            });
-        }
-        return;
+      document.title = title;
     }
 
-  async function checkPdfAvailable(path) {
-        try {
-      // If we already created a blob URL for the PDF, assume it's available.
-      if (typeof path === 'string' && path.startsWith('blob:')) {
-        return { ok: true, status: 200, contentType: 'application/pdf' };
+    if (!pdfPath) {
+      document.getElementById('pdf-container').innerHTML = '<h2>Error: No file specified</h2>';
+      if (window.posthog) {
+        posthog.capture('pdf_viewer_error', {
+          error: 'No file specified',
+          url: window.location.href
+        });
       }
-      // Use document location as base so relative paths resolve correctly,
-      // and absolute URLs (including blob: and other origins) are preserved.
-      const absUrl = new URL(path, window.location.href).href;
-            // Try HEAD first (small, efficient)
-            let r = await fetch(absUrl, { method: 'HEAD', cache: 'no-store' });
-            if (r.ok) return { ok: true, status: r.status, contentType: r.headers.get('content-type') };
-            // Some servers reject HEAD -> try a tiny GET with Range to minimize data
-            r = await fetch(absUrl, {
-                method: 'GET',
-                headers: { 'Range': 'bytes=0-0' },
-                cache: 'no-store'
-            });
-            if (r.ok || r.status === 206) return { ok: true, status: r.status, contentType: r.headers.get('content-type') };
-            return { ok: false, status: r.status, statusText: r.statusText };
-        } catch (err) {
-            return { ok: false, error: err.message || String(err) };
+      return;
+    }
+
+    async function checkPdfAvailable(path) {
+      try {
+        // If we already created a blob URL for the PDF, assume it's available.
+        if (typeof path === 'string' && path.startsWith('blob:')) {
+          return { ok: true, status: 200, contentType: 'application/pdf' };
         }
+        // Use document location as base so relative paths resolve correctly,
+        // and absolute URLs (including blob: and other origins) are preserved.
+        const absUrl = new URL(path, window.location.href).href;
+        // Try HEAD first (small, efficient)
+        let r = await fetch(absUrl, { method: 'HEAD', cache: 'no-store' });
+        if (r.ok) return { ok: true, status: r.status, contentType: r.headers.get('content-type') };
+        // Some servers reject HEAD -> try a tiny GET with Range to minimize data
+        r = await fetch(absUrl, {
+          method: 'GET',
+          headers: { 'Range': 'bytes=0-0' },
+          cache: 'no-store'
+        });
+        if (r.ok || r.status === 206) return { ok: true, status: r.status, contentType: r.headers.get('content-type') };
+        return { ok: false, status: r.status, statusText: r.statusText };
+      } catch (err) {
+        return { ok: false, error: err.message || String(err) };
+      }
     }
 
     function showPdfError(message, details) {
-        const container = document.getElementById('pdf-container');
-        container.innerHTML = `
+      const container = document.getElementById('pdf-container');
+      container.innerHTML = `
             <div class="loading-message" role="alert">
                 <h2>Unable to load document</h2>
                 <p>${message}</p>
                 <p style="color:#aaa;font-size:0.9rem">${details || ''}</p>
             </div>
         `;
-        if (window.posthog) {
-            posthog.capture('pdf_view_error', {
-                pdf_path: pdfPath,
-                error_message: message,
-                details: details || null,
-                url: window.location.href
-            });
-        }
+      if (window.posthog) {
+        posthog.capture('pdf_view_error', {
+          pdf_path: pdfPath,
+          error_message: message,
+          details: details || null,
+          url: window.location.href
+        });
+      }
     }
 
     // Session validation is handled by login.js and login.html
@@ -144,45 +227,45 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Load PDF viewer if session is valid (login.js will handle showing/hiding)
     async function loadPdfViewer() {
-    // Decide which URL to give the viewer. If the resource is on a different
-    // origin, fetch it here in the parent and create a blob URL so the viewer
-    // sees a safe, 'null' origin blob URL (PDF.js accepts 'null'). This avoids
-    // validateFileURL rejections when the worker runs on another origin.
-    let fileToUse = normalizedPdfPath || pdfPath;
-    try {
-      // If fileToUse is an absolute URL and it's not same-origin, fetch and blob it.
-      const parsed = new URL(fileToUse, window.location.href);
-      if (parsed.origin !== window.location.origin && (parsed.protocol === 'http:' || parsed.protocol === 'https:')) {
-        // Attempt to fetch the resource (worker should allow CORS). If this
-        // fails, we'll fall back to using the original URL.
-        try {
-          const resp = await fetch(parsed.href, { cache: 'no-store', credentials: 'include' });
-          if (resp.ok) {
-            const blob = await resp.blob();
-            const blobUrl = URL.createObjectURL(blob);
-            fileToUse = blobUrl;
-          } else {
-            console.warn('fetch for cross-origin PDF failed', resp.status);
+      // Decide which URL to give the viewer. If the resource is on a different
+      // origin, fetch it here in the parent and create a blob URL so the viewer
+      // sees a safe, 'null' origin blob URL (PDF.js accepts 'null'). This avoids
+      // validateFileURL rejections when the worker runs on another origin.
+      let fileToUse = normalizedPdfPath || pdfPath;
+      try {
+        // If fileToUse is an absolute URL and it's not same-origin, fetch and blob it.
+        const parsed = new URL(fileToUse, window.location.href);
+        if (parsed.origin !== window.location.origin && (parsed.protocol === 'http:' || parsed.protocol === 'https:')) {
+          // Attempt to fetch the resource (worker should allow CORS). If this
+          // fails, we'll fall back to using the original URL.
+          try {
+            const resp = await fetch(parsed.href, { cache: 'no-store', credentials: 'include' });
+            if (resp.ok) {
+              const blob = await resp.blob();
+              const blobUrl = URL.createObjectURL(blob);
+              fileToUse = blobUrl;
+            } else {
+              console.warn('fetch for cross-origin PDF failed', resp.status);
+            }
+          } catch (e) {
+            console.warn('cross-origin fetch failed', e);
           }
-        } catch (e) {
-          console.warn('cross-origin fetch failed', e);
         }
+      } catch (e) {
+        // ignore URL parsing errors and use original fileToUse
       }
-    } catch (e) {
-      // ignore URL parsing errors and use original fileToUse
-    }
 
-    // check availability first (use resolved fileToUse)
-    const info = await checkPdfAvailable(fileToUse);
-        if (!info.ok) {
-            const msg = info.status ? `HTTP ${info.status} ${info.statusText || ''}` : (info.error || 'File not found or network error');
-            showPdfError('The requested PDF could not be found or accessed.', `${msg}`);
-            console.warn('PDF check failed', info);
-            return;
-        }
+      // check availability first (use resolved fileToUse)
+      const info = await checkPdfAvailable(fileToUse);
+      if (!info.ok) {
+        const msg = info.status ? `HTTP ${info.status} ${info.statusText || ''}` : (info.error || 'File not found or network error');
+        showPdfError('The requested PDF could not be found or accessed.', `${msg}`);
+        console.warn('PDF check failed', info);
+        return;
+      }
 
-  const pdfViewerUrl = `/pdfjs/web/viewer.html?file=${encodeURIComponent(fileToUse)}`;
-        document.getElementById('pdf-container').innerHTML = `
+      const pdfViewerUrl = `/pdfjs/web/viewer.html?file=${encodeURIComponent(fileToUse)}`;
+      document.getElementById('pdf-container').innerHTML = `
             <div style="width: 100%; height: 90vh;">
                 <iframe src="${pdfViewerUrl}" 
                         style="width: 100%; height: 100%; border: none;"
@@ -192,44 +275,44 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
         `;
 
-        // Track PDF view with PostHog
-        const sessionData = sessionStorage.getItem('user_session');
-        if (window.posthog && sessionData) {
-            try {
-                const session = JSON.parse(sessionData);
-                posthog.identify(session.srn, {
-                    srn: session.srn,
-                    name: session.profile.name || session.srn,
-                    branch: session.profile?.branch,
-                    semester: session.profile?.semester,
-                    is_pwa: window.matchMedia('(display-mode: standalone)').matches
-                });
-                posthog.capture('pdf_viewed', {
-                    pdf_path: pdfPath,
-                    pdf_title: title || 'Unknown',
-                    file_name: pdfPath.split('/').pop(),
-                    subject: extractSubjectFromPath(pdfPath),
-                    unit: extractUnitFromPath(pdfPath),
-                    view_timestamp: new Date().toISOString(),
-                    referrer: document.referrer,
-                    is_pwa: window.matchMedia('(display-mode: standalone)').matches
-                });
-            } catch (error) {
-                console.error('PostHog tracking error:', error);
-            }
+      // Track PDF view with PostHog
+      const sessionData = sessionStorage.getItem('user_session');
+      if (window.posthog && sessionData) {
+        try {
+          const session = JSON.parse(sessionData);
+          posthog.identify(session.srn, {
+            srn: session.srn,
+            name: session.profile.name || session.srn,
+            branch: session.profile?.branch,
+            semester: session.profile?.semester,
+            is_pwa: window.matchMedia('(display-mode: standalone)').matches
+          });
+          posthog.capture('pdf_viewed', {
+            pdf_path: pdfPath,
+            pdf_title: title || 'Unknown',
+            file_name: pdfPath.split('/').pop(),
+            subject: extractSubjectFromPath(pdfPath),
+            unit: extractUnitFromPath(pdfPath),
+            view_timestamp: new Date().toISOString(),
+            referrer: document.referrer,
+            is_pwa: window.matchMedia('(display-mode: standalone)').matches
+          });
+        } catch (error) {
+          console.error('PostHog tracking error:', error);
         }
+      }
     }
 
     // Extract subject from file path
     function extractSubjectFromPath(path) {
-        const match = path.match(/\/(wd|cfp|mp|mfca|pce)\//i);
-        return match ? match[1].toUpperCase() : 'Unknown';
+      const match = path.match(/\/(wd|cfp|mp|mfca|pce)\//i);
+      return match ? match[1].toUpperCase() : 'Unknown';
     }
 
     // Extract unit from file path
     function extractUnitFromPath(path) {
-        const match = path.match(/unit[-_]?(\d+)/i);
-        return match ? `Unit ${match[1]}` : 'Unknown';
+      const match = path.match(/unit[-_]?(\d+)/i);
+      return match ? `Unit ${match[1]}` : 'Unknown';
     }
 
     // Load PDF viewer if session is valid (login.js will handle session check)
@@ -238,207 +321,219 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Optionally, try to load PDF if already logged in
     if (sessionStorage.getItem('logged_in') === 'true' && typeof window.loadPdfViewer === 'function') {
-        window.loadPdfViewer();
+      window.loadPdfViewer();
     }
-});
+  });
 </script>
 <script>
-/* IndexedDB helper (simple promise wrapper) */
+  /* IndexedDB helper (simple promise wrapper) */
 
-// Ensure pdfPath, title and nav elements are available to this script (they were defined inside the earlier DOMContentLoaded block)
-const urlParams = new URLSearchParams(window.location.search);
-const pdfPath = urlParams.get('file');
-const title = urlParams.get('title');
+  // Ensure pdfPath, title and nav elements are available to this script (they were defined inside the earlier DOMContentLoaded block)
+  const urlParams = new URLSearchParams(window.location.search);
+  const pdfPath = urlParams.get('file');
+  const title = urlParams.get('title');
 
-// Nav elements
-const prevBtn = document.getElementById('pdf-prev');
-const nextBtn = document.getElementById('pdf-next');
+  // Nav elements
+  const prevBtn = document.getElementById('pdf-prev');
+  const nextBtn = document.getElementById('pdf-next');
 
-// Derive folder path (includes trailing slash)
-const folder = (pdfPath && pdfPath.lastIndexOf('/') > -1) ? pdfPath.slice(0, pdfPath.lastIndexOf('/') + 1) : '/';
+  // Derive folder path (includes trailing slash)
+  const folder = (pdfPath && pdfPath.lastIndexOf('/') > -1) ? pdfPath.slice(0, pdfPath.lastIndexOf('/') + 1) : '/';
 
-const DB_NAME = 'pes_res_index';
-const DB_VERSION = 1;
-function openDB() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, DB_VERSION);
-    req.onupgradeneeded = e => {
-      const db = e.target.result;
-      if (!db.objectStoreNames.contains('resources')) {
-        const os = db.createObjectStore('resources', { keyPath: 'path' });
-        os.createIndex('by-added', 'addedAt');
-      }
-    };
-    req.onsuccess = e => resolve(e.target.result);
-    req.onerror = e => reject(e.target.error);
-  });
-}
-
-/*
- * Global helpers: the earlier DOMContentLoaded block defined helper
- * functions inside its closure. The nav builder below runs in the
- * outer scope and needs these helpers to be available globally.
- * Expose safe, robust fallbacks here so buildNav() won't throw.
- */
-window.extractSubjectFromPath = window.extractSubjectFromPath || function(path) {
-  if (!path) return null;
-  const s = String(path);
-  // Common subject shortnames found in paths or data files
-  const known = ['wd','cfp','mp','mfca','pce'];
-  // 1) look for /<subject>/ segments
-  const m = s.match(/\/(wd|cfp|mp|mfca|pce)\b/i);
-  if (m) return m[1].toLowerCase();
-  // 2) look for data/<subject>.json references
-  const m2 = s.match(/data\/(wd|cfp|mp|mfca|pce)\.json/i);
-  if (m2) return m2[1].toLowerCase();
-  // 3) try any path segment that matches known list
-  const parts = s.split('/').filter(Boolean);
-  for (const p of parts) {
-    if (known.includes(p.toLowerCase())) return p.toLowerCase();
+  const DB_NAME = 'pes_res_index';
+  const DB_VERSION = 1;
+  function openDB() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = e => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains('resources')) {
+          const os = db.createObjectStore('resources', { keyPath: 'path' });
+          os.createIndex('by-added', 'addedAt');
+        }
+      };
+      req.onsuccess = e => resolve(e.target.result);
+      req.onerror = e => reject(e.target.error);
+    });
   }
-  // 4) fallback: if nothing matched, return null so caller can handle it
-  return null;
-};
 
-window.extractUnitFromPath = window.extractUnitFromPath || function(path) {
-  if (!path) return null;
-  const s = String(path);
-  const m = s.match(/unit[-_]?([0-9]+)/i);
-  return m ? `Unit ${m[1]}` : null;
-};
+  /*
+   * Global helpers: the earlier DOMContentLoaded block defined helper
+   * functions inside its closure. The nav builder below runs in the
+   * outer scope and needs these helpers to be available globally.
+   * Expose safe, robust fallbacks here so buildNav() won't throw.
+   */
+  window.extractSubjectFromPath = window.extractSubjectFromPath || function (path) {
+    if (!path) return null;
+    const s = String(path);
+    // Common subject shortnames found in paths or data files
+    const known = ['wd', 'cfp', 'mp', 'mfca', 'pce'];
+    // 1) look for /<subject>/ segments
+    const m = s.match(/\/(wd|cfp|mp|mfca|pce)\b/i);
+    if (m) return m[1].toLowerCase();
+    // 2) look for data/<subject>.json references
+    const m2 = s.match(/data\/(wd|cfp|mp|mfca|pce)\.json/i);
+    if (m2) return m2[1].toLowerCase();
+    // 3) try any path segment that matches known list
+    const parts = s.split('/').filter(Boolean);
+    for (const p of parts) {
+      if (known.includes(p.toLowerCase())) return p.toLowerCase();
+    }
+    // 4) fallback: if nothing matched, return null so caller can handle it
+    return null;
+  };
 
-async function getResourcesWithPrefix(prefix) {
-  const db = await openDB();
-  return new Promise((res, rej) => {
-    const tx = db.transaction('resources','readonly');
-    const store = tx.objectStore('resources');
-    const out = [];
-    const req = store.openCursor();
-    req.onsuccess = evt => {
-      const cur = evt.target.result;
-      if (!cur) { res(out); return; }
-      const p = cur.value.path;
-      if (p.startsWith(prefix)) out.push(cur.value);
-      cur.continue();
-    };
-    req.onerror = () => rej(req.error);
-  });
-}
+  window.extractUnitFromPath = window.extractUnitFromPath || function (path) {
+    if (!path) return null;
+    const s = String(path);
+    const m = s.match(/unit[-_]?([0-9]+)/i);
+    return m ? `Unit ${m[1]}` : null;
+  };
 
-/* Build navigation using IndexedDB first, fall back to sitemap */
-async function buildNav() {
-  try {
-    console.debug('buildNav (data-driven): start', { pdfPath, folder });
+  async function getResourcesWithPrefix(prefix) {
+    const db = await openDB();
+    return new Promise((res, rej) => {
+      const tx = db.transaction('resources', 'readonly');
+      const store = tx.objectStore('resources');
+      const out = [];
+      const req = store.openCursor();
+      req.onsuccess = evt => {
+        const cur = evt.target.result;
+        if (!cur) { res(out); return; }
+        const p = cur.value.path;
+        if (p.startsWith(prefix)) out.push(cur.value);
+        cur.continue();
+      };
+      req.onerror = () => rej(req.error);
+    });
+  }
 
-    // Extract current resource id from the pdfPath if possible
-    let currentId = null;
+  /* Build navigation using IndexedDB first, fall back to sitemap */
+  async function buildNav() {
     try {
-      const u = new URL(pdfPath, window.location.href);
-      // Expecting /api/resources/<id>/stream
-      const parts = u.pathname.split('/').filter(Boolean);
-      const idx = parts.indexOf('resources');
-      if (idx !== -1 && parts.length > idx + 1) currentId = parts[idx + 1];
-    } catch (e) {
-      // fallback: try to parse as plain string
-      const m = String(pdfPath).match(/api\/resources\/([-a-f0-9]{36})/i);
-      if (m) currentId = m[1];
-    }
-    if (!currentId) {
-      console.debug('buildNav: could not extract id from pdfPath', pdfPath);
-      return;
-    }
+      console.debug('buildNav (data-driven): start', { pdfPath, folder });
 
-    // Instead of guessing subject from the path, iterate a small set of
-    // known subjects and candidate roots and pick the JSON that actually
-    // contains the current resource id. This is simpler and more robust.
-    const subjects = ['wd','cfp','mp','mfca','pce'];
-    const roots = ['data','/data','/static/data','/public/data'];
-    let data = null;
-    let dataUrl = null;
-    for (const subj of subjects) {
-      for (const root of roots) {
-        const cand = `${root}/${subj}.json`;
-        try {
-          console.debug('buildNav: trying data json', cand);
-          const resp = await fetch(cand, { cache: 'no-store' });
-          if (!resp.ok) continue;
-          const parsed = await resp.json().catch(() => null);
-          if (!parsed) continue;
+      // Extract current resource id from the pdfPath if possible
+      let currentId = null;
+      try {
+        const u = new URL(pdfPath, window.location.href);
+        // Expecting /api/resources/<id>/stream
+        const parts = u.pathname.split('/').filter(Boolean);
+        const idx = parts.indexOf('resources');
+        if (idx !== -1 && parts.length > idx + 1) currentId = parts[idx + 1];
+      } catch (e) {
+        // fallback: try to parse as plain string
+        const m = String(pdfPath).match(/api\/resources\/([-a-f0-9]{36})/i);
+        if (m) currentId = m[1];
+      }
+      if (!currentId) {
+        console.debug('buildNav: could not extract id from pdfPath', pdfPath);
+        return;
+      }
 
-          // quick scan flatten files and check for currentId
-          const filesFlat = [];
-          if (Array.isArray(parsed.units)) {
-            for (const unit of parsed.units) {
-              if (!Array.isArray(unit.groups)) continue;
-              for (const group of unit.groups) {
-                if (!Array.isArray(group.files)) continue;
-                for (const f of group.files) filesFlat.push(f);
+      // Instead of guessing subject from the path, iterate a small set of
+      // known subjects and candidate roots and pick the JSON that actually
+      // contains the current resource id. This is simpler and more robust.
+      const subjects = ['wd', 'cfp', 'mp', 'mfca', 'pce'];
+      const roots = ['data', '/data', '/static/data', '/public/data'];
+      let data = null;
+      let dataUrl = null;
+      for (const subj of subjects) {
+        for (const root of roots) {
+          const cand = `${root}/${subj}.json`;
+          try {
+            console.debug('buildNav: trying data json', cand);
+            const resp = await fetch(cand, { cache: 'no-store' });
+            if (!resp.ok) continue;
+            const parsed = await resp.json().catch(() => null);
+            if (!parsed) continue;
+
+            // quick scan flatten files and check for currentId
+            const filesFlat = [];
+            if (Array.isArray(parsed.units)) {
+              for (const unit of parsed.units) {
+                if (!Array.isArray(unit.groups)) continue;
+                for (const group of unit.groups) {
+                  if (!Array.isArray(group.files)) continue;
+                  for (const f of group.files) filesFlat.push(f);
+                }
               }
             }
+            const found = filesFlat.find(f => String(f.id) === String(currentId) || (f.url || '').includes(String(currentId)));
+            if (found) {
+              data = parsed;
+              dataUrl = cand;
+              break;
+            }
+          } catch (e) {
+            console.debug('buildNav: candidate fetch failed', cand, e);
+            continue;
           }
-          const found = filesFlat.find(f => String(f.id) === String(currentId) || (f.url || '').includes(String(currentId)));
-          if (found) {
-            data = parsed;
-            dataUrl = cand;
-            break;
+        }
+        if (data) break;
+      }
+      if (!data) {
+        console.warn('buildNav: no data JSON found that contains resource', currentId);
+        return;
+      }
+
+      // Flatten files from units -> groups -> files preserving order
+      const files = [];
+      if (Array.isArray(data.units)) {
+        for (const unit of data.units) {
+          if (!Array.isArray(unit.groups)) continue;
+          for (const group of unit.groups) {
+            if (!Array.isArray(group.files)) continue;
+            for (const f of group.files) {
+              files.push(f);
+            }
           }
+        }
+      }
+      if (!files.length) {
+        console.debug('buildNav: no files found in data json', dataUrl);
+        return;
+      }
+
+      // Find index of currentId
+      const idx = files.findIndex(f => String(f.id) === String(currentId) || (f.url || '').includes(String(currentId)));
+      if (idx === -1) {
+        console.debug('buildNav: current resource not found in data json', currentId);
+        return;
+      }
+
+      // Helper to build viewer link for a file entry
+      const mkLink = f => {
+        try {
+          const raw = f.url || f.path || '';
+          const sessionToken = sessionStorage.getItem('stream_token');
+          const u = new URL(raw, window.location.href);
+          if (sessionToken && u.pathname.startsWith('/api/resources/') && !u.searchParams.get('token')) {
+            u.searchParams.set('token', sessionToken);
+          }
+          return `/pdf-viewer/?file=${encodeURIComponent(u.href)}&title=${encodeURIComponent(f.linkTitle || f.filename || '')}`;
         } catch (e) {
-          console.debug('buildNav: candidate fetch failed', cand, e);
-          continue;
+          return `/pdf-viewer/?file=${encodeURIComponent(f.url || f.path || '')}&title=${encodeURIComponent(f.linkTitle || f.filename || '')}`;
         }
+      };
+
+      if (prevBtn && idx > 0) {
+        const prev = files[idx - 1];
+        prevBtn.href = mkLink(prev);
+        prevBtn.style.display = 'inline-block';
+        prevBtn.setAttribute('aria-hidden', 'false');
       }
-      if (data) break;
-    }
-    if (!data) {
-      console.warn('buildNav: no data JSON found that contains resource', currentId);
-      return;
-    }
-
-    // Flatten files from units -> groups -> files preserving order
-    const files = [];
-    if (Array.isArray(data.units)) {
-      for (const unit of data.units) {
-        if (!Array.isArray(unit.groups)) continue;
-        for (const group of unit.groups) {
-          if (!Array.isArray(group.files)) continue;
-          for (const f of group.files) {
-            files.push(f);
-          }
-        }
+      if (nextBtn && idx < files.length - 1) {
+        const next = files[idx + 1];
+        nextBtn.href = mkLink(next);
+        nextBtn.style.display = 'inline-block';
+        nextBtn.setAttribute('aria-hidden', 'false');
       }
+    } catch (err) {
+      console.warn('buildNav (data-driven) failed', err);
     }
-    if (!files.length) {
-      console.debug('buildNav: no files found in data json', dataUrl);
-      return;
-    }
-
-    // Find index of currentId
-    const idx = files.findIndex(f => String(f.id) === String(currentId) || (f.url || '').includes(String(currentId)));
-    if (idx === -1) {
-      console.debug('buildNav: current resource not found in data json', currentId);
-      return;
-    }
-
-    // Helper to build viewer link for a file entry
-    const mkLink = f => `/pdf-viewer/?file=${encodeURIComponent(f.url || f.path || '')}&title=${encodeURIComponent(f.linkTitle || f.filename || '')}`;
-
-    if (prevBtn && idx > 0) {
-      const prev = files[idx - 1];
-      prevBtn.href = mkLink(prev);
-      prevBtn.style.display = 'inline-block';
-      prevBtn.setAttribute('aria-hidden', 'false');
-    }
-    if (nextBtn && idx < files.length - 1) {
-      const next = files[idx + 1];
-      nextBtn.href = mkLink(next);
-      nextBtn.style.display = 'inline-block';
-      nextBtn.setAttribute('aria-hidden', 'false');
-    }
-  } catch (err) {
-    console.warn('buildNav (data-driven) failed', err);
   }
-}
-/* Initialize nav: prefer DB-driven build */
-buildNav();
+  /* Initialize nav: prefer DB-driven build */
+  buildNav();
 </script>
 {% endblock main_content %}
