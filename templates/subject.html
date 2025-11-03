@@ -5,20 +5,6 @@
 <link rel="stylesheet" href="/css/index.css">
 <link defer rel="stylesheet" href="/css/alerts.css">
 <script defer src="/js/openLinkHandler.js"></script>
-<script>
-(function() {
-    const isMobileOrTablet = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) 
-                             || window.innerWidth <= 768;
-    
-    if (isMobileOrTablet) {
-        // Dynamically load mobile-nav.js only for mobile/tablet
-        const script = document.createElement('script');
-        script.src = '/js/mobile-nav.js';
-        script.async = true;
-        document.head.appendChild(script);
-    }
-})();
-</script>
 <main>
     {% include 'components/login.html' %}
     <article>
