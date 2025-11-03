@@ -248,12 +248,14 @@ export async function uploadResourceToSupabase(request, env) {
                 // continue to attempt upload
             }
 
-            // build storage key: subject/resource_type/checksum + ext
+            // build storage key: prefer preserving the original filename (sanitized)
+            // so uploaded files retain the same name users see in the upload form.
+            // We still computed checksum above for dedup checks and metadata.
             const id = crypto && crypto.randomUUID ? crypto.randomUUID() : `res-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-            const filename = file.name || `${id}.pdf`;
-            const extMatch = filename.match(/(\.[^./\\?]+)$/);
-            const ext = extMatch ? extMatch[1] : '';
-            const objectPath = `${subject}/${resource_type}/${checksum}${ext}`;
+            const origName = file.name || `${id}.pdf`;
+            // sanitize filename to avoid directory traversal and remove path chars
+            const safeName = String(origName).replace(/[\\/]+/g, '_').replace(/^[.\s]+/, '').slice(0, 240);
+            const objectPath = `${subject}/${resource_type}/${safeName}`;
 
             // upload bytes
             const uploadUrl = `${env.SUPABASE_URL.replace(/\/+$/, '')}/storage/v1/object/${encodeURIComponent(BUCKET)}/${encodeURIComponent(objectPath)}`;
