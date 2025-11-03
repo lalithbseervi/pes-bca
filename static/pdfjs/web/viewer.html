@@ -486,5 +486,42 @@ See https://github.com/adobe-type-tools/cmap-resources
     <div id="printContainer"></div>
 
     <input type="file" id="fileInput" class="hidden">
+    <script>
+      // origFilename handler: if the viewer was launched with an
+      // `origFilename` query parameter, prefer that name when the user
+      // clicks download. This helps when Content-Disposition isn't
+      // available to suggest a filename.
+      (function(){
+        try {
+          const params = new URLSearchParams(window.location.search || '');
+          const orig = params.get('origFilename');
+          const fileParam = params.get('file');
+          if (!orig || !fileParam) return;
+          const tryDownload = (href, filename) => {
+            try {
+              const a = document.createElement('a');
+              a.href = href;
+              a.download = filename;
+              a.style.display = 'none';
+              document.body.appendChild(a);
+              a.click();
+              a.remove();
+            } catch (e) { console.warn('origFilename download failed', e); }
+          };
+
+          const onClick = (ev) => {
+            ev.preventDefault(); ev.stopPropagation();
+            // Use the raw file param as the href — it may be absolute or
+            // relative. Let the browser request it so headers/cookies apply.
+            tryDownload(fileParam, orig);
+            return false;
+          };
+
+          // Attach to primary and secondary download buttons if present.
+          const ids = ['download', 'secondaryDownload', 'secondaryDownloadButton', 'secondaryOpenFile'];
+          ids.forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('click', onClick, true); });
+        } catch (e) { /* ignore */ }
+      })();
+    </script>
   </body>
 </html>
