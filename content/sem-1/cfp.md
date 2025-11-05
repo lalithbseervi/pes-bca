@@ -2,7 +2,7 @@
 title = "Computing Fundamentals Using Python"
 template = "subject-dynamic.html"
 date = "2025-10-16T19:11:00Z"
-updated = "2025-11-06T+05:30"
+updated = "2025-11-06"
 [extra]
 subject_code = 'cfp'
 meta = [
