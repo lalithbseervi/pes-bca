@@ -545,6 +545,17 @@ form.addEventListener('submit', async (e) => {
   if (semester) fd.append('semester', semester);
   fd.append('resource_type', resource_type);
   if (unit) fd.append('unit', unit);
+  // Attach performing user's identity from sessionStorage if available
+  try {
+    const sessionData = sessionStorage.getItem('user_session');
+    if (sessionData) {
+      const sess = JSON.parse(sessionData);
+      const performedBy = (sess && (sess.profile?.name || sess.srn)) || null;
+      if (performedBy) fd.append('performed_by', performedBy);
+    }
+  } catch (e) {
+    console.warn('failed to read user_session for performed_by', e);
+  }
 
   const filesToSend = selectedFiles.length ? selectedFiles : Array.from(fileInput.files || []).map(f => ({ file: f, title: formatDefaultTitle(f.name) || f.name }));
   if (!filesToSend.length) {
