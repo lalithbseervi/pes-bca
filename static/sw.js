@@ -150,3 +150,60 @@ self.addEventListener('push', event => {
     );
   }
 });
+
+// Refresh cached assets when requested (e.g., on page load)
+async function refreshCachedAssetsOnDemand() {
+  try {
+    const cache = await caches.open(CACHE_NAME);
+    const requests = await cache.keys();
+    const origin = self.location.origin;
+
+    // Helper to decide which cached requests to refresh. We limit to
+    // typical static asset extensions to avoid re-downloading large binaries like PDFs.
+    const refreshExt = /\.(css|js|json|png|jpg|jpeg|svg|ico|html)$/i;
+
+    const refreshPromises = requests.map(async (req) => {
+      try {
+        if (!req.url.startsWith(origin)) return false;
+        // Only GETs
+        if (req.method && req.method !== 'GET') return false;
+        // Skip opaque/foreign requests
+        const path = req.url.replace(origin, '');
+        if (!refreshExt.test(path)) return false;
+
+        // Fetch fresh version bypassing browser cache
+        const fresh = await fetch(req, { cache: 'no-cache', credentials: 'same-origin' });
+        if (fresh && fresh.ok) {
+          await cache.put(req, fresh.clone());
+          return true;
+        }
+      } catch (e) {
+        console.warn('[SW] refresh failed for', req.url, e);
+      }
+      return false;
+    });
+
+    const results = await Promise.all(refreshPromises);
+    const succeeded = results.filter(Boolean).length;
+    console.log(`[SW] refreshCachedAssetsOnDemand: refreshed ${succeeded}/${results.length} assets`);
+
+    // Notify clients that refresh completed
+    const clients = await self.clients.matchAll({ includeUncontrolled: true });
+    for (const c of clients) {
+      c.postMessage({ type: 'CACHE_REFRESHED', refreshed: succeeded, total: results.length });
+    }
+    return { refreshed: succeeded, total: results.length };
+  } catch (err) {
+    console.error('[SW] refreshCachedAssetsOnDemand error', err);
+    return { error: String(err) };
+  }
+}
+
+// Listen for messages from pages (e.g. trigger refresh on page load)
+self.addEventListener('message', (event) => {
+  const data = event.data || {};
+  if (data && data.type === 'REFRESH_ON_LOAD') {
+    // Run refresh but don't block message handling
+    event.waitUntil(refreshCachedAssetsOnDemand());
+  }
+});
