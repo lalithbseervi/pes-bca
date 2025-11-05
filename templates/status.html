@@ -389,11 +389,8 @@
   <a href="/status-admin" class="admin-link" id="admin-link" style="display: none;">Admin</a>
 </div>
 
-<script>
-function getApiBaseUrl() {
-  if (window.location.hostname !== 'pes-bca.pages.dev') return 'http://localhost:8787';
-  return 'https://cors-proxy.devpages.workers.dev';
-}
+<script type="module">
+import { API_BASE_URL } from '/js/utils.js';
 
 function formatDate(dateStr) {
   const date = new Date(dateStr);
@@ -429,7 +426,7 @@ function getStatusText(status) {
 
 async function loadStatus() {
   try {
-    const resp = await fetch(`${getApiBaseUrl()}/api/status`);
+    const resp = await fetch(`${API_BASE_URL}/api/status`);
     if (!resp.ok) throw new Error('Failed to fetch status');
     
     const data = await resp.json();

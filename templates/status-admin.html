@@ -1,143 +1,12 @@
 {% extends "base.html" %}
 
+{% block head %}
+<link rel="stylesheet" href="/css/admin.css">
+<link rel="stylesheet" href="/css/forms.css">
+{% endblock %}
+
 {% block main_content %}
 <style>
-  :root {
-    --card-bg: #fff;
-    --border: #e5e7eb;
-    --text-primary: #111827;
-    --text-secondary: #6b7280;
-    --primary: #10b981;
-    --danger: #ef4444;
-  }
-
-  .admin-page {
-    max-width: 1000px;
-    margin: 2rem auto;
-    padding: 0 1rem;
-  }
-
-  .admin-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 2rem;
-  }
-
-  .admin-header h1 {
-    font-size: 2rem;
-    color: #f9fafb;
-  }
-
-  .back-link {
-    padding: 0.5rem 1rem;
-    background: var(--card-bg);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    text-decoration: none;
-    color: var(--text-primary);
-  }
-
-  .back-link:hover {
-    background: #f9fafb;
-  }
-
-  .section {
-    background: var(--card-bg);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1.5rem;
-    margin-bottom: 1.5rem;
-  }
-
-  .section h2 {
-    font-size: 1.25rem;
-    margin-bottom: 1rem;
-    color: var(--text-primary);
-  }
-
-  .form-group {
-    margin-bottom: 1rem;
-  }
-
-  .form-group label {
-    display: block;
-    margin-bottom: 0.5rem;
-    font-weight: 500;
-    color: var(--text-primary);
-  }
-
-  .form-group input,
-  .form-group select,
-  .form-group textarea {
-    width: 100%;
-    padding: 0.75rem;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    font-size: 1rem;
-    font-family: inherit;
-  }
-
-  .form-group textarea {
-    resize: vertical;
-    min-height: 100px;
-  }
-
-  .form-group input:focus,
-  .form-group select:focus,
-  .form-group textarea:focus {
-    outline: none;
-    border-color: var(--primary);
-  }
-
-  .btn {
-    padding: 0.75rem 1.5rem;
-    border: none;
-    border-radius: 6px;
-    font-weight: 600;
-    cursor: pointer;
-    font-size: 1rem;
-  }
-
-  .btn-primary {
-    background: var(--primary);
-    color: white;
-  }
-
-  .btn-primary:hover {
-    background: #059669;
-  }
-
-  .btn-danger {
-    background: var(--danger);
-    color: white;
-  }
-
-  .btn-danger:hover {
-    background: #dc2626;
-  }
-
-  .btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .message {
-    padding: 1rem;
-    border-radius: 6px;
-    margin-bottom: 1rem;
-  }
-
-  .message.success {
-    background: #d1fae5;
-    color: #065f46;
-  }
-
-  .message.error {
-    background: #fee2e2;
-    color: #991b1b;
-  }
-
   .component-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
@@ -191,7 +60,7 @@
 
   .incident-meta {
     font-size: 0.875rem;
-    color: var(--text-secondary);
+    color: var(--admin-text-secondary);
   }
 
   .auth-required {
@@ -201,16 +70,10 @@
 
   .auth-required p {
     margin-bottom: 1rem;
-    color: var(--text-secondary);
+    color: var(--admin-text-secondary);
   }
 
   @media (max-width: 768px) {
-    .admin-header {
-      flex-direction: column;
-      gap: 1rem;
-      align-items: flex-start;
-    }
-
     .component-grid {
       grid-template-columns: 1fr;
     }
@@ -231,7 +94,7 @@
   <div id="auth-required" class="auth-required" style="display: none;">
     <h2>Authentication Required</h2>
     <p>You must be logged in to access the admin interface.</p>
-    <a href="/upload" class="btn btn-primary">Go to Login</a>
+    <a href="/upload" class="admin-btn admin-btn-primary">Go to Login</a>
   </div>
 
   <div id="admin-content" style="display: none;">
@@ -243,15 +106,15 @@
     <div id="message"></div>
 
     <!-- Create Incident -->
-    <div class="section">
+    <div class="admin-section">
       <h2>Create New Incident</h2>
       <form id="create-incident-form">
-        <div class="form-group">
+        <div class="admin-form-group">
           <label for="incident-title">Title *</label>
           <input type="text" id="incident-title" required placeholder="Brief description of the issue">
         </div>
 
-        <div class="form-group">
+        <div class="admin-form-group">
           <label for="incident-severity">Severity *</label>
           <select id="incident-severity" required>
             <option value="minor">Minor</option>
@@ -260,7 +123,7 @@
           </select>
         </div>
 
-        <div class="form-group">
+        <div class="admin-form-group">
           <label for="incident-type">Type *</label>
           <select id="incident-type" required>
             <option value="outage">Outage</option>
@@ -270,34 +133,34 @@
           </select>
         </div>
 
-        <div class="form-group">
+        <div class="admin-form-group">
           <label for="incident-component">Affected Component (Optional)</label>
           <select id="incident-component">
             <option value="">Select component...</option>
           </select>
         </div>
 
-        <div class="form-group">
+        <div class="admin-form-group">
           <label for="incident-message">Initial Message</label>
           <textarea id="incident-message" placeholder="What happened? What are we investigating?"></textarea>
         </div>
 
-        <button type="submit" class="btn btn-primary" id="create-btn">Create Incident</button>
+        <button type="submit" class="admin-btn admin-btn-primary" id="create-btn">Create Incident</button>
       </form>
     </div>
 
     <!-- Add Update to Existing Incident -->
-    <div class="section">
+    <div class="admin-section">
       <h2>Add Update to Incident</h2>
-      <div class="form-group">
+      <div class="admin-form-group">
         <label>Select Incident</label>
         <div id="incident-list" class="incident-list">
-          <p style="color: var(--text-secondary);">Loading incidents...</p>
+          <p style="color: var(--admin-text-secondary);">Loading incidents...</p>
         </div>
       </div>
 
       <form id="add-update-form" style="display: none;">
-        <div class="form-group">
+        <div class="admin-form-group">
           <label for="update-status">Status *</label>
           <select id="update-status" required>
             <option value="investigating">Investigating</option>
@@ -307,86 +170,35 @@
           </select>
         </div>
 
-        <div class="form-group">
+        <div class="admin-form-group">
           <label for="update-message">Message *</label>
           <textarea id="update-message" required placeholder="What's the latest update on this incident?"></textarea>
         </div>
 
-        <button type="submit" class="btn btn-primary" id="update-btn">Add Update</button>
+        <button type="submit" class="admin-btn admin-btn-primary" id="update-btn">Add Update</button>
       </form>
     </div>
 
     <!-- Update Component Status -->
-    <div class="section">
+    <div class="admin-section">
       <h2>Update Component Status</h2>
       <div id="components-grid" class="component-grid">
-        <p style="color: var(--text-secondary);">Loading components...</p>
+        <p style="color: var(--admin-text-secondary);">Loading components...</p>
       </div>
     </div>
   </div>
 </div>
 
-<script>
+<script type="module">
+import { API_BASE_URL, showMessage, checkAdminAuth, getAdminPassphrase } from '/js/utils.js';
+
 let selectedIncidentId = null;
 let components = [];
 let incidents = [];
 
-function getApiBaseUrl() {
-  if (window.location.hostname !== 'pes-bca.pages.dev') return 'http://localhost:8787';
-  return 'https://cors-proxy.devpages.workers.dev';
-}
-
-function showMessage(text, type = 'success') {
-  const msgEl = document.getElementById('message');
-  msgEl.innerHTML = `<div class="message ${type}">${text}</div>`;
-  setTimeout(() => msgEl.innerHTML = '', 5000);
-}
-
-async function checkAuth() {
-  try {
-    // Check session data first
-    const sessionData = sessionStorage.getItem('user_session');
-    if (!sessionData) {
-      window.location.href = '/';
-      return false;
-    }
-    
-    // Prompt for passphrase
-    const passphrase = prompt('Enter admin passphrase:');
-    if (!passphrase) {
-      window.location.href = '/';
-      return false;
-    }
-    
-    // Verify passphrase with server
-    const resp = await fetch(`${getApiBaseUrl()}/api/status/verify-passphrase`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ passphrase })
-    });
-    
-    if (!resp.ok) {
-      alert('Invalid passphrase');
-      window.location.href = '/';
-      return false;
-    }
-    
-    // Store passphrase in sessionStorage for subsequent requests
-    sessionStorage.setItem('admin_passphrase', passphrase);
-    
-    document.getElementById('admin-content').style.display = 'block';
-    return true;
-  } catch (e) {
-    console.error('Auth check failed', e);
-    window.location.href = '/';
-    return false;
-  }
-}
-
 async function loadData() {
   try {
-    const resp = await fetch(`${getApiBaseUrl()}/api/status`);
+    const resp = await fetch(`${API_BASE_URL}/api/status`);
     if (!resp.ok) throw new Error('Failed to fetch status');
     
     const data = await resp.json();
@@ -460,7 +272,7 @@ async function createIncident(e) {
   btn.disabled = true;
   
   try {
-    const passphrase = sessionStorage.getItem('admin_passphrase');
+    const passphrase = getAdminPassphrase();
     if (!passphrase) {
       window.location.href = '/';
       return;
@@ -474,7 +286,7 @@ async function createIncident(e) {
       initial_message: document.getElementById('incident-message').value || null
     };
     
-    const resp = await fetch(`${getApiBaseUrl()}/api/status/incidents`, {
+    const resp = await fetch(`${API_BASE_URL}/api/status/incidents`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
@@ -508,7 +320,7 @@ async function addUpdate(e) {
   btn.disabled = true;
   
   try {
-    const passphrase = sessionStorage.getItem('admin_passphrase');
+    const passphrase = getAdminPassphrase();
     if (!passphrase) {
       window.location.href = '/';
       return;
@@ -519,7 +331,7 @@ async function addUpdate(e) {
       message: document.getElementById('update-message').value
     };
     
-    const resp = await fetch(`${getApiBaseUrl()}/api/status/incidents/${selectedIncidentId}/updates`, {
+    const resp = await fetch(`${API_BASE_URL}/api/status/incidents/${selectedIncidentId}/updates`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
@@ -549,13 +361,13 @@ async function addUpdate(e) {
 
 async function updateComponentStatus(componentId, newStatus) {
   try {
-    const passphrase = sessionStorage.getItem('admin_passphrase');
+    const passphrase = getAdminPassphrase();
     if (!passphrase) {
       window.location.href = '/';
       return;
     }
     
-    const resp = await fetch(`${getApiBaseUrl()}/api/status/components/${componentId}`, {
+    const resp = await fetch(`${API_BASE_URL}/api/status/components/${componentId}`, {
       method: 'PATCH',
       headers: { 
         'Content-Type': 'application/json',
@@ -580,7 +392,12 @@ async function updateComponentStatus(componentId, newStatus) {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-  if (!await checkAuth()) return;
+  const passphrase = await checkAdminAuth();
+  if (!passphrase) {
+    document.getElementById('auth-required').style.display = 'block';
+    return;
+  }
+  document.getElementById('admin-content').style.display = 'block';
   
   loadData();
   document.getElementById('create-incident-form').addEventListener('submit', createIncident);

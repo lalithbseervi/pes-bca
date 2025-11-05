@@ -6,6 +6,85 @@
 <link rel="preload" href="/css/alerts.css" as="style" onload="this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="/css/alerts.css"></noscript>
 <script defer src="/js/openLinkHandler.js"></script>
+<style>
+  .search-filters {
+    background: rgba(31, 41, 55, 0.5);
+    border: 1px solid rgba(55, 65, 81, 0.5);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    backdrop-filter: blur(10px);
+  }
+  
+  .filter-row {
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+    align-items: flex-end;
+  }
+  
+  .filter-field {
+    flex: 1;
+    min-width: 200px;
+  }
+  
+  .filter-field label {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-size: 0.875rem;
+    color: #9ca3af;
+    font-weight: 500;
+  }
+  
+  .filter-field input {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid rgba(55, 65, 81, 0.8);
+    border-radius: 6px;
+    font-size: 0.875rem;
+    background: rgba(17, 24, 39, 0.5);
+    color: #f3f4f6;
+  }
+  
+  .filter-field input::placeholder {
+    color: #6b7280;
+  }
+  
+  .filter-field input:focus {
+    outline: none;
+    border-color: #10b981;
+  }
+  
+  .filter-btn {
+    padding: 0.5rem 1rem;
+    background: #10b981;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 0.875rem;
+  }
+  
+  .filter-btn:hover {
+    background: #059669;
+  }
+  
+  .clear-btn {
+    background: #6b7280;
+  }
+  
+  .clear-btn:hover {
+    background: #4b5563;
+  }
+  
+  .no-results {
+    text-align: center;
+    padding: 2rem;
+    color: #9ca3af;
+    font-style: italic;
+  }
+</style>
 <main>
     {% include "components/login.html" %}
     
@@ -26,7 +105,25 @@
             </div><br>
             {{ post_macros::page_header(title=section.title) }}
             {{ section.content | safe }}
-            <div class="parent-parent">
+            
+            <!-- Search and Filter Section -->
+            <div class="search-filters">
+              <div class="filter-row">
+                <div class="filter-field">
+                  <input type="text" id="search-input" placeholder="Search by filename or title...">
+                </div>
+                <div style="display: flex; gap: 0.5rem;">
+                  <button class="filter-btn" onclick="applyFilters()">Search</button>
+                  <button class="filter-btn clear-btn" onclick="clearFilters()">Clear</button>
+                </div>
+              </div>
+            </div>
+            
+            <div id="no-results" class="no-results" style="display: none;">
+              No results found. Try different search terms.
+            </div>
+            
+            <div class="parent-parent" id="content-area">
             <ul class="parent" style="list-style-type: none;">
                 <li>
                     <details open="true">
@@ -70,7 +167,7 @@
         </section>
     </article>
 </main>
-<p>Last Updated: 06-11-2025, 02:17:19</p>
+<p>Last Updated: 06-11-2025, 02:20:56</p>
 <script>
     // Close all child <details> when a parent <details> is closed
     document.addEventListener('DOMContentLoaded', function () {
@@ -83,6 +180,114 @@
                 }
             });
         });
+    });
+    
+    // Search and filter functionality
+    function applyFilters() {
+        const searchTerm = document.getElementById('search-input').value.toLowerCase().trim();
+        const contentArea = document.getElementById('content-area');
+        const noResults = document.getElementById('no-results');
+        
+        if (!searchTerm) {
+            clearFilters();
+            return;
+        }
+        
+        let foundAny = false;
+        
+        // Search through all links
+        const allLinks = contentArea.querySelectorAll('a');
+        allLinks.forEach(link => {
+            const text = link.textContent.toLowerCase();
+            const href = link.getAttribute('href') ? link.getAttribute('href').toLowerCase() : '';
+            const matches = text.includes(searchTerm) || href.includes(searchTerm);
+            
+            // Find the closest parent li
+            let listItem = link.closest('li');
+            if (listItem) {
+                if (matches) {
+                    listItem.style.display = '';
+                    foundAny = true;
+                    
+                    // Show all parent details elements
+                    let parent = listItem.parentElement;
+                    while (parent) {
+                        if (parent.tagName === 'DETAILS') {
+                            parent.open = true;
+                            parent.style.display = '';
+                        }
+                        if (parent.tagName === 'LI') {
+                            parent.style.display = '';
+                        }
+                        parent = parent.parentElement;
+                    }
+                } else {
+                    // Only hide leaf items (items without nested details)
+                    const hasNestedDetails = listItem.querySelector('details');
+                    if (!hasNestedDetails) {
+                        listItem.style.display = 'none';
+                    }
+                }
+            }
+        });
+        
+        // Hide empty details sections
+        contentArea.querySelectorAll('details').forEach(details => {
+            const visibleItems = Array.from(details.querySelectorAll(':scope > ul > li')).filter(li => {
+                return li.style.display !== 'none';
+            });
+            
+            if (visibleItems.length === 0) {
+                details.style.display = 'none';
+            } else {
+                details.style.display = '';
+            }
+        });
+        
+        noResults.style.display = foundAny ? 'none' : 'block';
+    }
+    
+    function clearFilters() {
+        document.getElementById('search-input').value = '';
+        const contentArea = document.getElementById('content-area');
+        const noResults = document.getElementById('no-results');
+        
+        // Show all items
+        contentArea.querySelectorAll('li, details').forEach(el => {
+            el.style.display = '';
+        });
+        
+        // Reset details to initial state (first 2 levels open)
+        contentArea.querySelectorAll('details').forEach(details => {
+            const level = getDetailsLevel(details);
+            details.open = level < 2;
+        });
+        
+        noResults.style.display = 'none';
+    }
+    
+    function getDetailsLevel(element) {
+        let level = 0;
+        let parent = element.parentElement;
+        while (parent) {
+            if (parent.tagName === 'DETAILS') {
+                level++;
+            }
+            parent = parent.parentElement;
+        }
+        return level;
+    }
+    
+    // Search on Enter key
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('search-input');
+        if (searchInput) {
+            searchInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    applyFilters();
+                }
+            });
+        }
     });
 </script>
 {% endmacro home_page %}

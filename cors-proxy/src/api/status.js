@@ -46,35 +46,6 @@ async function isAuthenticated(request, env) {
     }
 }
 
-// POST /api/status/verify-passphrase - Verify admin passphrase
-export async function verifyAdminPassphrase(request, env) {
-    const cors = getCorsHeaders(request);
-    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
-    
-    try {
-        const body = await request.json();
-        const { passphrase } = body;
-        
-        if (!passphrase || passphrase !== env.STATUS_ADMIN_PASSPHRASE) {
-            return new Response(JSON.stringify({ error: 'Invalid passphrase' }), {
-                status: 401,
-                headers: { ...cors, 'Content-Type': 'application/json' }
-            });
-        }
-        
-        return new Response(JSON.stringify({ valid: true }), {
-            status: 200,
-            headers: { ...cors, 'Content-Type': 'application/json' }
-        });
-    } catch (e) {
-        console.error('verify passphrase error', e);
-        return new Response(JSON.stringify({ error: 'Invalid request' }), {
-            status: 400,
-            headers: { ...cors, 'Content-Type': 'application/json' }
-        });
-    }
-}
-
 // GET /api/status - Public endpoint for status page
 export async function getStatus(request, env) {
     const cors = getCorsHeaders(request);

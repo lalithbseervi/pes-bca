@@ -3,6 +3,9 @@ document.getElementById('contact-form').addEventListener('submit', async functio
 
     const socialId = document.getElementById('social_id').value;
     const responseMessage = document.getElementById('response-message');
+    
+    // API Base URL - one-liner approach
+    const API_BASE_URL = (location.hostname === 'pes-bca.pages.dev') ? 'https://cors-proxy.devpages.workers.dev' : 'http://localhost:8787';
 
     // Validate input
     if (!socialId) {
@@ -10,16 +13,9 @@ document.getElementById('contact-form').addEventListener('submit', async functio
         return;
     }
 
-    function getApiBaseUrl() {
-        if (window.location.hostname != 'pes-bca.pages.dev') {
-            return 'http://localhost:8787';
-        }
-        return 'https://cors-proxy.devpages.workers.dev';
-    }
-
     try {
         // Sending data to the Cloudflare Worker
-        const response = await fetch(getApiBaseUrl() + '/api/contribute', {
+        const response = await fetch(API_BASE_URL + '/api/contribute', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

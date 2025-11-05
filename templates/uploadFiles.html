@@ -1,19 +1,12 @@
 {% extends "base.html" %}
 
+{% block head %}
+<link rel="stylesheet" href="/css/forms.css">
+{% endblock head %}
+
 {% block main_content %}
 {% include 'components/login.html' %}
 <style>
-  :root {
-    --primary: #2b7cff;
-    --card-bg: #fff;
-    --muted: #6b7280;
-    --field-bg: #fbfcfd;
-    --field-border: #d6dbe6;
-    --accent-border: rgba(18,38,63,0.06);
-    --danger: #7b1e1e;
-    --success: #046b3c;
-  }
-
   .upload-card {
     max-width: 880px;
     margin: 1.5rem auto;
@@ -31,10 +24,6 @@
     grid-template-columns: 1fr;
   }
 
-  .form-row {
-    display: flex;
-    flex-direction: column;
-  }
   label.small {
     font-size: 0.85rem;
     color: #333;
@@ -152,15 +141,6 @@
   }
   @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
-  .alert {
-    padding: 0.6rem 0.75rem;
-    border-radius: 6px;
-    margin-top: 0.75rem;
-    font-size: 0.95rem;
-  }
-  .alert.success { background: #f0fbf6; color: var(--success); border: 1px solid rgba(4, 107, 60, 0.08) }
-  .alert.error   { background: #fff6f6; color: var(--danger); border: 1px solid rgba(123,30,30,0.06) }
-
   @media (min-width: 720px) {
     .upload-grid { grid-template-columns: 1fr 1fr; }
     .controls { justify-content: flex-end; }
@@ -246,11 +226,8 @@
   </form>
 </div>
 
-<script>
-function getApiBaseUrl() {
-  if (window.location.hostname !== 'pes-bca.pages.dev') return 'http://localhost:8787';
-  return 'https://cors-proxy.devpages.workers.dev';
-}
+<script type="module">
+import { API_BASE_URL, showAlert } from '/js/utils.js';
 
 const form = document.getElementById('upload-form');
 const fileInput = document.getElementById('file');
@@ -521,15 +498,6 @@ fileList.addEventListener('click', (e) => {
 
 renderSelectedFiles(selectedFiles);
 
-function showAlert(message, type='success') {
-  alertBox.innerHTML = message;
-  alertBox.className = 'alert ' + (type === 'error' ? 'error' : 'success');
-  setTimeout(() => {
-    alertBox.innerHTML = '';
-    alertBox.className = '';
-  }, 6000);
-}
-
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
   alertBox.innerHTML = '';
@@ -579,7 +547,7 @@ form.addEventListener('submit', async (e) => {
   setUploading(true);
 
   try {
-    const res = await fetch(getApiBaseUrl() + '/api/resources/upload', {
+    const res = await fetch(`${API_BASE_URL}/api/resources/upload`, {
       method: 'POST',
       body: fd,
       credentials: 'include'
