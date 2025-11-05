@@ -7,7 +7,9 @@ import { getCacheStats } from "./api/cache-stats.js"
 import { handleFormReq } from "./api/contributeForm.js"
 import { handleCookielessEvent } from "./api/analytics.js"
 import { uploadResourceToSupabase, resourceStreamFromSupabase, mintStreamToken } from "./api/rw-supabase.js"
-import { getStatus, createIncident, addIncidentUpdate, updateComponentStatus, verifyAdminPassphrase } from "./api/status.js"
+import { getStatus, createIncident, addIncidentUpdate, updateComponentStatus } from "./api/status.js"
+import { verifyAdminPassphrase, getResources, updateResource, deleteResource, getFilters } from "./api/admin.js"
+import { getSubjectResources } from "./api/subject.js"
 // JWT utils are used inside route handlers
 
 addEventListener('fetch', event => {
@@ -24,7 +26,7 @@ async function handleRequest(request, env) {
       status: 204,
       headers: {
         ...corsHeaders,
-        'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS',
+        'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Admin-Passphrase',
         'Access-Control-Max-Age': '86400',
       }
@@ -91,9 +93,38 @@ async function handleRequest(request, env) {
     return getStatus(request, env)
   }
 
-  // POST /api/status/verify-passphrase - Verify admin passphrase
-  if (request.method === 'POST' && url.pathname === '/api/status/verify-passphrase') {
+  // GET /api/subject/resources - Get subject resources organized hierarchically
+  if (request.method === 'GET' && url.pathname === '/api/subject/resources') {
+    return getSubjectResources(request, env)
+  }
+
+  // POST /api/admin/verify-passphrase - Verify admin passphrase
+  if (request.method === 'POST' && url.pathname === '/api/admin/verify-passphrase') {
     return verifyAdminPassphrase(request, env)
+  }
+
+  // GET /api/admin/resources - Get all resources with pagination
+  if (request.method === 'GET' && url.pathname === '/api/admin/resources') {
+    return getResources(request, env)
+  }
+
+  // GET /api/admin/filters - Get available filter values
+  if (request.method === 'GET' && url.pathname === '/api/admin/filters') {
+    return getFilters(request, env)
+  }
+
+  // PATCH /api/admin/resources/:id - Update resource metadata
+  const updateResourceMatch = url.pathname.match(/^\/api\/admin\/resources\/([^/]+)\/?$/);
+  if (updateResourceMatch && request.method === 'PATCH') {
+    const ctx = { params: { id: updateResourceMatch[1] } };
+    return updateResource(request, env, ctx);
+  }
+
+  // DELETE /api/admin/resources/:id - Delete resource
+  const deleteResourceMatch = url.pathname.match(/^\/api\/admin\/resources\/([^/]+)\/?$/);
+  if (deleteResourceMatch && request.method === 'DELETE') {
+    const ctx = { params: { id: deleteResourceMatch[1] } };
+    return deleteResource(request, env, ctx);
   }
 
   // POST /api/status/incidents - Create new incident (authenticated)

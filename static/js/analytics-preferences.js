@@ -1,5 +1,8 @@
 (function() {
     'use strict';
+    
+    // API Base URL - one-liner approach
+    const API_BASE_URL = (location.hostname === 'pes-bca.pages.dev') ? 'https://cors-proxy.devpages.workers.dev' : 'http://localhost:8787';
 
     // Check if user has opted out
     function hasOptedOut() {
@@ -25,7 +28,7 @@
     function optOut() {
         localStorage.setItem('analytics_opt_out', 'true');
 
-        fetch(getApiBaseUrl() + '/api/analytics/cookieless', {
+        fetch(API_BASE_URL + '/api/analytics/cookieless', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

@@ -8,6 +8,9 @@ document.addEventListener('DOMContentLoaded', async function() {
     const errorMessage = document.getElementById('error-message');
     const cancelButton = document.getElementById('cancel-login');
     const loadingOverlay = document.getElementById('loading-overlay');
+    
+    // API Base URL - one-liner approach
+    const API_BASE_URL = (location.hostname === 'pes-bca.pages.dev') ? 'https://cors-proxy.devpages.workers.dev' : 'http://localhost:8787';
 
     // BroadcastChannel for cross-tab communication
     // solves the problem of session not being detected in new tabs
@@ -73,20 +76,10 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     }
 
-    // Determine API base URL based on environment
-    function getApiBaseUrl() {
-        if (window.location.hostname != 'pes-bca.pages.dev') {
-            return 'http://localhost:8787';
-        }
-        return 'https://cors-proxy.devpages.workers.dev';
-    }
-
-    window.getApiBaseUrl = getApiBaseUrl;
-
     async function tryServerSession() {
         try {
-            const res = await fetch(getApiBaseUrl() + '/api/session', { 
-                method: 'GET', 
+            const res = await fetch(API_BASE_URL + '/api/session', { 
+                method: 'GET',
                 credentials: 'include',
                 headers: {
                     'Accept': 'application/json'
@@ -139,7 +132,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 redirectPath = localStorage.getItem('postLoginRedirect');
                 localStorage.removeItem('postLoginRedirect');
             }
-            const loginUrl = `${getApiBaseUrl()}/api/login?redirect=${encodeURIComponent(redirectPath)}`;
+            const loginUrl = `${API_BASE_URL}/api/login?redirect=${encodeURIComponent(redirectPath)}`;
             const res = await fetch(loginUrl, {
                 method: 'POST',
                 headers: { 
