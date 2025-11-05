@@ -1,0 +1,590 @@
+{% extends "base.html" %}
+
+{% block main_content %}
+<style>
+  :root {
+    --card-bg: #fff;
+    --border: #e5e7eb;
+    --text-primary: #111827;
+    --text-secondary: #6b7280;
+    --primary: #10b981;
+    --danger: #ef4444;
+  }
+
+  .admin-page {
+    max-width: 1000px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+  }
+
+  .admin-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+  }
+
+  .admin-header h1 {
+    font-size: 2rem;
+    color: #f9fafb;
+  }
+
+  .back-link {
+    padding: 0.5rem 1rem;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    text-decoration: none;
+    color: var(--text-primary);
+  }
+
+  .back-link:hover {
+    background: #f9fafb;
+  }
+
+  .section {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .section h2 {
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+  }
+
+  .form-group {
+    margin-bottom: 1rem;
+  }
+
+  .form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 1rem;
+    font-family: inherit;
+  }
+
+  .form-group textarea {
+    resize: vertical;
+    min-height: 100px;
+  }
+
+  .form-group input:focus,
+  .form-group select:focus,
+  .form-group textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+
+  .btn {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 1rem;
+  }
+
+  .btn-primary {
+    background: var(--primary);
+    color: white;
+  }
+
+  .btn-primary:hover {
+    background: #059669;
+  }
+
+  .btn-danger {
+    background: var(--danger);
+    color: white;
+  }
+
+  .btn-danger:hover {
+    background: #dc2626;
+  }
+
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .message {
+    padding: 1rem;
+    border-radius: 6px;
+    margin-bottom: 1rem;
+  }
+
+  .message.success {
+    background: #d1fae5;
+    color: #065f46;
+  }
+
+  .message.error {
+    background: #fee2e2;
+    color: #991b1b;
+  }
+
+  .component-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1rem;
+  }
+
+  .component-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+  }
+
+  .component-card h3 {
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .component-card select {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+
+  .incident-list {
+    max-height: 300px;
+    overflow-y: auto;
+  }
+
+  .incident-item {
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+    cursor: pointer;
+  }
+
+  .incident-item:hover {
+    background: #f9fafb;
+  }
+
+  .incident-item.selected {
+    border-color: var(--primary);
+    background: #d1fae5;
+  }
+
+  .incident-title {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+  }
+
+  .incident-meta {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+  }
+
+  .auth-required {
+    text-align: center;
+    padding: 3rem 1rem;
+  }
+
+  .auth-required p {
+    margin-bottom: 1rem;
+    color: var(--text-secondary);
+  }
+
+  @media (max-width: 768px) {
+    .admin-header {
+      flex-direction: column;
+      gap: 1rem;
+      align-items: flex-start;
+    }
+
+    .component-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+   h1::before,
+   h2::before,
+   h3::before,
+   h1::after,
+   h2::after,
+   h3::after {
+    content: none !important;
+    display: none !important;
+  }
+</style>
+
+<div class="admin-page">
+  <div id="auth-required" class="auth-required" style="display: none;">
+    <h2>Authentication Required</h2>
+    <p>You must be logged in to access the admin interface.</p>
+    <a href="/upload" class="btn btn-primary">Go to Login</a>
+  </div>
+
+  <div id="admin-content" style="display: none;">
+    <div class="admin-header">
+      <h1>Status Admin</h1>
+      <a href="/status" class="back-link">← Back to Status</a>
+    </div>
+
+    <div id="message"></div>
+
+    <!-- Create Incident -->
+    <div class="section">
+      <h2>Create New Incident</h2>
+      <form id="create-incident-form">
+        <div class="form-group">
+          <label for="incident-title">Title *</label>
+          <input type="text" id="incident-title" required placeholder="Brief description of the issue">
+        </div>
+
+        <div class="form-group">
+          <label for="incident-severity">Severity *</label>
+          <select id="incident-severity" required>
+            <option value="minor">Minor</option>
+            <option value="major">Major</option>
+            <option value="critical">Critical</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="incident-type">Type *</label>
+          <select id="incident-type" required>
+            <option value="outage">Outage</option>
+            <option value="degradation">Degradation</option>
+            <option value="maintenance">Maintenance</option>
+            <option value="security">Security</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="incident-component">Affected Component (Optional)</label>
+          <select id="incident-component">
+            <option value="">Select component...</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="incident-message">Initial Message</label>
+          <textarea id="incident-message" placeholder="What happened? What are we investigating?"></textarea>
+        </div>
+
+        <button type="submit" class="btn btn-primary" id="create-btn">Create Incident</button>
+      </form>
+    </div>
+
+    <!-- Add Update to Existing Incident -->
+    <div class="section">
+      <h2>Add Update to Incident</h2>
+      <div class="form-group">
+        <label>Select Incident</label>
+        <div id="incident-list" class="incident-list">
+          <p style="color: var(--text-secondary);">Loading incidents...</p>
+        </div>
+      </div>
+
+      <form id="add-update-form" style="display: none;">
+        <div class="form-group">
+          <label for="update-status">Status *</label>
+          <select id="update-status" required>
+            <option value="investigating">Investigating</option>
+            <option value="identified">Identified</option>
+            <option value="monitoring">Monitoring</option>
+            <option value="resolved">Resolved</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="update-message">Message *</label>
+          <textarea id="update-message" required placeholder="What's the latest update on this incident?"></textarea>
+        </div>
+
+        <button type="submit" class="btn btn-primary" id="update-btn">Add Update</button>
+      </form>
+    </div>
+
+    <!-- Update Component Status -->
+    <div class="section">
+      <h2>Update Component Status</h2>
+      <div id="components-grid" class="component-grid">
+        <p style="color: var(--text-secondary);">Loading components...</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let selectedIncidentId = null;
+let components = [];
+let incidents = [];
+
+function getApiBaseUrl() {
+  if (window.location.hostname !== 'pes-bca.pages.dev') return 'http://localhost:8787';
+  return 'https://cors-proxy.devpages.workers.dev';
+}
+
+function showMessage(text, type = 'success') {
+  const msgEl = document.getElementById('message');
+  msgEl.innerHTML = `<div class="message ${type}">${text}</div>`;
+  setTimeout(() => msgEl.innerHTML = '', 5000);
+}
+
+async function checkAuth() {
+  try {
+    // Check session data first
+    const sessionData = sessionStorage.getItem('user_session');
+    if (!sessionData) {
+      window.location.href = '/';
+      return false;
+    }
+    
+    // Prompt for passphrase
+    const passphrase = prompt('Enter admin passphrase:');
+    if (!passphrase) {
+      window.location.href = '/';
+      return false;
+    }
+    
+    // Verify passphrase with server
+    const resp = await fetch(`${getApiBaseUrl()}/api/status/verify-passphrase`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ passphrase })
+    });
+    
+    if (!resp.ok) {
+      alert('Invalid passphrase');
+      window.location.href = '/';
+      return false;
+    }
+    
+    // Store passphrase in sessionStorage for subsequent requests
+    sessionStorage.setItem('admin_passphrase', passphrase);
+    
+    document.getElementById('admin-content').style.display = 'block';
+    return true;
+  } catch (e) {
+    console.error('Auth check failed', e);
+    window.location.href = '/';
+    return false;
+  }
+}
+
+async function loadData() {
+  try {
+    const resp = await fetch(`${getApiBaseUrl()}/api/status`);
+    if (!resp.ok) throw new Error('Failed to fetch status');
+    
+    const data = await resp.json();
+    components = data.components;
+    incidents = [...(data.active_incidents || []), ...(data.recent_incidents || [])];
+    
+    renderComponents();
+    renderIncidents();
+  } catch (e) {
+    console.error('Failed to load data', e);
+    showMessage('Failed to load data: ' + e.message, 'error');
+  }
+}
+
+function renderComponents() {
+  const componentSelect = document.getElementById('incident-component');
+  componentSelect.innerHTML = '<option value="">Select component...</option>' +
+    components.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  
+  const grid = document.getElementById('components-grid');
+  grid.innerHTML = components.map(c => `
+    <div class="component-card">
+      <h3>${c.name}</h3>
+      <select id="component-${c.id}" data-component-id="${c.id}">
+        <option value="operational" ${c.status === 'operational' ? 'selected' : ''}>Operational</option>
+        <option value="degraded_performance" ${c.status === 'degraded_performance' ? 'selected' : ''}>Degraded Performance</option>
+        <option value="partial_outage" ${c.status === 'partial_outage' ? 'selected' : ''}>Partial Outage</option>
+        <option value="major_outage" ${c.status === 'major_outage' ? 'selected' : ''}>Major Outage</option>
+        <option value="under_maintenance" ${c.status === 'under_maintenance' ? 'selected' : ''}>Under Maintenance</option>
+      </select>
+    </div>
+  `).join('');
+  
+  components.forEach(c => {
+    document.getElementById(`component-${c.id}`).addEventListener('change', (e) => {
+      updateComponentStatus(c.id, e.target.value);
+    });
+  });
+}
+
+function renderIncidents() {
+  const list = document.getElementById('incident-list');
+  if (incidents.length === 0) {
+    list.innerHTML = '<p style="color: var(--text-secondary);">No active or recent incidents.</p>';
+    return;
+  }
+  
+  list.innerHTML = incidents.map(i => `
+    <div class="incident-item" data-incident-id="${i.id}">
+      <div class="incident-title">${i.title}</div>
+      <div class="incident-meta">${i.status.toUpperCase()} • ${i.severity}</div>
+    </div>
+  `).join('');
+  
+  document.querySelectorAll('.incident-item').forEach(el => {
+    el.addEventListener('click', () => selectIncident(el.dataset.incidentId));
+  });
+}
+
+function selectIncident(incidentId) {
+  selectedIncidentId = incidentId;
+  document.querySelectorAll('.incident-item').forEach(el => {
+    el.classList.toggle('selected', el.dataset.incidentId === incidentId);
+  });
+  document.getElementById('add-update-form').style.display = 'block';
+}
+
+async function createIncident(e) {
+  e.preventDefault();
+  const btn = document.getElementById('create-btn');
+  btn.disabled = true;
+  
+  try {
+    const passphrase = sessionStorage.getItem('admin_passphrase');
+    if (!passphrase) {
+      window.location.href = '/';
+      return;
+    }
+    
+    const data = {
+      title: document.getElementById('incident-title').value,
+      severity: document.getElementById('incident-severity').value,
+      incident_type: document.getElementById('incident-type').value,
+      affected_component_id: document.getElementById('incident-component').value || null,
+      initial_message: document.getElementById('incident-message').value || null
+    };
+    
+    const resp = await fetch(`${getApiBaseUrl()}/api/status/incidents`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'X-Admin-Passphrase': passphrase
+      },
+      credentials: 'include',
+      body: JSON.stringify(data)
+    });
+    
+    if (!resp.ok) {
+      const error = await resp.json();
+      throw new Error(error.error || 'Failed to create incident');
+    }
+    
+    showMessage('Incident created successfully!');
+    document.getElementById('create-incident-form').reset();
+    await loadData();
+  } catch (e) {
+    console.error('Failed to create incident', e);
+    showMessage('Failed to create incident: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function addUpdate(e) {
+  e.preventDefault();
+  if (!selectedIncidentId) return;
+  
+  const btn = document.getElementById('update-btn');
+  btn.disabled = true;
+  
+  try {
+    const passphrase = sessionStorage.getItem('admin_passphrase');
+    if (!passphrase) {
+      window.location.href = '/';
+      return;
+    }
+    
+    const data = {
+      status: document.getElementById('update-status').value,
+      message: document.getElementById('update-message').value
+    };
+    
+    const resp = await fetch(`${getApiBaseUrl()}/api/status/incidents/${selectedIncidentId}/updates`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'X-Admin-Passphrase': passphrase
+      },
+      credentials: 'include',
+      body: JSON.stringify(data)
+    });
+    
+    if (!resp.ok) {
+      const error = await resp.json();
+      throw new Error(error.error || 'Failed to add update');
+    }
+    
+    showMessage('Update added successfully!');
+    document.getElementById('add-update-form').reset();
+    document.getElementById('add-update-form').style.display = 'none';
+    selectedIncidentId = null;
+    await loadData();
+  } catch (e) {
+    console.error('Failed to add update', e);
+    showMessage('Failed to add update: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function updateComponentStatus(componentId, newStatus) {
+  try {
+    const passphrase = sessionStorage.getItem('admin_passphrase');
+    if (!passphrase) {
+      window.location.href = '/';
+      return;
+    }
+    
+    const resp = await fetch(`${getApiBaseUrl()}/api/status/components/${componentId}`, {
+      method: 'PATCH',
+      headers: { 
+        'Content-Type': 'application/json',
+        'X-Admin-Passphrase': passphrase
+      },
+      credentials: 'include',
+      body: JSON.stringify({ status: newStatus })
+    });
+    
+    if (!resp.ok) {
+      const error = await resp.json();
+      throw new Error(error.error || 'Failed to update component');
+    }
+    
+    showMessage('Component status updated!');
+    await loadData();
+  } catch (e) {
+    console.error('Failed to update component', e);
+    showMessage('Failed to update component: ' + e.message, 'error');
+    await loadData(); // Reload to reset UI
+  }
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  if (!await checkAuth()) return;
+  
+  loadData();
+  document.getElementById('create-incident-form').addEventListener('submit', createIncident);
+  document.getElementById('add-update-form').addEventListener('submit', addUpdate);
+});
+</script>
+{% endblock main_content %}

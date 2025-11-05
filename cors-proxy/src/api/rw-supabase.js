@@ -3,6 +3,28 @@ import { verifyJWT } from '../utils/sign_jwt.js';
 
 const BUCKET = 'fileStore';
 
+// helper: write a file change log row into Supabase via REST API.
+// Table name may be configured via env.FILE_CHANGE_LOG_TABLE (default: file_change_log)
+async function insertFileChangeLog(env, supaHeaders, entry) {
+    // entry: { action, storage_key, filename, metadata_id, performed_by, details }
+    try {
+        const table = env.FILE_CHANGE_LOG_TABLE || 'file_change_log';
+        const url = `${env.SUPABASE_URL.replace(/\/+$/,'')}/rest/v1/${encodeURIComponent(table)}`;
+        const body = [ Object.assign({}, entry) ];
+        const resp = await fetch(url, { method: 'POST', headers: { ...supaHeaders, 'Content-Type': 'application/json', Prefer: 'return=representation' }, body: JSON.stringify(body) });
+        if (!resp.ok) {
+            const txt = await resp.text().catch(() => '<no body>');
+            console.error('insertFileChangeLog failed', resp.status, txt);
+            return null;
+        }
+        const j = await resp.json().catch(() => null);
+        return j && j[0] ? j[0] : j;
+    } catch (e) {
+        console.error('insertFileChangeLog error', e);
+        return null;
+    }
+}
+
 // Try multiple ways to obtain a signed URL from Supabase Storage. Supabase deployments
 // differ in accepted query params / methods (GET vs POST). This helper attempts
 // the most common forms and returns the parsed body ({ signedURL }) on success.
@@ -209,6 +231,7 @@ export async function uploadResourceToSupabase(request, env) {
     }
     // get all linkTitle entries (may be empty array)
     const linkTitles = form.getAll('linkTitle') || [];
+    const performed_by = form.get('performed_by') || null;
 
     if (!files.length || !subject || !resource_type) {
         return new Response(JSON.stringify({ success: false, error: 'missing_fields' }), {
@@ -323,6 +346,19 @@ export async function uploadResourceToSupabase(request, env) {
                 // optionally cleanup uploaded object here
                 throw new Error(`metadata_insert_failed: ${insertResp.status} ${t}`);
             }
+
+            // Log create event to file change log table (best-effort)
+            try {
+                // include performing user if provided by client
+                await insertFileChangeLog(env, supaHeaders, {
+                    action: 'create',
+                    storage_key: objectPath,
+                    filename: filename,
+                    metadata_id: id,
+                    performed_by: performed_by || null,
+                    details: { resource_type, subject, unit }
+                });
+            } catch (e) { console.warn('file change log insert error', e); }
 
             result.id = id;
             results.push(result);

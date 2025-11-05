@@ -7,6 +7,7 @@ import { getCacheStats } from "./api/cache-stats.js"
 import { handleFormReq } from "./api/contributeForm.js"
 import { handleCookielessEvent } from "./api/analytics.js"
 import { uploadResourceToSupabase, resourceStreamFromSupabase, mintStreamToken } from "./api/rw-supabase.js"
+import { getStatus, createIncident, addIncidentUpdate, updateComponentStatus, verifyAdminPassphrase } from "./api/status.js"
 // JWT utils are used inside route handlers
 
 addEventListener('fetch', event => {
@@ -23,8 +24,8 @@ async function handleRequest(request, env) {
       status: 204,
       headers: {
         ...corsHeaders,
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Admin-Passphrase',
         'Access-Control-Max-Age': '86400',
       }
     })
@@ -83,6 +84,35 @@ async function handleRequest(request, env) {
   // Endpoint to get cache statistics (requires authentication)
   if (request.method === 'GET' && url.pathname === '/api/cache-stats') {
     return getCacheStats(request, env)
+  }
+
+  // GET /api/status - Public status page data
+  if (request.method === 'GET' && url.pathname === '/api/status') {
+    return getStatus(request, env)
+  }
+
+  // POST /api/status/verify-passphrase - Verify admin passphrase
+  if (request.method === 'POST' && url.pathname === '/api/status/verify-passphrase') {
+    return verifyAdminPassphrase(request, env)
+  }
+
+  // POST /api/status/incidents - Create new incident (authenticated)
+  if (request.method === 'POST' && url.pathname === '/api/status/incidents') {
+    return createIncident(request, env)
+  }
+
+  // POST /api/status/incidents/:id/updates - Add incident update (authenticated)
+  const incidentUpdateMatch = url.pathname.match(/^\/api\/status\/incidents\/([^/]+)\/updates\/?$/);
+  if (incidentUpdateMatch && request.method === 'POST') {
+    const ctx = { params: { id: incidentUpdateMatch[1] } };
+    return addIncidentUpdate(request, env, ctx);
+  }
+
+  // PATCH /api/status/components/:id - Update component status (authenticated)
+  const componentMatch = url.pathname.match(/^\/api\/status\/components\/([^/]+)\/?$/);
+  if (componentMatch && request.method === 'PATCH') {
+    const ctx = { params: { id: componentMatch[1] } };
+    return updateComponentStatus(request, env, ctx);
   }
 
   return new Response('Not found', { status:404, headers: getCorsHeaders(request) })

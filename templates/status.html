@@ -1,0 +1,537 @@
+{% extends "base.html" %}
+
+{% block main_content %}
+<style>
+  :root {
+    --status-operational: #10b981;
+    --status-degraded: #f59e0b;
+    --status-partial: #f97316;
+    --status-major: #ef4444;
+    --status-maintenance: #3b82f6;
+    --card-bg: #fff;
+    --border: #e5e7eb;
+    --text-primary: #111827;
+    --text-secondary: #374151;
+  }
+
+  .status-page {
+    max-width: 900px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+  }
+
+  /* Remove any hashtag pseudo-elements from headings */
+  .status-page h1::before,
+  .status-page h2::before,
+  .status-page h3::before,
+  .status-page h1::after,
+  .status-page h2::after,
+  .status-page h3::after {
+    content: none !important;
+    display: none !important;
+  }
+
+  .status-header {
+    text-align: center;
+    margin-bottom: 3rem;
+  }
+
+  .status-header h1 {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+    color: #fff;
+  }
+
+  .overall-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 600;
+    margin-top: 1rem;
+  }
+
+  .overall-status.operational {
+    background: #d1fae5;
+    color: var(--status-operational);
+  }
+
+  .overall-status.degraded_performance {
+    background: #fef3c7;
+    color: var(--status-degraded);
+  }
+
+  .overall-status.partial_outage {
+    background: #ffedd5;
+    color: var(--status-partial);
+  }
+
+  .overall-status.major_outage {
+    background: #fee2e2;
+    color: var(--status-major);
+  }
+
+  .overall-status.under_maintenance {
+    background: #dbeafe;
+    color: var(--status-maintenance);
+  }
+
+  .status-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  .status-indicator.operational {
+    background: var(--status-operational);
+  }
+
+  .status-indicator.degraded_performance {
+    background: var(--status-degraded);
+  }
+
+  .status-indicator.partial_outage {
+    background: var(--status-partial);
+  }
+
+  .status-indicator.major_outage {
+    background: var(--status-major);
+  }
+
+  .status-indicator.under_maintenance {
+    background: var(--status-maintenance);
+  }
+
+  .components-section {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .components-section h2 {
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+  }
+
+  .component-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .component-item:last-child {
+    border-bottom: none;
+  }
+
+  .component-info h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+    color: var(--text-primary);
+  }
+
+  .component-info p {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin: 0;
+    font-weight: 500;
+  }
+
+  .component-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .incidents-section {
+    margin-bottom: 2rem;
+  }
+
+  .incidents-section h2 {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+  }
+
+  .incident-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .incident-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+  }
+
+  .incident-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+  }
+
+  .incident-meta {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+
+  .incident-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  .incident-badge.investigating {
+    background: #fef3c7;
+    color: #92400e;
+  }
+
+  .incident-badge.identified {
+    background: #dbeafe;
+    color: #1e40af;
+  }
+
+  .incident-badge.monitoring {
+    background: #e0e7ff;
+    color: #4338ca;
+  }
+
+  .incident-badge.resolved {
+    background: #d1fae5;
+    color: #065f46;
+  }
+
+  .incident-badge.scheduled {
+    background: #dbeafe;
+    color: #1e40af;
+  }
+
+  .severity-badge {
+    font-weight: 600;
+  }
+
+  .severity-badge.minor {
+    color: var(--status-degraded);
+  }
+
+  .severity-badge.major {
+    color: var(--status-partial);
+  }
+
+  .severity-badge.critical {
+    color: var(--status-major);
+  }
+
+  .incident-timeline {
+    margin-top: 1.5rem;
+  }
+
+  .timeline-item {
+    position: relative;
+    padding-left: 2rem;
+    padding-bottom: 1.5rem;
+  }
+
+  .timeline-item:last-child {
+    padding-bottom: 0;
+  }
+
+  .timeline-item::before {
+    content: '';
+    position: absolute;
+    left: 0.375rem;
+    top: 0.5rem;
+    bottom: -0.5rem;
+    width: 2px;
+    background: var(--border);
+  }
+
+  .timeline-item:last-child::before {
+    display: none;
+  }
+
+  .timeline-dot {
+    position: absolute;
+    left: 0;
+    top: 0.375rem;
+    width: 1rem;
+    height: 1rem;
+    border-radius: 50%;
+    background: var(--card-bg);
+    border: 2px solid var(--status-operational);
+  }
+
+  .timeline-content {
+    background: #f9fafb;
+    padding: 1rem;
+    border-radius: 8px;
+  }
+
+  .timeline-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+  }
+
+  .timeline-status {
+    font-weight: 600;
+    font-size: 0.875rem;
+  }
+
+  .timeline-date {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+
+  .timeline-message {
+    font-size: 0.875rem;
+    color: var(--text-primary);
+    line-height: 1.5;
+  }
+
+  .no-incidents {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+
+  .loading {
+    text-align: center;
+    padding: 2rem;
+  }
+
+  .admin-link {
+    position: fixed;
+    bottom: 1rem;
+    right: 1rem;
+    padding: 0.75rem 1rem;
+    background: var(--status-operational);
+    color: white;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+
+  .admin-link:hover {
+    background: #059669;
+  }
+
+  @media (max-width: 768px) {
+    .status-header h1 {
+      font-size: 1.5rem;
+    }
+
+    .incident-header {
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+  }
+</style>
+
+<div class="status-page">
+  <div class="status-header">
+    <h1>System Status</h1>
+    <div id="overall-status" class="overall-status operational">
+      <span class="status-indicator operational"></span>
+      <span>Loading...</span>
+    </div>
+  </div>
+
+  <div id="loading" class="loading">
+    <p>Loading status...</p>
+  </div>
+
+  <div id="content" style="display: none;">
+    <div class="components-section">
+      <h2>Service Components</h2>
+      <div id="components"></div>
+    </div>
+
+    <div id="active-incidents-section" class="incidents-section" style="display: none;">
+      <h2>Active Incidents</h2>
+      <div id="active-incidents"></div>
+    </div>
+
+    <div id="recent-incidents-section" class="incidents-section" style="display: none;">
+      <h2>Recent Incidents</h2>
+      <div id="recent-incidents"></div>
+    </div>
+
+    <div id="no-incidents" class="no-incidents" style="display: none;">
+      <p>All systems operational. No incidents in the past 30 days.</p>
+    </div>
+  </div>
+
+  <a href="/status-admin" class="admin-link" id="admin-link" style="display: none;">Admin</a>
+</div>
+
+<script>
+function getApiBaseUrl() {
+  if (window.location.hostname !== 'pes-bca.pages.dev') return 'http://localhost:8787';
+  return 'https://cors-proxy.devpages.workers.dev';
+}
+
+function formatDate(dateStr) {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+  if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+  
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function getStatusText(status) {
+  const statusMap = {
+    operational: 'Operational',
+    degraded_performance: 'Degraded Performance',
+    partial_outage: 'Partial Outage',
+    major_outage: 'Major Outage',
+    under_maintenance: 'Under Maintenance',
+    investigating: 'Investigating',
+    identified: 'Identified',
+    monitoring: 'Monitoring',
+    resolved: 'Resolved',
+    scheduled: 'Scheduled'
+  };
+  return statusMap[status] || status;
+}
+
+async function loadStatus() {
+  try {
+    const resp = await fetch(`${getApiBaseUrl()}/api/status`);
+    if (!resp.ok) throw new Error('Failed to fetch status');
+    
+    const data = await resp.json();
+    
+    // Update overall status
+    const overallEl = document.getElementById('overall-status');
+    overallEl.className = `overall-status ${data.overall_status}`;
+    overallEl.innerHTML = `
+      <span class="status-indicator ${data.overall_status}"></span>
+      <span>${getStatusText(data.overall_status)}</span>
+    `;
+    
+    // Render components
+    const componentsEl = document.getElementById('components');
+    componentsEl.innerHTML = data.components.map(c => `
+      <div class="component-item">
+        <div class="component-info">
+          <h3>${c.name}</h3>
+          ${c.description ? `<p>${c.description}</p>` : ''}
+        </div>
+        <div class="component-status">
+          <span class="status-indicator ${c.status}"></span>
+          <span>${getStatusText(c.status)}</span>
+        </div>
+      </div>
+    `).join('');
+    
+    // Render active incidents
+    if (data.active_incidents && data.active_incidents.length > 0) {
+      document.getElementById('active-incidents-section').style.display = 'block';
+      document.getElementById('active-incidents').innerHTML = data.active_incidents.map(i => renderIncident(i)).join('');
+    }
+    
+    // Render recent incidents
+    if (data.recent_incidents && data.recent_incidents.length > 0) {
+      document.getElementById('recent-incidents-section').style.display = 'block';
+      document.getElementById('recent-incidents').innerHTML = data.recent_incidents.map(i => renderIncident(i)).join('');
+    }
+    
+    // Show no incidents message if no incidents at all
+    if ((!data.active_incidents || data.active_incidents.length === 0) && 
+        (!data.recent_incidents || data.recent_incidents.length === 0)) {
+      document.getElementById('no-incidents').style.display = 'block';
+    }
+    
+    // Show admin link if authenticated
+    try {
+      const sessionData = sessionStorage.getItem('user_session');
+      if (sessionData) {
+        document.getElementById('admin-link').style.display = 'block';
+      }
+    } catch (e) {}
+    
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('content').style.display = 'block';
+  } catch (e) {
+    console.error('Failed to load status', e);
+    document.getElementById('loading').innerHTML = '<p>Failed to load status. Please try again later.</p>';
+  }
+}
+
+function renderIncident(incident) {
+  const updates = incident.updates || [];
+  return `
+    <div class="incident-card">
+      <div class="incident-header">
+        <div>
+          <div class="incident-title">${incident.title}</div>
+          <div class="incident-meta">
+            <span class="severity-badge ${incident.severity}">${incident.severity.toUpperCase()}</span>
+            <span>${formatDate(incident.started_at)}</span>
+            ${incident.resolved_at ? `<span>Resolved in ${Math.floor((new Date(incident.resolved_at) - new Date(incident.started_at)) / 60000)} minutes</span>` : ''}
+          </div>
+        </div>
+        <span class="incident-badge ${incident.status}">${getStatusText(incident.status)}</span>
+      </div>
+      
+      ${updates.length > 0 ? `
+        <div class="incident-timeline">
+          ${updates.map(u => `
+            <div class="timeline-item">
+              <div class="timeline-dot"></div>
+              <div class="timeline-content">
+                <div class="timeline-header">
+                  <span class="timeline-status">${getStatusText(u.status)}</span>
+                  <span class="timeline-date">${formatDate(u.created_at)}</span>
+                </div>
+                <div class="timeline-message">${u.message}</div>
+                ${u.created_by ? `<div class="timeline-date" style="margin-top: 0.5rem;">— ${u.created_by}</div>` : ''}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  loadStatus();
+  // Refresh every 30 seconds
+  setInterval(loadStatus, 30000);
+});
+</script>
+{% endblock main_content %}
