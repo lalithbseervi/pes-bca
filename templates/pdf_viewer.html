@@ -57,7 +57,9 @@
   <a id="pdf-next" href="#" title="Next document">Next →</a>
 </div><br>
 
-<script>
+<script type="module">
+  import { API_BASE_URL } from '/js/utils.js';
+  
   document.addEventListener('DOMContentLoaded', async function () {
     if (!sessionStorage.getItem('user_session')) { localStorage.setItem('postLoginRedirect', window.location.href); }
     // Get URL parameters
@@ -124,7 +126,7 @@
         }
 
         // Send credentials so cookies (HttpOnly) are forwarded by the browser.
-        const resp = await fetch(getApiBaseUrl() + '/api/mint-stream-token', { method: 'POST', headers, credentials: 'include', body: JSON.stringify({ id: resourceId, ttl: 600 }) });
+        const resp = await fetch(`${API_BASE_URL}/api/mint-stream-token`, { method: 'POST', headers, credentials: 'include', body: JSON.stringify({ id: resourceId, ttl: 600 }) });
         if (!resp.ok) {
           console.warn('ensureStreamToken: mint endpoint failed', resp.status);
           return;

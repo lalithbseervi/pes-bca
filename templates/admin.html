@@ -1,0 +1,457 @@
+{% extends "base.html" %}
+
+{% block head %}
+<link rel="stylesheet" href="/css/admin.css">
+{% endblock %}
+
+{% block main_content %}
+<style>
+  /* Page-specific styles only */
+  .auth-required {
+    text-align: center;
+    padding: 3rem 1rem;
+  }
+
+  .auth-required p {
+    margin-bottom: 1rem;
+    color: var(--admin-text-secondary);
+  }
+
+  .loading {
+    text-align: center;
+    padding: 2rem;
+    color: var(--admin-text-secondary);
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--admin-text-secondary);
+  }
+
+  .tab-content {
+    display: none;
+  }
+
+  .tab-content.active {
+    display: block;
+  }
+
+  iframe {
+    width: 100%;
+    height: calc(100vh - 200px);
+    border: 1px solid var(--admin-border);
+    border-radius: 8px;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .badge-primary {
+    background: #dbeafe;
+    color: #1e40af;
+  }
+
+  .badge-success {
+    background: #d1fae5;
+    color: #065f46;
+  }
+
+  .badge-warning {
+    background: #fef3c7;
+    color: #92400e;
+  }
+</style>
+
+<div class="admin-page">
+  <div id="auth-required" class="auth-required" style="display: none;">
+    <h2>Authentication Required</h2>
+    <p>You must be logged in to access the admin panel.</p>
+    <a href="/upload" class="admin-btn admin-btn-primary">Go to Login</a>
+  </div>
+
+  <div id="admin-content" style="display: none;">
+    <div class="admin-header">
+      <h1>Admin Panel</h1>
+      <a href="/" class="admin-btn admin-btn-secondary">← Back to Home</a>
+    </div>
+
+    <div id="message"></div>
+
+    <div class="admin-tabs">
+      <button class="admin-tab active" data-tab="resources">Resources</button>
+      <button class="admin-tab" data-tab="status">Status Page</button>
+    </div>
+
+    <!-- Resources Tab -->
+    <div class="tab-content active" id="tab-resources">
+      <div class="admin-section">
+        <h2>Manage Resources</h2>
+        
+        <div class="admin-filters">
+          <div class="admin-filter-group">
+            <label>Search</label>
+            <input type="text" id="search" placeholder="Search by filename or title...">
+          </div>
+          
+          <div class="admin-filter-group">
+            <label>Subject</label>
+            <select id="filter-subject">
+              <option value="">All Subjects</option>
+            </select>
+          </div>
+          
+          <div class="admin-filter-group">
+            <label>Semester</label>
+            <select id="filter-semester">
+              <option value="">All Semesters</option>
+            </select>
+          </div>
+          
+          <div class="admin-filter-group">
+            <label>Type</label>
+            <select id="filter-type">
+              <option value="">All Types</option>
+            </select>
+          </div>
+          
+          <div class="admin-filter-group" style="display: flex; align-items: flex-end;">
+            <button class="admin-btn admin-btn-primary" id="apply-filters">Apply Filters</button>
+          </div>
+        </div>
+
+        <div id="resources-loading" class="loading" style="display: none;">
+          <p>Loading resources...</p>
+        </div>
+
+        <div id="resources-empty" class="empty-state" style="display: none;">
+          <p>No resources found.</p>
+        </div>
+
+        <div class="table-container" id="resources-table" style="display: none;">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Filename</th>
+                <th>Title</th>
+                <th>Subject</th>
+                <th>Semester</th>
+                <th>Type</th>
+                <th>Unit</th>
+                <th>Size</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="resources-tbody">
+            </tbody>
+          </table>
+        </div>
+
+        <div class="admin-pagination" id="pagination" style="display: none;">
+          <button class="admin-page-btn" id="prev-page">Previous</button>
+          <span id="page-info"></span>
+          <button class="admin-page-btn" id="next-page">Next</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status Page Tab -->
+    <div class="tab-content" id="tab-status">
+      <iframe src="/status-admin" id="status-frame"></iframe>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="admin-modal" id="edit-modal">
+  <div class="admin-modal-content">
+    <div class="admin-modal-header">
+      <h2>Edit Link Title</h2>
+      <button class="admin-modal-close" onclick="closeEditModal()">×</button>
+    </div>
+    <form id="edit-form">
+      <input type="hidden" id="edit-id">
+      
+      <div class="admin-form-group">
+        <label>Current Filename</label>
+        <input type="text" id="edit-filename" disabled style="opacity: 0.6;">
+      </div>
+      
+      <div class="admin-form-group">
+        <label>Link Title *</label>
+        <input type="text" id="edit-link-title" required placeholder="Enter display title for this resource">
+      </div>
+      
+      <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1.5rem;">
+        <button type="button" class="admin-btn admin-btn-secondary" onclick="closeEditModal()">Cancel</button>
+        <button type="submit" class="admin-btn admin-btn-primary" id="save-edit-btn">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script type="module">
+import { API_BASE_URL, showMessage, formatBytes, checkAdminAuth, getAdminPassphrase } from '/js/utils.js';
+
+let currentPage = 1;
+let currentFilters = {};
+let allFilters = {};
+let currentResources = [];
+
+async function loadFilters() {
+  try {
+    const passphrase = getAdminPassphrase();
+    const resp = await fetch(`${API_BASE_URL}/api/admin/filters`, {
+      headers: {
+        'X-Admin-Passphrase': passphrase
+      },
+      credentials: 'include'
+    });
+    
+    if (!resp.ok) throw new Error('Failed to load filters');
+    
+    allFilters = await resp.json();
+    
+    // Populate filter dropdowns
+    const subjectSelect = document.getElementById('filter-subject');
+    subjectSelect.innerHTML = '<option value="">All Subjects</option>' +
+      allFilters.subjects.map(s => `<option value="${s}">${s}</option>`).join('');
+    
+    const semesterSelect = document.getElementById('filter-semester');
+    semesterSelect.innerHTML = '<option value="">All Semesters</option>' +
+      allFilters.semesters.map(s => `<option value="${s}">${s}</option>`).join('');
+    
+    const typeSelect = document.getElementById('filter-type');
+    typeSelect.innerHTML = '<option value="">All Types</option>' +
+      allFilters.resource_types.map(t => `<option value="${t}">${t}</option>`).join('');
+  } catch (e) {
+    console.error('Failed to load filters', e);
+  }
+}
+
+async function loadResources(page = 1) {
+  try {
+    document.getElementById('resources-loading').style.display = 'block';
+    document.getElementById('resources-table').style.display = 'none';
+    document.getElementById('resources-empty').style.display = 'none';
+    document.getElementById('pagination').style.display = 'none';
+    
+    const passphrase = getAdminPassphrase();
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: '50',
+      ...currentFilters
+    });
+    
+    const resp = await fetch(`${API_BASE_URL}/api/admin/resources?${params}`, {
+      headers: {
+        'X-Admin-Passphrase': passphrase
+      },
+      credentials: 'include'
+    });
+    
+    if (!resp.ok) throw new Error('Failed to load resources');
+    
+    const data = await resp.json();
+    currentResources = data.resources;
+    currentPage = page;
+    
+    document.getElementById('resources-loading').style.display = 'none';
+    
+    if (data.resources.length === 0) {
+      document.getElementById('resources-empty').style.display = 'block';
+      return;
+    }
+    
+    renderResources(data.resources);
+    renderPagination(data.pagination);
+    
+    document.getElementById('resources-table').style.display = 'block';
+    document.getElementById('pagination').style.display = 'flex';
+  } catch (e) {
+    console.error('Failed to load resources', e);
+    document.getElementById('resources-loading').style.display = 'none';
+    showMessage('Failed to load resources: ' + e.message, 'error');
+  }
+}
+
+function renderResources(resources) {
+  const tbody = document.getElementById('resources-tbody');
+  tbody.innerHTML = resources.map(r => `
+    <tr>
+      <td>${r.filename || 'N/A'}</td>
+      <td>${r.link_title || 'N/A'}</td>
+      <td><span class="badge badge-primary">${r.subject || 'N/A'}</span></td>
+      <td>${r.semester || 'N/A'}</td>
+      <td>${r.resource_type || 'N/A'}</td>
+      <td>${r.unit !== null ? r.unit : 'N/A'}</td>
+      <td>${r.size ? formatBytes(r.size) : 'N/A'}</td>
+      <td>
+        <div class="actions">
+          <button class="btn btn-primary" onclick="editResource('${r.id}')">Edit</button>
+          <button class="btn btn-danger" onclick="deleteResource('${r.id}', '${r.filename}')">Delete</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function renderPagination(pagination) {
+  document.getElementById('page-info').textContent = 
+    `Page ${pagination.page} of ${pagination.pages} (${pagination.total} total)`;
+  
+  document.getElementById('prev-page').disabled = pagination.page === 1;
+  document.getElementById('next-page').disabled = pagination.page === pagination.pages;
+}
+
+function editResource(id) {
+  const resource = currentResources.find(r => r.id === id);
+  if (!resource) return;
+  
+  document.getElementById('edit-id').value = resource.id;
+  document.getElementById('edit-filename').value = resource.filename || '';
+  document.getElementById('edit-link-title').value = resource.link_title || '';
+  
+  document.getElementById('edit-modal').classList.add('active');
+}
+
+function closeEditModal() {
+  document.getElementById('edit-modal').classList.remove('active');
+}
+
+async function saveEdit(e) {
+  e.preventDefault();
+  const btn = document.getElementById('save-edit-btn');
+  btn.disabled = true;
+  
+  try {
+    const id = document.getElementById('edit-id').value;
+    const passphrase = getAdminPassphrase();
+    
+    const updates = {
+      link_title: document.getElementById('edit-link-title').value
+    };
+    
+    const resp = await fetch(`${API_BASE_URL}/api/admin/resources/${id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Admin-Passphrase': passphrase
+      },
+      credentials: 'include',
+      body: JSON.stringify(updates)
+    });
+    
+    if (!resp.ok) {
+      const error = await resp.json();
+      throw new Error(error.error || 'Failed to update resource');
+    }
+    
+    showMessage('Link title updated successfully!');
+    closeEditModal();
+    await loadResources(currentPage);
+  } catch (e) {
+    console.error('Failed to update resource', e);
+    showMessage('Failed to update resource: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function deleteResource(id, filename) {
+  if (!confirm(`Are you sure you want to delete "${filename}"? This cannot be undone.`)) {
+    return;
+  }
+  
+  try {
+    const passphrase = getAdminPassphrase();
+    
+    const resp = await fetch(`${API_BASE_URL}/api/admin/resources/${id}`, {
+      method: 'DELETE',
+      headers: {
+        'X-Admin-Passphrase': passphrase
+      },
+      credentials: 'include'
+    });
+    
+    if (!resp.ok) {
+      const error = await resp.json();
+      throw new Error(error.error || 'Failed to delete resource');
+    }
+    
+    showMessage('Resource deleted successfully!');
+    await loadResources(currentPage);
+  } catch (e) {
+    console.error('Failed to delete resource', e);
+    showMessage('Failed to delete resource: ' + e.message, 'error');
+  }
+}
+
+// Tab switching
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    const tabName = tab.dataset.tab;
+    
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    
+    tab.classList.add('active');
+    document.getElementById(`tab-${tabName}`).classList.add('active');
+  });
+});
+
+// Apply filters
+document.getElementById('apply-filters').addEventListener('click', () => {
+  currentFilters = {
+    search: document.getElementById('search').value || undefined,
+    subject: document.getElementById('filter-subject').value || undefined,
+    semester: document.getElementById('filter-semester').value || undefined,
+    resource_type: document.getElementById('filter-type').value || undefined
+  };
+  
+  // Remove undefined values
+  Object.keys(currentFilters).forEach(key => 
+    currentFilters[key] === undefined && delete currentFilters[key]
+  );
+  
+  loadResources(1);
+});
+
+// Search on Enter
+document.getElementById('search').addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') {
+    document.getElementById('apply-filters').click();
+  }
+});
+
+// Pagination
+document.getElementById('prev-page').addEventListener('click', () => {
+  if (currentPage > 1) loadResources(currentPage - 1);
+});
+
+document.getElementById('next-page').addEventListener('click', () => {
+  loadResources(currentPage + 1);
+});
+
+// Edit form
+document.getElementById('edit-form').addEventListener('submit', saveEdit);
+
+// Initialize
+document.addEventListener('DOMContentLoaded', async () => {
+  const passphrase = await checkAdminAuth();
+  if (!passphrase) {
+    document.getElementById('auth-required').style.display = 'block';
+    return;
+  }
+  
+  document.getElementById('admin-content').style.display = 'block';
+  await loadFilters();
+  await loadResources(1);
+});
+</script>
+{% endblock main_content %}

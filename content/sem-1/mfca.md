@@ -1,10 +1,10 @@
 +++
 title = "MFCA"
-template = "subject.html"
+template = "subject-dynamic.html"
 date = "2025-10-16T19:11:00Z"
-updated = "2025-10-20T14:34:46+05:30"
+updated = "2025-11-06T+05:30"
 [extra]
-subject_template = 'mfca.html'
+subject_code = 'mfca'
 meta = [
         { property = "og:title", content = "Mathematical Foundation for Computer Applications | PES-BCA" },
         { property = "og:description", content = "Sem-1 Mathematical Foundation for Computer Applications (MFCA) Content, PES" },

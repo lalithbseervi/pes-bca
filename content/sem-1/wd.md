@@ -1,10 +1,10 @@
 +++
 title = "Web Design"
-template = "subject.html"
+template = "subject-dynamic.html"
 date = "2025-10-16T19:11:00Z"
-updated = "2025-10-20T14:34:47+05:30"
+updated = "2025-11-06T+05:30"
 [extra]
-subject_template = 'wd.html'
+subject_code = 'wd'
 meta = [
         { property = "og:title", content = "Web Design | PES-BCA" },
         { property = "og:description", content = "Sem-1 Web Design Content, PES" },
