@@ -33,3 +33,4 @@ templates/pce.html
 templates/wd.html
 
 data/*
+static/data/*
