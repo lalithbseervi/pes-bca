@@ -129,9 +129,9 @@ export async function createIncident(request, env) {
     
     try {
         const body = await request.json();
-        const { title, status, severity, incident_type, affected_components, initial_message } = body;
+        const { title, severity, incident_type, affected_components, initial_message } = body;
         
-        if (!title || !status) {
+        if (!title) {
             return new Response(JSON.stringify({ error: 'missing_required_fields' }), {
                 status: 400,
                 headers: { 'Content-Type': 'application/json', ...cors }
@@ -146,10 +146,10 @@ export async function createIncident(request, env) {
             Prefer: 'return=representation'
         };
         
-        // Create incident
+        // Create incident with default status 'investigating'
         const incidentData = {
             title,
-            status,
+            status: 'investigating', // Default initial status
             severity: severity || 'minor',
             incident_type: incident_type || 'outage',
             affected_components: affected_components || [],
@@ -175,7 +175,7 @@ export async function createIncident(request, env) {
         if (initial_message) {
             const updateData = {
                 incident_id: incident.id,
-                status,
+                status: 'investigating', // Use same default status
                 message: initial_message,
                 created_by: user.srn || user.email || 'admin'
             };
