@@ -59,6 +59,7 @@
 
 <script type="module">
   import { API_BASE_URL } from '/js/utils.js';
+  window.API_BASE_URL = API_BASE_URL;
   
   document.addEventListener('DOMContentLoaded', async function () {
     if (!sessionStorage.getItem('user_session')) { localStorage.setItem('postLoginRedirect', window.location.href); }
@@ -250,7 +251,14 @@
           // Attempt to fetch the resource (worker should allow CORS). If this
           // fails, we'll fall back to using the original URL.
           try {
-            const resp = await fetch(parsed.href, { cache: 'no-store', credentials: 'include' });
+            // Replace localhost URLs with the actual API_BASE_URL
+            let fetchUrl = parsed.href;
+            if (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') {
+              // Extract the path from the localhost URL and combine with API_BASE_URL
+              fetchUrl = API_BASE_URL + parsed.pathname + parsed.search;
+            }
+            
+            const resp = await fetch(fetchUrl, { cache: 'no-store', credentials: 'include' });
             if (resp.ok) {
               const blob = await resp.blob();
               const blobUrl = URL.createObjectURL(blob);
