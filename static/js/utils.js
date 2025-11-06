@@ -133,11 +133,12 @@ export function requireAuth(redirectUrl = window.location.href) {
 /**
  * Check admin passphrase
  * @param {boolean} forcePrompt - Force prompt even if passphrase exists in session
+ * @param {boolean} requireUserAuth - Whether to require user authentication first (default: false)
  * @returns {Promise<string|null>} Passphrase or null if cancelled/failed
  */
-export async function checkAdminAuth(forcePrompt = false) {
-  // First check if user is logged in
-  if (!isAuthenticated()) {
+export async function checkAdminAuth(forcePrompt = false, requireUserAuth = false) {
+  // Optionally check if user is logged in first
+  if (requireUserAuth && !isAuthenticated()) {
     redirectToLogin();
     return null;
   }

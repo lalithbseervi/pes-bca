@@ -7,6 +7,17 @@
 {% block main_content %}
 {% include 'components/login.html' %}
 <style>
+  :root {
+    --primary: #2b7cff;
+    --card-bg: #fff;
+    --muted: #6b7280;
+    --field-bg: #fbfcfd;
+    --field-border: #d6dbe6;
+    --accent-border: rgba(18,38,63,0.06);
+    --danger: #7b1e1e;
+    --success: #046b3c;
+  }
+
   .upload-card {
     max-width: 880px;
     margin: 1.5rem auto;
@@ -24,6 +35,10 @@
     grid-template-columns: 1fr;
   }
 
+  .form-row {
+    display: flex;
+    flex-direction: column;
+  }
   label.small {
     font-size: 0.85rem;
     color: #333;
@@ -140,6 +155,15 @@
     margin-right: 0.5rem;
   }
   @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+  .alert {
+    padding: 0.6rem 0.75rem;
+    border-radius: 6px;
+    margin-top: 0.75rem;
+    font-size: 0.95rem;
+  }
+  .alert.success { background: #f0fbf6; color: var(--success); border: 1px solid rgba(4, 107, 60, 0.08) }
+  .alert.error   { background: #fff6f6; color: var(--danger); border: 1px solid rgba(123,30,30,0.06) }
 
   @media (min-width: 720px) {
     .upload-grid { grid-template-columns: 1fr 1fr; }

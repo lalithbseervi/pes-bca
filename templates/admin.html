@@ -1,10 +1,8 @@
 {% extends "base.html" %}
 
-{% block head %}
-<link rel="stylesheet" href="/css/admin.css">
-{% endblock %}
-
 {% block main_content %}
+<link rel="stylesheet" href="/css/admin.css">
+
 <style>
   /* Page-specific styles only */
   .auth-required {
@@ -120,7 +118,7 @@
             </select>
           </div>
           
-          <div class="admin-filter-group" style="display: flex; align-items: flex-end;">
+          <div class="admin-filter-group filter-button-container">
             <button class="admin-btn admin-btn-primary" id="apply-filters">Apply Filters</button>
           </div>
         </div>
@@ -292,9 +290,9 @@ function renderResources(resources) {
       <td>${r.unit !== null ? r.unit : 'N/A'}</td>
       <td>${r.size ? formatBytes(r.size) : 'N/A'}</td>
       <td>
-        <div class="actions">
-          <button class="btn btn-primary" onclick="editResource('${r.id}')">Edit</button>
-          <button class="btn btn-danger" onclick="deleteResource('${r.id}', '${r.filename}')">Delete</button>
+        <div class="admin-actions">
+          <button class="admin-btn-action admin-btn-action-edit" onclick="editResource('${r.id}')">Edit</button>
+          <button class="admin-btn-action admin-btn-action-delete" onclick="deleteResource('${r.id}', '${r.filename}')">Delete</button>
         </div>
       </td>
     </tr>
@@ -323,6 +321,10 @@ function editResource(id) {
 function closeEditModal() {
   document.getElementById('edit-modal').classList.remove('active');
 }
+
+// Make functions globally accessible for onclick handlers
+window.editResource = editResource;
+window.closeEditModal = closeEditModal;
 
 async function saveEdit(e) {
   e.preventDefault();
@@ -392,12 +394,15 @@ async function deleteResource(id, filename) {
   }
 }
 
+// Make deleteResource globally accessible for onclick handler
+window.deleteResource = deleteResource;
+
 // Tab switching
-document.querySelectorAll('.tab').forEach(tab => {
+document.querySelectorAll('.admin-tab').forEach(tab => {
   tab.addEventListener('click', () => {
     const tabName = tab.dataset.tab;
     
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
     
     tab.classList.add('active');
@@ -443,6 +448,7 @@ document.getElementById('edit-form').addEventListener('submit', saveEdit);
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
+  console.log('checking for session...')
   const passphrase = await checkAdminAuth();
   if (!passphrase) {
     document.getElementById('auth-required').style.display = 'block';
