@@ -50,6 +50,39 @@ async function handleRequest(request, env) {
 
   let response
 
+  // POST /api/report/csp - Receive CSP violation reports (JSON or report body)
+  if (request.method === 'POST' && url.pathname === '/api/report/csp') {
+    try {
+      const contentType = request.headers.get('Content-Type') || ''
+      let bodyJson = {}
+      if (contentType.includes('application/json')) {
+        bodyJson = await request.json().catch(()=>({ parseError: true }))
+      } else if (contentType.includes('application/reports+json')) {
+        bodyJson = await request.json().catch(()=>({ parseError: true }))
+      } else {
+        const text = await request.text().catch(()=> '')
+        bodyJson = { raw: text }
+      }
+      // Minimal sampling: ignore empty bodies
+      if (Object.keys(bodyJson).length === 0) {
+        return addCorsHeaders(new Response(JSON.stringify({ ok: true, ignored: true }), { status: 202, headers: { 'Content-Type': 'application/json' } }))
+      }
+      // Store in analytics durable object / KV if available
+      try {
+        // If env.CSP_REPORTS is a KV namespace
+        if (env && env.CSP_REPORTS && env.CSP_REPORTS.put) {
+          const key = `r:${Date.now()}:${Math.random().toString(36).slice(2,8)}`
+          await env.CSP_REPORTS.put(key, JSON.stringify(bodyJson))
+        }
+      } catch (e) {
+        // swallow storage errors
+      }
+      return addCorsHeaders(new Response(JSON.stringify({ ok: true }), { status: 201, headers: { 'Content-Type': 'application/json' } }))
+    } catch (e) {
+      return addCorsHeaders(new Response(JSON.stringify({ ok: false, error: e.message }), { status: 500, headers: { 'Content-Type': 'application/json' } }))
+    }
+  }
+
   // POST /api/login
   if (request.method === 'POST' && url.pathname === '/api/login') {
     response = await loginHandler(request, env)
