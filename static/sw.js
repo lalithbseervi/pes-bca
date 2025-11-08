@@ -101,6 +101,18 @@ self.addEventListener('fetch', event => {
 
   const url = new URL(event.request.url);
 
+  // Pass through any Range requests untouched (streaming / partial content like PDFs)
+  if (event.request.headers.has('Range')) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
+  // Bypass PDFs entirely (avoid wrapping which can break streaming & content-length)
+  if (url.pathname.endsWith('.pdf')) {
+    event.respondWith(fetch(event.request, { cache: 'no-store' }).catch(() => fetch(event.request)));
+    return;
+  }
+
   // Force full network fetch (no wrapping) for pdf.js viewer documents (including query params)
   // We avoid re-wrapping the Response to preserve Content-Length and streaming behavior.
   if (event.request.destination === 'document' && url.pathname.startsWith('/pdfjs/web/viewer.html')) {
