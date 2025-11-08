@@ -3,7 +3,6 @@ const OFFLINE_URL = '/offline.html';
 
 // Files to cache immediately
 const STATIC_ASSETS = [
-  '/',
   // CSS files
   '/css/main.css',
   '/css/login_form.css',
@@ -125,38 +124,51 @@ self.addEventListener('fetch', event => {
   }
 
   event.respondWith(
-    caches.match(event.request)
-      .then(cachedResponse => {
-        if (cachedResponse) {
-          return cachedResponse;
+    (async () => {
+      try {
+        const cache = await caches.open(CACHE_NAME);
+        const cached = await cache.match(event.request);
+        if (cached) {
+          // Tag cached hits with explicit status header (non-invasive)
+          const headers = new Headers(cached.headers);
+          headers.set('X-Service-Worker-Cache', 'HIT');
+          return new Response(cached.body, { status: cached.status || 200, statusText: cached.statusText, headers });
         }
 
-        return fetch(event.request).then(response => {
-          if (!response || response.status !== 200 || response.type !== 'basic') {
-            return response;
-          }
+        const networkResp = await fetch(event.request);
+        if (!networkResp) return networkResp;
 
-          const responseToCache = response.clone();
+        // If not a successful basic response, just forward (e.g., opaque, error, pdf)
+        if (networkResp.status === 0 || networkResp.type !== 'basic' || networkResp.status >= 400) {
+          const headers = new Headers(networkResp.headers);
+          headers.set('X-Service-Worker-Cache', 'BYPASS');
+          return new Response(networkResp.body, { status: networkResp.status || 200, statusText: networkResp.statusText, headers });
+        }
 
-          // Cache CSS, JS and images dynamically (avoid caching PDFs or large unknown files)
-          if (
-            event.request.url.includes('/css/') ||
-            event.request.url.includes('/js/') ||
-            event.request.destination === 'image'
-          ) {
-            caches.open(CACHE_NAME)
-              .then(cache => cache.put(event.request, responseToCache))
-              .catch(err => console.error('[SW] Failed to cache dynamic asset:', event.request.url, err));
-          }
-
-          return response;
-        });
-      })
-      .catch(() => {
+        // Clone for caching
+        const toCache = networkResp.clone();
+        if (
+          event.request.url.includes('/css/') ||
+          event.request.url.includes('/js/') ||
+          event.request.destination === 'image'
+        ) {
+          cache.put(event.request, toCache).catch(err => console.error('[SW] Failed dynamic cache put:', event.request.url, err));
+        }
+        const headers = new Headers(networkResp.headers);
+        headers.set('X-Service-Worker-Cache', 'MISS');
+        return new Response(networkResp.body, { status: networkResp.status || 200, statusText: networkResp.statusText, headers });
+      } catch (e) {
         if (event.request.destination === 'document') {
-          return caches.match(OFFLINE_URL);
+          const offline = await caches.match(OFFLINE_URL);
+          if (offline) {
+            const headers = new Headers(offline.headers);
+            headers.set('X-Service-Worker-Cache', 'OFFLINE');
+            return new Response(offline.body, { status: offline.status || 200, statusText: offline.statusText, headers });
+          }
         }
-      })
+        return new Response('Service Worker fetch error', { status: 502, headers: { 'Content-Type': 'text/plain' } });
+      }
+    })()
   );
 });
 

@@ -4,7 +4,9 @@
     "wrangler": "^4.45.3"
   },
   "scripts": {
+    "prebuild": "./scripts/update-sw-version.sh",
     "build": "zola build",
-    "serve": "zola serve"
+    "serve": "zola serve",
+    "update-sw-version": "./scripts/update-sw-version.sh"
   }
 }
