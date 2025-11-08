@@ -320,7 +320,7 @@ function renderResourceTree(grouped) {
                         const semesterNumber = semester.match(/\d+/)[0];
                         const filename = resource.filename || '';
                         const filePath = `sem-${semesterNumber}/${subject}/unit-${unit}/${filename}`;
-                        link.href = `/pdf-viewer?file=${encodeURIComponent(filePath)}&title=${encodeURIComponent(title)}`;
+                        link.href = `/pdf-viewer?file=${filePath}&title=${encodeURIComponent(title)}`;
                         link.textContent = title;
                         link.setAttribute('data-filename', resource.filename);
                         link.setAttribute('data-title', resource.link_title || '');

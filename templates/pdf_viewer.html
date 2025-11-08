@@ -555,14 +555,14 @@
         // Navigation buttons
         if (prevBtn && idx > 0) {
           const prev = files[idx - 1];
-          prevBtn.href = prev.url || `/pdf-viewer?file=${encodeURIComponent(`sem-${semester}/${subjectCode}/unit-${prev.unit}/${prev.filename}`)}`;
+          prevBtn.href = prev.url || `/pdf-viewer?file=sem-${semester}/${subjectCode}/unit-${prev.unit}/${prev.filename}`;
           prevBtn.innerText = '← ' + (prev.title || prev.filename || 'Prev');
           prevBtn.style.display = 'inline-block';
           prevBtn.setAttribute('aria-hidden', 'false');
         }
         if (nextBtn && idx < files.length - 1) {
           const next = files[idx + 1];
-          nextBtn.href = next.url || `/pdf-viewer?file=${encodeURIComponent(`sem-${semester}/${subjectCode}/unit-${next.unit}/${next.filename}`)}`;
+          nextBtn.href = next.url || `/pdf-viewer?file=sem-${semester}/${subjectCode}/unit-${next.unit}/${next.filename}`;
           nextBtn.innerText = (next.title || next.filename || 'Next') + ' →';
           nextBtn.style.display = 'inline-block';
           nextBtn.setAttribute('aria-hidden', 'false');

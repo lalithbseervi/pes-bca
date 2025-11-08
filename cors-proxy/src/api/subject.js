@@ -117,7 +117,7 @@ function organizeResources(resources, env) {
         const semNum = semester.match(/\d+/)?.[0] || '1';
         const filePath = `sem-${semNum}/${resource.subject}/unit-${unit}/${resource.filename}`;
         const title = resource.link_title || resource.filename;
-        const pdfViewerUrl = `/pdf-viewer?file=${encodeURIComponent(filePath)}&title=${encodeURIComponent(title)}`;
+        const pdfViewerUrl = `/pdf-viewer?file=${filePath}&title=${encodeURIComponent(title)}`;
 
         // Add resource to the appropriate array
         organized[unit][type].push({
