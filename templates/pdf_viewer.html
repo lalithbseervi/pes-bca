@@ -40,10 +40,74 @@
   .pdf-nav a:active {
     transform: translateY(1px);
   }
+
+  .pdf-header {
+    background: rgba(31, 41, 55, 0.5);
+    border: 1px solid rgba(55, 65, 81, 0.5);
+    border-radius: 8px;
+    padding: 1rem 1.5rem;
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+    backdrop-filter: blur(10px);
+  }
+
+  .pdf-header h1 {
+    margin: 0.5rem 0 0 0;
+    font-size: 1.25rem;
+    color: #f3f4f6;
+    font-weight: 600;
+  }
+  
+  .pdf-header h1::before {
+    content: '';
+  }
+
+  .pdf-breadcrumb {
+    display: flex;
+    align-items: center;
+    font-size: 1rem;
+    color: #9ca3af;
+    flex-wrap: wrap;
+  }
+
+  .pdf-breadcrumb a {
+    color: #10b981;
+    text-decoration: none;
+    transition: color 0.2s;
+    font-size: 1rem;
+  }
+
+  .pdf-breadcrumb a:hover {
+    color: #059669;
+    text-decoration: underline;
+  }
+
+  .pdf-breadcrumb .separator {
+    color: #6b7280;
+    user-select: none;
+    font-size: 1rem;
+  }
+  
+  .pdf-breadcrumb .current {
+    font-size: 1rem;
+  }
+
+  .pdf-breadcrumb .current {
+    color: #f3f4f6;
+  }
 </style>
 
 <!-- Include login component for session management -->
 {% include "components/login.html" %}
+
+<div id="pdf-header" class="pdf-header" style="display: none;">
+  <div class="pdf-breadcrumb" id="pdf-breadcrumb">
+    <a href="/">Home</a>
+    <span class="separator" style="margin: 0 0.5rem;">/</span>
+    <span id="breadcrumb-content">Loading...</span>
+  </div>
+  <h1 id="pdf-title">Loading...</h1>
+</div>
 
 <div id="pdf-container">
   <div class="loading-message">
@@ -61,36 +125,62 @@
   import { API_BASE_URL } from '/js/utils.js';
   window.API_BASE_URL = API_BASE_URL;
   
+  // Global variables for navigation
+  let pdfPath, semester, subjectCode, unit, filename, title, normalizedPdfPath;
+  
   document.addEventListener('DOMContentLoaded', async function () {
     if (!sessionStorage.getItem('user_session')) { localStorage.setItem('postLoginRedirect', window.location.href); }
+    
     // Get URL parameters
     const urlParams = new URLSearchParams(window.location.search);
-    const pdfPath = urlParams.get('file');
-    // Normalize absolute URLs that point to our proxy endpoint into same-origin paths.
-    // Some generators include an absolute URL (e.g. http://localhost:8787/api/resources/.../stream).
-    // PDF.js strict origin checks can fail in iframes when the viewer origin differs, or
-    // when document.referrer is absent. Convert known proxy URLs to a relative path so
-    // the viewer receives a same-origin file URL.
-    let normalizedPdfPath = pdfPath;
-    if (pdfPath) {
-      try {
-        const parsed = new URL(pdfPath, window.location.href);
-        // If the path looks like our worker API resource stream, make it relative
-        if (parsed.pathname && parsed.pathname.startsWith('/api/resources/')) {
-          // Only convert to a relative path when the parsed origin matches the
-          // current page origin. If the parsed URL points at another origin
-          // (e.g. the worker on :8787), keep the absolute href so we can fetch
-          // it directly or handle it specially.
-          if (parsed.origin === window.location.origin) {
-            normalizedPdfPath = parsed.pathname + (parsed.search || '');
-          } else {
-            normalizedPdfPath = parsed.href;
+    pdfPath = urlParams.get('file');
+    title = urlParams.get('title'); // Get title from URL parameter first
+    
+    // Check if file param is a semantic path (e.g., "sem-1/cfp/unit-2/filename.pdf")
+    if (pdfPath && !pdfPath.startsWith('http') && !pdfPath.startsWith('/api/')) {
+      // Parse semantic path from file parameter
+      const pathParts = pdfPath.split('/').filter(Boolean);
+      
+      if (pathParts.length === 4) {
+        const semMatch = pathParts[0].match(/^sem-(\d+)$/);
+        const unitMatch = pathParts[2].match(/^unit-(\d+)$/);
+        
+        if (semMatch && unitMatch) {
+          semester = semMatch[1];
+          subjectCode = pathParts[1];
+          unit = unitMatch[1];
+          filename = decodeURIComponent(pathParts[3]);
+          
+          // Fallback: Extract title from filename if not provided in URL parameter
+          if (!title) {
+            title = filename.replace(/^\d+_/, '').replace(/\.[^.]+$/, '').replace(/_/g, ' ');
           }
+          
+          // Build full API URL for PDF stream using API_BASE_URL
+          pdfPath = `${API_BASE_URL}/api/resources/sem-${semester}/${subjectCode}/unit-${unit}/${encodeURIComponent(filename)}`;
         }
-      } catch (e) {
-        // leave as-is if not a valid URL
       }
     }
+    
+    // If pdfPath is a relative /api/ path, make it absolute with API_BASE_URL
+    if (pdfPath && pdfPath.startsWith('/api/') && !pdfPath.startsWith('http')) {
+      pdfPath = API_BASE_URL + pdfPath;
+    }
+    
+    // Fallback: check for legacy query parameters (only if not already set)
+    if (!subjectCode) subjectCode = urlParams.get('subjectCode');
+    if (!unit) unit = urlParams.get('unit');
+    if (!semester) {
+      semester = urlParams.get('semester');
+      // Extract semester from path if not in params
+      if (!semester && pdfPath) {
+        const semMatch = pdfPath.match(/sem-(\d+)/i);
+        if (semMatch) semester = semMatch[1];
+      }
+    }
+    // Keep pdfPath as-is since it's now a full URL with API_BASE_URL
+    // The loadPdfViewer function will handle cross-origin fetching
+    let normalizedPdfPath = pdfPath;
     // Helper: extract resource id from a /api/resources/<id>/stream style path
     function extractResourceId(path) {
       if (!path) return null;
@@ -163,10 +253,76 @@
     } catch (e) {
       // sessionStorage or network may be unavailable in some contexts
     }
-    const title = urlParams.get('title');
 
+    // Update page title
     if (title) {
       document.title = title;
+    }
+
+    // Update PDF header
+    const pdfHeaderEl = document.getElementById('pdf-header');
+    const pdfTitleEl = document.getElementById('pdf-title');
+    const breadcrumbContentEl = document.getElementById('breadcrumb-content');
+
+    if (title) {
+      pdfTitleEl.textContent = title;
+    }
+
+    // Map subject code to full name
+    const subjectNames = {
+      'wd': 'Web Design',
+      'cfp': 'Computing Fundamentals with Python',
+      'mp': 'Macro Programming',
+      'mfca': 'Mathematical Foundation for Computer Applications',
+      'pce': 'Professional Communication and Ethics',
+      'dsa': 'Data Structures and Algorithms',
+      'oop': 'Object Oriented Programming',
+      'dc': 'Data Communication',
+      'dm': 'Digital Marketing'
+    };
+    
+    let displaySubject = subjectNames[subjectCode] || (subjectCode ? subjectCode.toUpperCase() : null);
+    let displaySubjectCode = subjectCode;
+    
+    // Fallback: extract from path for legacy URLs
+    if (!displaySubject && pdfPath) {
+      const extractedSubject = extractSubjectFromPath(pdfPath);
+      if (extractedSubject) {
+        displaySubjectCode = extractedSubject.toLowerCase();
+        displaySubject = subjectNames[displaySubjectCode] || extractedSubject.toUpperCase();
+      }
+    }
+
+    let displayUnit = unit;
+
+    // Build breadcrumb navigation
+    let breadcrumbHTML = '';
+    
+    if (displaySubject && displaySubjectCode) {
+      // Link to subject page using /sem-N/subject-code format
+      const semesterPath = semester ? `/sem-${semester}/${displaySubjectCode}/` : `/#subject-${displaySubjectCode}`;
+      breadcrumbHTML += `<a href="${semesterPath}">${displaySubject}</a>`;
+      
+      if (displayUnit) {
+        breadcrumbHTML += `<span class="separator" style="margin: 0 0.5rem;">/</span>`;
+        breadcrumbHTML += `<a href="${semesterPath}">Unit ${displayUnit}</a>`;
+      }
+      
+      if (title) {
+        breadcrumbHTML += `<span class="separator" style="margin: 0 0.5rem;">/</span>`;
+        breadcrumbHTML += `<span class="current">${title}</span>`;
+      }
+    } else if (title) {
+      breadcrumbHTML = `<span class="current">${title}</span>`;
+    }
+
+    if (breadcrumbHTML) {
+      breadcrumbContentEl.innerHTML = breadcrumbHTML;
+    }
+
+    // Show header if we have title
+    if (title) {
+      pdfHeaderEl.style.display = 'block';
     }
 
     if (!pdfPath) {
@@ -239,39 +395,28 @@
 
     // Load PDF viewer if session is valid (login.js will handle showing/hiding)
     async function loadPdfViewer() {
-      // Decide which URL to give the viewer. If the resource is on a different
-      // origin, fetch it here in the parent and create a blob URL so the viewer
-      // sees a safe, 'null' origin blob URL (PDF.js accepts 'null'). This avoids
-      // validateFileURL rejections when the worker runs on another origin.
+      // Since pdfPath is now a full URL with API_BASE_URL, we need to fetch it
+      // and create a blob URL for PDF.js (avoids cross-origin issues)
       let fileToUse = normalizedPdfPath || pdfPath;
+      
       try {
-        // If fileToUse is an absolute URL and it's not same-origin, fetch and blob it.
-        const parsed = new URL(fileToUse, window.location.href);
-        if (parsed.origin !== window.location.origin && (parsed.protocol === 'http:' || parsed.protocol === 'https:')) {
-          // Attempt to fetch the resource (worker should allow CORS). If this
-          // fails, we'll fall back to using the original URL.
+        // If fileToUse is a full URL (which it should be), fetch and blob it
+        if (fileToUse && (fileToUse.startsWith('http://') || fileToUse.startsWith('https://'))) {
           try {
-            // Replace localhost URLs with the actual API_BASE_URL
-            let fetchUrl = parsed.href;
-            if (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') {
-              // Extract the path from the localhost URL and combine with API_BASE_URL
-              fetchUrl = API_BASE_URL + parsed.pathname + parsed.search;
-            }
-            
-            const resp = await fetch(fetchUrl, { cache: 'no-store', credentials: 'include' });
+            const resp = await fetch(fileToUse, { cache: 'no-store', credentials: 'include' });
             if (resp.ok) {
               const blob = await resp.blob();
               const blobUrl = URL.createObjectURL(blob);
               fileToUse = blobUrl;
             } else {
-              console.warn('fetch for cross-origin PDF failed', resp.status);
+              console.warn('fetch for PDF failed', resp.status);
             }
           } catch (e) {
-            console.warn('cross-origin fetch failed', e);
+            console.warn('fetch failed', e);
           }
         }
       } catch (e) {
-        // ignore URL parsing errors and use original fileToUse
+        // ignore errors and use original fileToUse
       }
 
       // check availability first (use resolved fileToUse)
@@ -338,6 +483,95 @@
       return match ? `Unit ${match[1]}` : 'Unknown';
     }
 
+    // Build navigation using API
+    async function buildNav() {
+      try {
+        const prevBtn = document.getElementById('pdf-prev');
+        const nextBtn = document.getElementById('pdf-next');
+        
+        console.debug('buildNav (API-driven): start', { subjectCode, filename, semester });
+
+        // We need subjectCode and filename to build navigation
+        if (!subjectCode || !filename) {
+          console.debug('buildNav: missing subjectCode or filename for navigation');
+          return;
+        }
+
+        // Fetch all resources for this subject from the API
+        const apiUrl = `${API_BASE_URL}/api/subject/resources?subject=${encodeURIComponent(subjectCode)}`;
+        const resp = await fetch(apiUrl, { cache: 'no-store' });
+        
+        if (!resp.ok) {
+          console.warn('buildNav: API fetch failed', resp.status);
+          return;
+        }
+
+        const data = await resp.json();
+        if (!data.resources) {
+          console.warn('buildNav: no resources in API response');
+          return;
+        }
+
+        // Flatten all resources from units -> resource_types -> resources
+        const files = [];
+        for (const [unitNum, types] of Object.entries(data.resources)) {
+          for (const [type, resources] of Object.entries(types)) {
+            for (const resource of resources) {
+              files.push(resource);
+            }
+          }
+        }
+
+        if (!files.length) {
+          console.debug('buildNav: no files found for subject', subjectCode);
+          return;
+        }
+
+        // Sort files by unit number, then by leading number in filename
+        files.sort((a, b) => {
+          // First, sort by unit
+          const unitA = parseInt(a.unit) || 999;
+          const unitB = parseInt(b.unit) || 999;
+          if (unitA !== unitB) return unitA - unitB;
+
+          // Then sort by leading number in filename
+          const aFilename = a.filename || '';
+          const bFilename = b.filename || '';
+          const aMatch = aFilename.match(/^(\d+)/);
+          const bMatch = bFilename.match(/^(\d+)/);
+          const aNum = aMatch ? parseInt(aMatch[1]) : 999999;
+          const bNum = bMatch ? parseInt(bMatch[1]) : 999999;
+          
+          return aNum - bNum;
+        });
+
+        // Find index of current file by filename
+        const idx = files.findIndex(f => f.filename === filename);
+        if (idx === -1) {
+          console.debug('buildNav: current file not found in resources', filename);
+          return;
+        }
+
+        // Navigation buttons
+        if (prevBtn && idx > 0) {
+          const prev = files[idx - 1];
+          prevBtn.href = prev.url || `/pdf-viewer?file=${encodeURIComponent(`sem-${semester}/${subjectCode}/unit-${prev.unit}/${prev.filename}`)}`;
+          prevBtn.innerText = '← ' + (prev.title || prev.filename || 'Prev');
+          prevBtn.style.display = 'inline-block';
+          prevBtn.setAttribute('aria-hidden', 'false');
+        }
+        if (nextBtn && idx < files.length - 1) {
+          const next = files[idx + 1];
+          nextBtn.href = next.url || `/pdf-viewer?file=${encodeURIComponent(`sem-${semester}/${subjectCode}/unit-${next.unit}/${next.filename}`)}`;
+          nextBtn.innerText = (next.title || next.filename || 'Next') + ' →';
+          nextBtn.style.display = 'inline-block';
+          nextBtn.setAttribute('aria-hidden', 'false');
+        }
+      } catch (err) {
+        console.warn('buildNav (API-driven) failed', err);
+      }
+    }
+
     // Load PDF viewer if session is valid (login.js will handle session check)
     // You may want to expose a global callback for login.js to call loadPdfViewer() after successful login
     window.loadPdfViewer = loadPdfViewer;
@@ -346,22 +580,13 @@
     if (sessionStorage.getItem('logged_in') === 'true' && typeof window.loadPdfViewer === 'function') {
       window.loadPdfViewer();
     }
+    
+    // Build navigation after variables are set
+    buildNav();
   });
 </script>
 <script>
   /* IndexedDB helper (simple promise wrapper) */
-
-  // Ensure pdfPath, title and nav elements are available to this script (they were defined inside the earlier DOMContentLoaded block)
-  const urlParams = new URLSearchParams(window.location.search);
-  const pdfPath = urlParams.get('file');
-  const title = urlParams.get('title');
-
-  // Nav elements
-  const prevBtn = document.getElementById('pdf-prev');
-  const nextBtn = document.getElementById('pdf-next');
-
-  // Derive folder path (includes trailing slash)
-  const folder = (pdfPath && pdfPath.lastIndexOf('/') > -1) ? pdfPath.slice(0, pdfPath.lastIndexOf('/') + 1) : '/';
 
   const DB_NAME = 'pes_res_index';
   const DB_VERSION = 1;
@@ -431,131 +656,5 @@
     });
   }
 
-  /* Build navigation using IndexedDB first, fall back to sitemap */
-  async function buildNav() {
-    try {
-      console.debug('buildNav (data-driven): start', { pdfPath, folder });
-
-      // Extract current resource id from the pdfPath if possible
-      let currentId = null;
-      try {
-        const u = new URL(pdfPath, window.location.href);
-        // Expecting /api/resources/<id>/stream
-        const parts = u.pathname.split('/').filter(Boolean);
-        const idx = parts.indexOf('resources');
-        if (idx !== -1 && parts.length > idx + 1) currentId = parts[idx + 1];
-      } catch (e) {
-        // fallback: try to parse as plain string
-        const m = String(pdfPath).match(/api\/resources\/([-a-f0-9]{36})/i);
-        if (m) currentId = m[1];
-      }
-      if (!currentId) {
-        console.debug('buildNav: could not extract id from pdfPath', pdfPath);
-        return;
-      }
-
-      // Use a single public root for subject JSON files; they are hosted at
-      // an external static server. This avoids probing multiple local/public
-      // locations and simplifies fetching in the viewer.
-      const subjects = ['wd', 'cfp', 'mp', 'mfca', 'pce'];
-      const DATA_ROOT = '/data';
-          let data = null;
-          let dataUrl = null;
-          for (const subj of subjects) {
-            const cand = `${DATA_ROOT}/${subj}.json`;
-            try {
-              console.debug('buildNav: trying data json', cand);
-              const resp = await fetch(cand, { cache: 'no-store' });
-              if (!resp.ok) continue;
-              const parsed = await resp.json().catch(() => null);
-              if (!parsed) continue;
-
-              // quick scan flatten files and check for currentId
-              const filesFlat = [];
-              if (Array.isArray(parsed.units)) {
-                for (const unit of parsed.units) {
-                  if (!Array.isArray(unit.groups)) continue;
-                  for (const group of unit.groups) {
-                    if (!Array.isArray(group.files)) continue;
-                    for (const f of group.files) filesFlat.push(f);
-                  }
-                }
-              }
-              const found = filesFlat.find(f => String(f.id) === String(currentId) || (f.url || '').includes(String(currentId)));
-              if (found) {
-                data = parsed;
-                dataUrl = cand;
-                break;
-              }
-            } catch (e) {
-              console.debug('buildNav: candidate fetch failed', cand, e);
-              continue;
-            }
-          }
-      if (!data) {
-        console.warn('buildNav: no data JSON found that contains resource', currentId);
-        return;
-      }
-
-      // Flatten files from units -> groups -> files preserving order
-      const files = [];
-      if (Array.isArray(data.units)) {
-        for (const unit of data.units) {
-          if (!Array.isArray(unit.groups)) continue;
-          for (const group of unit.groups) {
-            if (!Array.isArray(group.files)) continue;
-            for (const f of group.files) {
-              files.push(f);
-            }
-          }
-        }
-      }
-      if (!files.length) {
-        console.debug('buildNav: no files found in data json', dataUrl);
-        return;
-      }
-
-      // Find index of currentId
-      const idx = files.findIndex(f => String(f.id) === String(currentId) || (f.url || '').includes(String(currentId)));
-      if (idx === -1) {
-        console.debug('buildNav: current resource not found in data json', currentId);
-        return;
-      }
-
-      // Helper to build viewer link for a file entry
-      const makeLink = f => {
-        try {
-          const raw = f.url || f.path || '';
-          const sessionToken = sessionStorage.getItem('stream_token');
-          const u = new URL(raw, window.location.href);
-          if (sessionToken && u.pathname.startsWith('/api/resources/') && !u.searchParams.get('token')) {
-            u.searchParams.set('token', sessionToken);
-          }
-          return `/pdf-viewer/?file=${encodeURIComponent(u.href)}&title=${encodeURIComponent(f.linkTitle || f.filename || '')}`;
-        } catch (e) {
-          return `/pdf-viewer/?file=${encodeURIComponent(f.url || f.path || '')}&title=${encodeURIComponent(f.linkTitle || f.filename || '')}`;
-        }
-      };
-
-      if (prevBtn && idx > 0) {
-        const prev = files[idx - 1];
-        prevBtn.href = makeLink(prev);
-        prevBtn.innerText = '← ' + (prev.linkTitle || prev.filename ||  'Prev');
-        prevBtn.style.display = 'inline-block';
-        prevBtn.setAttribute('aria-hidden', 'false');
-      }
-      if (nextBtn && idx < files.length - 1) {
-        const next = files[idx + 1];
-        nextBtn.href = makeLink(next);
-        nextBtn.innerText = (next.linkTitle || next.filename ||  'Next') + ' →';
-        nextBtn.style.display = 'inline-block';
-        nextBtn.setAttribute('aria-hidden', 'false');
-      }
-    } catch (err) {
-      console.warn('buildNav (data-driven) failed', err);
-    }
-  }
-  /* Initialize nav: prefer DB-driven build */
-  buildNav();
 </script>
 {% endblock main_content %}

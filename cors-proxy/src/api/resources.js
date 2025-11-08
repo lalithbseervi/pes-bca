@@ -51,11 +51,15 @@ export async function getResources(request, env) {
 
         const resources = await resp.json();
 
-        // Add stream URLs to each resource
-        const resourcesWithUrls = resources.map(r => ({
-            ...r,
-            stream_url: `${new URL(request.url).origin}/api/resources/${r.id}/stream`
-        }));
+        // Add semantic stream URLs to each resource
+        const resourcesWithUrls = resources.map(r => {
+            const semester = r.semester || 'sem-1';
+            const semNum = semester.match(/\d+/)?.[0] || '1';
+            return {
+                ...r,
+                stream_url: `${new URL(request.url).origin}/api/resources/sem-${semNum}/${r.subject}/unit-${r.unit}/${encodeURIComponent(r.filename)}`
+            };
+        });
 
         return new Response(JSON.stringify({
             success: true,

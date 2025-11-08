@@ -54,7 +54,26 @@ async function handleRequest(request, env) {
     return uploadResourceToSupabase(request, env)
   }
 
-  // HEAD or GET /api/resources/:id/stream
+  // HEAD or GET /api/resources/sem-{N}/{subject}/unit-{N}/{filename} - Semantic path
+  const semanticStreamMatch = url.pathname.match(/^\/api\/resources\/sem-(\d+)\/([^/]+)\/unit-(\d+)\/([^/]+)\/?$/);
+  if (semanticStreamMatch && (request.method === 'GET' || request.method === 'HEAD')) {
+      const semester = semanticStreamMatch[1];
+      const subject = semanticStreamMatch[2];
+      const unit = semanticStreamMatch[3];
+      const filename = semanticStreamMatch[4];
+      const ctx = { 
+        params: { 
+          semester: `sem-${semester}`,
+          subject: subject,
+          unit: unit,
+          filename: filename
+        },
+        lookupBy: 'filename'
+      };
+      return resourceStreamFromSupabase(request, env, ctx);
+  }
+
+  // HEAD or GET /api/resources/:id/stream - Legacy ID-based lookup
   const streamMatch = url.pathname.match(/^\/api\/resources\/([^/]+)\/stream\/?$/);
   if (streamMatch && (request.method === 'GET' || request.method === 'HEAD')) {
       const ctx = { params: { id: streamMatch[1] } };

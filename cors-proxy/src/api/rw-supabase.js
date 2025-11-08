@@ -460,7 +460,10 @@ export async function mintStreamToken(request, env) {
 export async function resourceStreamFromSupabase(request, env, ctx) {
     const cors = getCorsHeaders(request);
 
+    // Support both ID-based lookup (legacy) and filename-based lookup (semantic paths)
+    const lookupBy = ctx?.lookupBy || 'id';
     const id = ctx?.params?.id || new URL(request.url).pathname.split('/').pop();
+    const { semester, subject, unit, filename } = ctx?.params || {};
 
     // --- Signed token verification to prevent unauthenticated access ---
     // Token may be provided as ?token=... or Authorization: Bearer <token>
@@ -553,9 +556,55 @@ export async function resourceStreamFromSupabase(request, env, ctx) {
             headers: { 'Content-Type': 'application/json', ...cors },
         });
     }
-    // If token is valid for this resource (or wildcard), continue.
-    let tokenValid = await verifySignedToken(providedToken, id, env);
+    // Token verification will happen after metadata fetch for both lookup types
+    // (we need the resource ID for filename-based lookups)
+
+    let row = null;
+    try {
+        let metaUrl;
+        if (lookupBy === 'filename') {
+            // Query by semantic path components
+            const filters = [
+                `semester=eq.${encodeURIComponent(semester)}`,
+                `subject=eq.${encodeURIComponent(subject)}`,
+                `unit=eq.${encodeURIComponent(unit)}`,
+                `filename=eq.${encodeURIComponent(filename)}`
+            ].join('&');
+            metaUrl = `${env.SUPABASE_URL.replace(/\/+$/, '')}/rest/v1/fileStore?select=id,storage_key,content_type,filename&${filters}`;
+        } else {
+            // Legacy ID-based lookup
+            metaUrl = `${env.SUPABASE_URL.replace(/\/+$/, '')}/rest/v1/fileStore?select=storage_key,content_type,filename&id=eq.${encodeURIComponent(id)}`;
+        }
+        
+        const metaResp = await fetch(metaUrl, {
+            headers: { Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`, apikey: `${env.SUPABASE_SERVICE_ROLE_KEY}` },
+        });
+        if (metaResp.ok) {
+            const arr = await metaResp.json().catch(() => []);
+            if (Array.isArray(arr) && arr.length) {
+                row = arr[0];
+                // For filename-based lookup, set id from the result for token verification
+                if (lookupBy === 'filename' && row.id) {
+                    // Update id variable for token validation
+                    // Note: We need to reassign through a different approach since id is const
+                    // For now, we'll use row.id in token verification below
+                }
+            }
+        } else {
+            const t = await metaResp.text().catch(() => '<no body>');
+            console.error('supabase metadata fetch failed', metaResp.status, t);
+        }
+    } catch (e) {
+        console.error('supabase metadata request error', e);
+    }
+
+    if (!row || !row.storage_key) return new Response('Not found', { status: 404, headers: cors });
+
+    // --- Token verification (works for both ID-based and filename-based lookups) ---
+    const resourceId = row.id || id;
+    let tokenValid = await verifySignedToken(providedToken, resourceId, env);
     let freshlyMintedToken = null;
+    
     if (!tokenValid) {
         // If token is missing or invalid, check if it is merely expired. If
         // expired and the caller is authenticated (cookie or Authorization
@@ -608,28 +657,6 @@ export async function resourceStreamFromSupabase(request, env, ctx) {
         }
     }
     // --- end token verification ---
-
-    let row = null;
-    try {
-        const metaUrl = `${env.SUPABASE_URL.replace(
-            /\/+$/,
-            ''
-        )}/rest/v1/fileStore?select=storage_key,content_type,filename&id=eq.${encodeURIComponent(id)}`;
-        const metaResp = await fetch(metaUrl, {
-            headers: { Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`, apikey: `${env.SUPABASE_SERVICE_ROLE_KEY}` },
-        });
-        if (metaResp.ok) {
-            const arr = await metaResp.json().catch(() => []);
-            if (Array.isArray(arr) && arr.length) row = arr[0];
-        } else {
-            const t = await metaResp.text().catch(() => '<no body>');
-            console.error('supabase metadata fetch failed', metaResp.status, t);
-        }
-    } catch (e) {
-        console.error('supabase metadata request error', e);
-    }
-
-    if (!row || !row.storage_key) return new Response('Not found', { status: 404, headers: cors });
 
         if (request.method === 'HEAD') {
             try {

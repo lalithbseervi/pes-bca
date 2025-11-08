@@ -112,17 +112,21 @@ function organizeResources(resources, env) {
             organized[unit][type] = [];
         }
 
-        // Build the PDF viewer URL
-        const fileUrl = `${workerUrl}/api/resources/${resource.id}/stream`;
-        const encodedFileUrl = encodeURIComponent(fileUrl);
-        const encodedTitle = encodeURIComponent(resource.link_title);
-        const pdfViewerUrl = `/pdf-viewer/?file=${encodedFileUrl}&title=${encodedTitle}`;
+        // Build semantic PDF viewer URL: /pdf-viewer?file=sem-N/subject/unit-N/filename&title=...
+        const semester = resource.semester || 'sem-1';
+        const semNum = semester.match(/\d+/)?.[0] || '1';
+        const filePath = `sem-${semNum}/${resource.subject}/unit-${unit}/${resource.filename}`;
+        const title = resource.link_title || resource.filename;
+        const pdfViewerUrl = `/pdf-viewer?file=${encodeURIComponent(filePath)}&title=${encodeURIComponent(title)}`;
 
         // Add resource to the appropriate array
         organized[unit][type].push({
             id: resource.id,
             title: resource.link_title,
             filename: resource.filename,
+            semester: resource.semester,
+            subject: resource.subject,
+            unit: resource.unit,
             url: pdfViewerUrl,
             size: resource.size,
             contentType: resource.content_type

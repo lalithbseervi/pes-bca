@@ -161,8 +161,9 @@
     </article>
 </main>
 <script>
-    // Get subject code from page extra 
+    // Get subject code and semester from page extra 
     const subjectCode = '{{ page.extra.subject_code }}';
+    const semester = '{{ page.extra.semester | default(value="1") }}';
     const WORKER_URL = (location.hostname === 'pes-bca.pages.dev') ? 'https://cors-proxy.devpages.workers.dev' : 'http://localhost:8787';
     
     const subjectNames = {
@@ -273,8 +274,23 @@
                         <ul>
                 `;
                 
-                // Add individual resources
-                for (const resource of resources) {
+                // Sort resources by leading number in filename
+                const sortedResources = resources.sort((a, b) => {
+                    const aFilename = a.filename || '';
+                    const bFilename = b.filename || '';
+                    
+                    // Extract leading number from filename (handles 1, 01, 001, etc.)
+                    const aMatch = aFilename.match(/^(\d+)/);
+                    const bMatch = bFilename.match(/^(\d+)/);
+                    
+                    const aNum = aMatch ? parseInt(aMatch[1]) : 999999;
+                    const bNum = bMatch ? parseInt(bMatch[1]) : 999999;
+                    
+                    return aNum - bNum;
+                });
+                
+                // Add individual resources (URL is already complete with semantic path)
+                for (const resource of sortedResources) {
                     html += `<li><a href="${resource.url}">${resource.title}</a></li>\n`;
                 }
                 
