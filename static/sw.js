@@ -39,7 +39,6 @@ const STATIC_ASSETS = [
   '/favicon-16x16.png',
   '/favicon-32x32.png',
   // PDF.js viewer files
-  '/pdfjs/web/viewer.html',
   '/pdfjs/build/pdf.mjs',
   '/pdfjs/build/pdf.worker.mjs',
   '/pdfjs/web/viewer.mjs',
@@ -101,6 +100,17 @@ self.addEventListener('fetch', event => {
 
   const url = new URL(event.request.url);
 
+  // Bypass ALL HTML documents (navigation) so SW never wraps or touches them.
+  if (event.request.destination === 'document') {
+    return; // allow browser/network to handle fully
+  }
+
+  // Fully ignore pdf.js viewer & related assets: let browser fetch normally (no caching, no headers)
+  // This avoids zero-byte anomalies and preserves streaming / content-length.
+  if (url.pathname.startsWith('/pdfjs/')) {
+    return; // do not call respondWith -> network handled outside SW
+  }
+
   // Pass through any Range requests untouched (streaming / partial content like PDFs)
   if (event.request.headers.has('Range')) {
     event.respondWith(fetch(event.request));
@@ -110,22 +120,6 @@ self.addEventListener('fetch', event => {
   // Bypass PDFs entirely (avoid wrapping which can break streaming & content-length)
   if (url.pathname.endsWith('.pdf')) {
     event.respondWith(fetch(event.request, { cache: 'no-store' }).catch(() => fetch(event.request)));
-    return;
-  }
-
-  // Force full network fetch (no wrapping) for pdf.js viewer documents (including query params)
-  // We avoid re-wrapping the Response to preserve Content-Length and streaming behavior.
-  if (event.request.destination === 'document' && url.pathname.startsWith('/pdfjs/web/viewer.html')) {
-    event.respondWith(fetch(event.request, { cache: 'no-store' }).catch(() => caches.match('/pdfjs/web/viewer.html')));
-    return;
-  }
-  
-  // Never cache index.html or subject.html - always fetch fresh
-  if (url.pathname.endsWith('/index.html') || 
-      url.pathname.endsWith('/subject.html') ||
-      url.pathname === '/' ||
-      url.pathname.match(/\/sem-\d+\/[^/]+\/?$/)) {
-    event.respondWith(fetch(event.request));
     return;
   }
 
