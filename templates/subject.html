@@ -119,7 +119,6 @@
                     </div>
                 </div>
             </div><br>
-            {{ post_macros::page_header(title=page.title) }}
             {{ page.content | safe }}
             
             <!-- Search and Filter Section -->
@@ -149,7 +148,6 @@
             <div id="no-results" class="no-results">
                 No resources found matching your search.
             </div>
-            
             <div class="parent-parent" id="content-area" style="display: none;">
                 <ul class="parent" style="list-style-type: none;">
                     <li id="subject-content">
@@ -165,39 +163,6 @@
     const subjectCode = '{{ page.extra.subject_code }}';
     const semester = '{{ page.extra.semester | default(value="1") }}';
     const WORKER_URL = (location.hostname === 'pes-bca.pages.dev') ? 'https://cors-proxy.devpages.workers.dev' : 'http://localhost:8787';
-    
-    const subjectNames = {
-        'cfp': 'Computing Fundamentals with Python',
-        'wd': 'Web Design',
-        'mfca': 'Mathematical Foundation for Computer Applications',
-        'mp': 'Macro Programming',
-        'pce': 'Professional Communication and Ethics',
-        'indc': 'Indian Constitution',
-        'cprog': 'Programming with C',
-        'db': 'Database Systems',
-        'pos': 'Platforms and Operating Systems',
-        'coa': 'Computer Organization and Architecture',
-        'pd': 'Personality Development',
-        'evs': 'Environmental Studies',
-        'ds': 'Data Structures',
-        'oop': 'Object Oriented Programming',
-        'dc': 'Data Communication',
-        'elec1': 'Elective I',
-        'dm': 'Digital Marketing',
-        'da': 'Design of Algorithms',
-        'wad': 'Web Application Design',
-        'se': 'Software Engineering',
-        'elec2': 'Elective II',
-        'cyberlaw': 'Cyber Law',
-        'waf': 'Web Application Framework',
-        'stats': 'Statistics and R Programming',
-        'elec3': 'Elective III',
-        'elec4': 'Elective IV',
-        'entre': 'Entrepreneurship',
-        'cloud': 'Cloud Technologies',
-        'intern': 'Internship/Swayam/MOOC',
-        'dsa': 'Data Structures and Algorithms'
-    };
     
     // Shared utility: Get nesting level of a details element
     function getDetailsLevel(element) {
@@ -240,8 +205,8 @@
     // Render the hierarchical structure
     function renderSubjectContent(data) {
         const container = document.getElementById('subject-content');
-        // Priority: API subjectName > client-side mapping > subject code
-        const subjectName = data.subjectName || subjectNames[subjectCode] || data.subject || subjectCode;
+        // Priority: API subjectName > subject code uppercase
+        const subjectName = data.subjectName || (data.subject && data.subject.toUpperCase()) || subjectCode.toUpperCase();
         
         let html = `
             <details>
@@ -258,10 +223,11 @@
         
         // Iterate through units
         for (const [unit, types] of Object.entries(data.resources)) {
+            const unitLabel = (unit === 'all') ? 'Applicable to all Units' : `Unit-${unit}`;
             html += `
                 <li>
                     <details>
-                        <summary>Unit-${unit}</summary>
+                        <summary>${unitLabel}</summary>
                         <ul>
                             <li>
             `;

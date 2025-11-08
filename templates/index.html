@@ -216,13 +216,38 @@ function groupResources(resources) {
     return grouped;
 }
 
-// Subject name mapping
+// Subject name mapping (kept for index page since it displays all subjects and would require many API calls)
 const subjectNames = {
-    'wd': 'Web Design',
     'cfp': 'Computing Fundamentals with Python',
-    'mp': 'Macro Programming',
+    'wd': 'Web Design',
     'mfca': 'Mathematical Foundation for Computer Applications',
-    'pce': 'Professional Communication and Ethics'
+    'mp': 'Macro Programming',
+    'pce': 'Professional Communication and Ethics',
+    'ciep': 'CIEP (Constitutional of India, Cyber Law, and Professional Ethics)',
+    'cprog': 'Programming with C',
+    'db': 'Database Systems',
+    'pos': 'Platforms and Operating Systems',
+    'coa': 'Computer Organization and Architecture',
+    'pd': 'Personality Development',
+    'evs': 'Environmental Studies',
+    'ds': 'Data Structures',
+    'oop': 'Object Oriented Programming',
+    'dc': 'Data Communication',
+    'elec1': 'Elective I',
+    'dm': 'Digital Marketing',
+    'da': 'Design of Algorithms',
+    'wad': 'Web Application Design',
+    'se': 'Software Engineering',
+    'elec2': 'Elective II',
+    'cyberlaw': 'Cyber Law',
+    'waf': 'Web Application Framework',
+    'stats': 'Statistics and R Programming',
+    'elec3': 'Elective III',
+    'elec4': 'Elective IV',
+    'entre': 'Entrepreneurship',
+    'cloud': 'Cloud Technologies',
+    'intern': 'Internship/Swayam/MOOC',
+    'dsa': 'Data Structures and Algorithms'
 };
 
 // Render the complete tree structure
@@ -278,7 +303,7 @@ function renderResourceTree(grouped) {
                 unitDetails.open = false; // Keep units closed by default
                 
                 const unitSummary = document.createElement('summary');
-                unitSummary.textContent = `Unit ${unit}`;
+                unitSummary.textContent = (unit === 'all') ? `Applicable to all Units` : `Unit ${unit}`;
                 unitDetails.appendChild(unitSummary);
                 
                 const typesList = document.createElement('ul');
@@ -343,41 +368,10 @@ function renderResourceTree(grouped) {
             subjectsList.appendChild(subjectLi);
         });
         
-        // Add manually defined subjects (not in database) for this semester
-        addManualSubjects(subjectsList, semester);
-        
         semesterDetails.appendChild(subjectsList);
         semesterLi.appendChild(semesterDetails);
         list.appendChild(semesterLi);
     });
-}
-
-// Add manual subjects that aren't in the API
-function addManualSubjects(subjectsList, semester) {
-    // Add CIEP for sem-1 only
-    if (semester === 'sem-1') {
-        const manualHTML = `
-            <li id="subject-ciep">
-                <details>
-                    <summary>CIEP (Constitutional of India, Cyber Law, and Professional Ethics)</summary>
-                    <ul>
-                        <li>
-                            <details>
-                                <summary>Sample QA</summary>
-                                <ul>
-                                    <li>
-                                        <a href="/static/AllConstitutionQ&A.pdf">Constitutional Law QA</a>
-                                        [credits: <a href="https://github.com/jaanhavik777/StudyMaterial-PESU/blob/main/Semester%201/UL24CE121%20-%20Constitution%20of%20India/AllConstitutionQ%26A.pdf">github.com/jaanhavik777</a>]
-                                    </li>
-                                </ul>
-                            </details>
-                        </li>
-                    </ul>
-                </details>
-            </li>
-        `;
-        subjectsList.insertAdjacentHTML('beforeend', manualHTML);
-    }
 }
 
 function formatSemesterName(sem) {

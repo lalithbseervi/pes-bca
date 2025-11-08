@@ -90,12 +90,14 @@ export async function getSubjectResources(request, env) {
 
 /**
  * Organize resources into hierarchical structure
- * Structure: { unit1: { Notes: [...], Slides: [...], ... }, unit2: {...}, ... }
+ * Structure: { unit1: { Notes: [...], Slides: [...], ... }, unit2: {...}, all: {...}, ... }
+ * Files with unit="all" are shown in a separate "all" section (not duplicated in each unit)
  */
 function organizeResources(resources, env) {
     const organized = {};
     const workerUrl = env.WORKER_URL || 'http://localhost:8787';
 
+    // Organize all resources by unit (including "all" as its own unit)
     for (const resource of resources) {
         const unit = resource.unit || 'General';
         const type = resource.resource_type || 'Other';
@@ -131,18 +133,22 @@ function organizeResources(resources, env) {
         });
     }
 
-    // Sort units (Unit-1, Unit-2, etc. before General)
+    // Sort units (1, 2, 3, 4, then "all", then General)
     const sortedUnits = {};
     const unitKeys = Object.keys(organized).sort((a, b) => {
-        // Extract numbers from unit names like "Unit-1", "Unit-2"
-        const numA = a.match(/\d+/);
-        const numB = b.match(/\d+/);
+        // Numeric units first (1, 2, 3, 4)
+        const numA = parseInt(a);
+        const numB = parseInt(b);
         
-        if (numA && numB) {
-            return parseInt(numA[0]) - parseInt(numB[0]);
+        if (!isNaN(numA) && !isNaN(numB)) {
+            return numA - numB;
         }
         
-        // Put "General" at the end
+        // "all" comes after numeric units but before General
+        if (a === 'all') return isNaN(numB) && b !== 'General' ? 1 : -1;
+        if (b === 'all') return isNaN(numA) && a !== 'General' ? -1 : 1;
+        
+        // "General" at the end
         if (a === 'General') return 1;
         if (b === 'General') return -1;
         

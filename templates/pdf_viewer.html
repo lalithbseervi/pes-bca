@@ -268,28 +268,32 @@
       pdfTitleEl.textContent = title;
     }
 
-    // Map subject code to full name
-    const subjectNames = {
-      'wd': 'Web Design',
-      'cfp': 'Computing Fundamentals with Python',
-      'mp': 'Macro Programming',
-      'mfca': 'Mathematical Foundation for Computer Applications',
-      'pce': 'Professional Communication and Ethics',
-      'dsa': 'Data Structures and Algorithms',
-      'oop': 'Object Oriented Programming',
-      'dc': 'Data Communication',
-      'dm': 'Digital Marketing'
-    };
-    
-    let displaySubject = subjectNames[subjectCode] || (subjectCode ? subjectCode.toUpperCase() : null);
+    // Fetch subject name from API instead of hardcoded mapping
+    let displaySubject = null;
     let displaySubjectCode = subjectCode;
     
     // Fallback: extract from path for legacy URLs
-    if (!displaySubject && pdfPath) {
+    if (!displaySubjectCode && pdfPath) {
       const extractedSubject = extractSubjectFromPath(pdfPath);
       if (extractedSubject) {
         displaySubjectCode = extractedSubject.toLowerCase();
-        displaySubject = subjectNames[displaySubjectCode] || extractedSubject.toUpperCase();
+      }
+    }
+
+    // Fetch subject name from API if we have a subject code
+    if (displaySubjectCode) {
+      try {
+        const apiUrl = `${API_BASE_URL}/api/subject/resources?subject=${encodeURIComponent(displaySubjectCode)}`;
+        const resp = await fetch(apiUrl, { cache: 'no-store' });
+        if (resp.ok) {
+          const data = await resp.json();
+          displaySubject = data.subjectName || displaySubjectCode.toUpperCase();
+        } else {
+          displaySubject = displaySubjectCode.toUpperCase();
+        }
+      } catch (e) {
+        console.warn('Failed to fetch subject name from API, using fallback', e);
+        displaySubject = displaySubjectCode.toUpperCase();
       }
     }
 

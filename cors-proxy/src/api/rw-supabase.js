@@ -205,7 +205,9 @@ export async function uploadResourceToSupabase(request, env) {
     const files = form.getAll('file') || [];
     const subject = form.get('subject');
     const resource_type = form.get('resource_type');
-    const unit = form.get('unit') ? Number(form.get('unit')) : null;
+    // Support "all" units (applicable to all units) in addition to numeric unit values
+    const rawUnit = form.get('unit');
+    const unit = (rawUnit === 'all') ? 'all' : (rawUnit ? Number(rawUnit) : null);
     // normalize semester (accepted values from form: e.g. "Semester-1", "Sem-1", "1", "sem-1")
     const rawSemester = form.get('semester');
     let semester = 'sem-1';
@@ -284,8 +286,15 @@ export async function uploadResourceToSupabase(request, env) {
             // sanitize filename to avoid directory traversal and remove path chars
             const safeName = String(origName).replace(/[\\\/]+/g, '_').replace(/^[.\s]+/, '').slice(0, 240);
             // include semester and unit prefix in storage path: e.g. sem-1/subject/resource_type/unit-1/safeName
-            // Ensure unit segment exists to avoid grouping all files into a single folder
-            const unitSegment = (unit !== null && !Number.isNaN(Number(unit))) ? `unit-${Number(unit)}` : 'unit-1';
+            // Support "all" units: store in "unit-all" folder
+            let unitSegment;
+            if (unit === 'all') {
+                unitSegment = 'unit-all';
+            } else if (unit !== null && !Number.isNaN(Number(unit))) {
+                unitSegment = `unit-${Number(unit)}`;
+            } else {
+                unitSegment = 'unit-1';
+            }
             const objectPath = `${semester}/${subject}/${resource_type}/${unitSegment}/${safeName}`;
 
             // upload bytes
