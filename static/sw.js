@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pesu-bca-v2.5.0';
+const CACHE_NAME = 'pesu-bca-v2.5.1';
 const OFFLINE_URL = '/offline.html';
 
 // Files to cache immediately

@@ -1,6 +1,6 @@
 (function(){
   const DB_NAME = 'pes_res_index';
-  const DB_VERSION = 1;
+  const DB_VERSION = 1.1;
 
   function openDB() {
     return new Promise((resolve, reject) => {
