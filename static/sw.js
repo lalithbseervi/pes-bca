@@ -100,6 +100,13 @@ self.addEventListener('fetch', event => {
   }
 
   const url = new URL(event.request.url);
+
+  // Force full network fetch (no wrapping) for pdf.js viewer documents (including query params)
+  // We avoid re-wrapping the Response to preserve Content-Length and streaming behavior.
+  if (event.request.destination === 'document' && url.pathname.startsWith('/pdfjs/web/viewer.html')) {
+    event.respondWith(fetch(event.request, { cache: 'no-store' }).catch(() => caches.match('/pdfjs/web/viewer.html')));
+    return;
+  }
   
   // Never cache index.html or subject.html - always fetch fresh
   if (url.pathname.endsWith('/index.html') || 
@@ -122,7 +129,7 @@ self.addEventListener('fetch', event => {
           return new Response(cached.body, { status: cached.status || 200, statusText: cached.statusText, headers });
         }
 
-        const networkResp = await fetch(event.request);
+  const networkResp = await fetch(event.request);
         if (!networkResp) return networkResp;
 
         // If not a successful basic response, just forward (e.g., opaque, error, pdf)
@@ -141,6 +148,11 @@ self.addEventListener('fetch', event => {
         ) {
           cache.put(event.request, toCache).catch(err => console.error('[SW] Failed dynamic cache put:', event.request.url, err));
         }
+        // For HTML documents (other than viewer.html handled above), just return the original response unmodified
+        if (event.request.destination === 'document') {
+          return networkResp;
+        }
+
         const headers = new Headers(networkResp.headers);
         headers.set('X-Service-Worker-Cache', 'MISS');
         return new Response(networkResp.body, { status: networkResp.status || 200, statusText: networkResp.statusText, headers });
