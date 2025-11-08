@@ -1,6 +1,6 @@
 +++
 title = "Web Design"
-template = "subject-dynamic.html"
+template = "subject.html"
 date = "2025-10-16T19:11:00Z"
 updated = "2025-11-06"
 [extra]
