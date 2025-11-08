@@ -1,23 +1,50 @@
-const CACHE_NAME = 'pesu-bca-v2.2.0';
+const CACHE_NAME = 'pesu-bca-v2.4.0';
 const OFFLINE_URL = '/offline.html';
 
 // Files to cache immediately
 const STATIC_ASSETS = [
   '/',
+  // CSS files
   '/css/main.css',
   '/css/login_form.css',
   '/css/loading_animation.css',
   '/css/index.css',
+  '/css/alerts.css',
+  '/css/forms.css',
+  '/css/admin.css',
+  '/css/list_counter.css',
+  // JavaScript files
   '/js/login.js',
   '/js/analytics-preferences.js',
   '/js/main.js',
   '/js/openLinkHandler.js',
+  '/js/utils.js',
+  '/js/common-init.js',
+  '/js/form.js',
+  '/js/pdf-nav.js',
+  '/js/themetoggle.js',
+  // Theme JavaScript files
+  '/js/codeblock.js',
+  '/js/toc.js',
+  '/js/note.js',
+  '/js/searchElasticlunr.min.js',
+  // Icons
+  '/icons/search.svg',
+  '/icons/sun.svg',
+  '/icons/moon.svg',
+  // PWA files
   '/manifest.json',
   '/android-chrome-192x192.png',
   '/android-chrome-512x512.png',
   '/apple-touch-icon.png',
   '/favicon-16x16.png',
   '/favicon-32x32.png',
+  // PDF.js viewer files
+  '/pdfjs/web/viewer.html',
+  '/pdfjs/build/pdf.mjs',
+  '/pdfjs/build/pdf.worker.mjs',
+  '/pdfjs/web/viewer.mjs',
+  '/pdfjs/web/viewer.css',
   OFFLINE_URL
 ];
 
@@ -83,6 +110,17 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   // Skip non-GET or external requests
   if (event.request.method !== 'GET' || !event.request.url.startsWith(self.location.origin)) {
+    return;
+  }
+
+  const url = new URL(event.request.url);
+  
+  // Never cache index.html or subject.html - always fetch fresh
+  if (url.pathname.endsWith('/index.html') || 
+      url.pathname.endsWith('/subject.html') ||
+      url.pathname === '/' ||
+      url.pathname.match(/\/sem-\d+\/[^/]+\/?$/)) {
+    event.respondWith(fetch(event.request));
     return;
   }
 
