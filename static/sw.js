@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pesu-bca-v2.1.0';
+const CACHE_NAME = 'pesu-bca-v2.2.0';
 const OFFLINE_URL = '/offline.html';
 
 // Files to cache immediately
@@ -27,6 +27,7 @@ self.addEventListener('unhandledrejection', e => console.error('[SW] Unhandled r
 
 // Install event - cache static assets (with detailed logging)
 self.addEventListener('install', event => {
+  self.skipWaiting()
   console.log('[SW] Install event triggered');
   event.waitUntil(
     caches.open(CACHE_NAME)
