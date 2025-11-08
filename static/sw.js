@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pesu-bca-v2.4.1';
+const CACHE_NAME = 'pesu-bca-v2.5.0';
 const OFFLINE_URL = '/offline.html';
 
 // Files to cache immediately
@@ -58,22 +58,9 @@ self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(async cache => {
-        console.log('[SW] Caching static assets (robust mode)...');
-        for (const url of STATIC_ASSETS) {
-          try {
-            const req = new Request(url, { cache: 'no-cache' });
-            const res = await fetch(req);
-            if (res && res.ok) {
-              await cache.put(req, res.clone());
-              console.log(`[SW] Cached: ${url}`);
-            } else {
-              console.warn(`[SW] Skipped (not ok): ${url} - status: ${res && res.status}`);
-            }
-          } catch (err) {
-            console.error(`[SW] Failed to fetch/cache: ${url}`, err);
-          }
-        }
-        console.log('[SW] Static asset caching complete');
+        console.log('[SW] Caching static assets...');
+        await cache.addAll(STATIC_ASSETS);
+        console.log('[SW] Static assets cached');
       })
       .then(() => {
         console.log('[SW] Service Worker installed');
@@ -172,37 +159,7 @@ self.addEventListener('fetch', event => {
   );
 });
 
-// Background sync for offline actions
-self.addEventListener('sync', event => {
-  if (event.tag === 'background-sync') {
-    event.waitUntil(doBackgroundSync());
-  }
-});
-
-function doBackgroundSync() {
-  // Handle offline actions when back online
-  return Promise.resolve();
-}
-
-// Push notification support with custom icons
-self.addEventListener('push', event => {
-  if (event.data) {
-    const options = {
-      body: event.data.text(),
-      icon: '/android-chrome-192x192.png',
-      badge: '/favicon-32x32.png',
-      vibrate: [200, 100, 200],
-      tag: 'pesu-bca-notification',
-      requireInteraction: false
-    };
-
-    event.waitUntil(
-      self.registration.showNotification('PESU BCA LMS', options)
-    );
-  }
-});
-
-// Refresh cached assets when requested (e.g., on page load)
+// Refresh cached assets on demand
 async function refreshCachedAssetsOnDemand() {
   try {
     const cache = await caches.open(CACHE_NAME);
@@ -256,5 +213,40 @@ self.addEventListener('message', (event) => {
   if (data && data.type === 'REFRESH_ON_LOAD') {
     // Run refresh but don't block message handling
     event.waitUntil(refreshCachedAssetsOnDemand());
+  }
+});
+
+// Background sync for offline actions
+self.addEventListener('sync', event => {
+  if (event.tag === 'background-sync') {
+    event.waitUntil(doBackgroundSync());
+  }
+});
+
+// Function to handle background sync actions
+async function doBackgroundSync() {
+  // This function would handle offline actions when the device goes back online
+  console.log('[SW] Background sync started');
+
+  // Example: You could send offline form submissions here or sync data with a server
+  // For now, it simply logs a message and resolves the promise.
+  return Promise.resolve();
+}
+
+// Push notification support with custom icons
+self.addEventListener('push', event => {
+  if (event.data) {
+    const options = {
+      body: event.data.text(),
+      icon: '/android-chrome-192x192.png',
+      badge: '/favicon-32x32.png',
+      vibrate: [200, 100, 200],
+      tag: 'pes-bca-notification',
+      requireInteraction: false
+    };
+
+    event.waitUntil(
+      self.registration.showNotification('PESU-BCA', options)
+    );
   }
 });
