@@ -405,7 +405,25 @@
           try {
             const resp = await fetch(fileToUse, { cache: 'no-store', credentials: 'include' });
             if (resp.ok) {
-              const blob = await resp.blob();
+              // Validate PDF signature before creating blob URL to avoid pdf.js "Invalid PDF structure" later.
+              // We read a small slice instead of full blob first.
+              const ab = await resp.arrayBuffer();
+              if (ab.byteLength < 8) {
+                console.warn('PDF fetch returned too few bytes');
+              }
+              const headerBytes = new Uint8Array(ab.slice(0, 8));
+              const isPdf = headerBytes[0] === 0x25 && // %
+                            headerBytes[1] === 0x50 && // P
+                            headerBytes[2] === 0x44 && // D
+                            headerBytes[3] === 0x46 && // F
+                            headerBytes[4] === 0x2D;   // -
+              if (!isPdf) {
+                console.error('File does not appear to be a PDF (missing %PDF- signature).');
+                showPdfError('File is not a valid PDF.', 'Missing %PDF- header.');
+                return; // abort viewer load
+              }
+              // Create blob URL from validated buffer
+              const blob = new Blob([ab], { type: 'application/pdf' });
               const blobUrl = URL.createObjectURL(blob);
               fileToUse = blobUrl;
             } else {
