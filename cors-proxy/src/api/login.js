@@ -1,7 +1,6 @@
 import { verifyTurnstile } from "../utils/cf-turnstile.js";
 import { invalidateCachedAuth, verifyCachedCredentials, cacheAuthResult } from "../utils/auth-cache.js";
 import { makeCookie } from "../utils/cookies.js";
-import { getCorsHeaders } from "../utils/cors.js";
 import { signJWT } from "../utils/sign_jwt.js";
 
 export async function loginHandler(request, env) {
@@ -10,22 +9,22 @@ export async function loginHandler(request, env) {
   let body;
     
   try { body = await request.json() } catch (e) {
-    return new Response(JSON.stringify({ success:false, message:'invalid json' }), { status:400, headers: { ...JSON_HEADERS, ...getCorsHeaders(request) } })
+    return new Response(JSON.stringify({ success:false, message:'invalid json' }), { status:400, headers: JSON_HEADERS })
   }
 
   const { srn, password, turnstileToken } = body
   const turnstileSecret = env.TURNSTILE_SECRET
   if (!turnstileSecret) {
-    return new Response(JSON.stringify({ success:false, message:'server misconfigured' }), { status:500, headers: { ...JSON_HEADERS, ...getCorsHeaders(request) } })
+    return new Response(JSON.stringify({ success:false, message:'server misconfigured' }), { status:500, headers: JSON_HEADERS })
   }
 
   if (!turnstileToken) {
-    return new Response(JSON.stringify({ success:false, message:'human verification required' }), { status:400, headers: { ...JSON_HEADERS, ...getCorsHeaders(request) } })
+    return new Response(JSON.stringify({ success:false, message:'human verification required' }), { status:400, headers: JSON_HEADERS })
   }
 
   const verification = await verifyTurnstile(turnstileSecret, turnstileToken, request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for'))
   if (!verification.success) {
-    return new Response(JSON.stringify({ success:false, message:'human verification failed', detail: verification }), { status:403, headers: { ...JSON_HEADERS, ...getCorsHeaders(request) } })
+    return new Response(JSON.stringify({ success:false, message:'human verification failed', detail: verification }), { status:403, headers: JSON_HEADERS })
   }
 
   // Step 1: Check cached credentials first (fast path)
@@ -40,7 +39,7 @@ export async function loginHandler(request, env) {
     console.log(`Cache MISS for ${srn} - calling auth API`)
   
     const authApi = env.AUTH_API
-    if (!authApi) { return new Response(JSON.stringify({ success:false, message:'invalid config (no AUTH_API given)' }), { status:401, headers: { ...JSON_HEADERS, ...getCorsHeaders(request) } })      } else {
+    if (!authApi) { return new Response(JSON.stringify({ success:false, message:'invalid config (no AUTH_API given)' }), { status:401, headers: JSON_HEADERS })      } else {
       try {
       const authResp = await fetch(authApi, {
         method: 'POST',
@@ -51,7 +50,7 @@ export async function loginHandler(request, env) {
         
       if (!authResp.ok || !authResult.profile) {
         await invalidateCachedAuth(env, srn)
-        return new Response(JSON.stringify({ success:false, message: authResult.message || 'invalid credentials' }), { status:401, headers: { ...JSON_HEADERS, ...getCorsHeaders(request) } })
+        return new Response(JSON.stringify({ success:false, message: authResult.message || 'invalid credentials' }), { status:401, headers: JSON_HEADERS })
       }
         
       profile = authResult.profile
@@ -62,7 +61,7 @@ export async function loginHandler(request, env) {
       
       } catch (e) {
         console.error('Auth API error:', e)
-        return new Response(JSON.stringify({ success:false, message:'auth backend error' }), { status:502, headers: { ...JSON_HEADERS, ...getCorsHeaders(request) } })
+        return new Response(JSON.stringify({ success:false, message:'auth backend error' }), { status:502, headers: JSON_HEADERS })
       }
     }
   }
@@ -85,10 +84,7 @@ export async function loginHandler(request, env) {
   }
 
   // Set both cookies
-  const headers = new Headers({
-    ...JSON_HEADERS,
-    ...getCorsHeaders(request)
-  })
+  const headers = new Headers(JSON_HEADERS)
   headers.append('Set-Cookie', makeCookie('access_token', accessJwt, accessTTL, request))
   headers.append('Set-Cookie', makeCookie('refresh_token', refreshJwt, refreshTTL, request))
 

@@ -1,5 +1,3 @@
-import { getCorsHeaders } from "../utils/cors"
-
 export async function getCacheStats(request, env) {   
   const JSON_HEADERS = { 'Content-Type': 'application/json' }
 
@@ -16,6 +14,6 @@ export async function getCacheStats(request, env) {
     })
   }), { 
     status: 200, 
-    headers: { ...JSON_HEADERS, ...getCorsHeaders(request) } 
+    headers: JSON_HEADERS
   })
 }

@@ -1,10 +1,8 @@
 import { parseCookies, makeCookie } from "../utils/cookies.js"
-import { getCorsHeaders } from "../utils/cors.js"
 import { verifyJWT, signJWT } from "../utils/sign_jwt.js"
 
 export async function getSession(request, env) {
   const JSON_HEADERS = { 'Content-Type': 'application/json' }
-  const cors = getCorsHeaders(request)
 
   const cookies = parseCookies(request.headers.get('cookie'))
   const access = cookies['access_token']
@@ -13,7 +11,7 @@ export async function getSession(request, env) {
     console.log(`getSession: access verify result: ${JSON.stringify(v)}`)
     if (v.valid && v.payload?.type === 'access') {
       const exp = v.payload.exp ? new Date(v.payload.exp * 1000).toISOString() : undefined
-      return new Response(JSON.stringify({ success: true, session: { srn: v.payload.sub, profile: v.payload.profile, expiresAt: exp } }), { status: 200, headers: { ...JSON_HEADERS, ...cors } })
+      return new Response(JSON.stringify({ success: true, session: { srn: v.payload.sub, profile: v.payload.profile, expiresAt: exp } }), { status: 200, headers: JSON_HEADERS })
     }
   }
 
@@ -34,7 +32,7 @@ export async function getSession(request, env) {
       if (profile) newAccessPayload.profile = profile
 
       const newAccess = await signJWT(newAccessPayload, env.JWT_SECRET, accessTTL)
-      const headers = new Headers({ ...JSON_HEADERS, ...cors })
+      const headers = new Headers(JSON_HEADERS)
       headers.append('Set-Cookie', makeCookie('access_token', newAccess, accessTTL, request))
 
       return new Response(JSON.stringify({
@@ -48,5 +46,5 @@ export async function getSession(request, env) {
     }
   }
 
-  return new Response(JSON.stringify({ success: false }), { status: 401, headers: { ...JSON_HEADERS, ...cors } })
+  return new Response(JSON.stringify({ success: false }), { status: 401, headers: JSON_HEADERS })
 }

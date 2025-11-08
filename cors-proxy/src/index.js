@@ -19,10 +19,10 @@ addEventListener('fetch', event => {
 
 async function handleRequest(request, env) {
   const url = new URL(request.url)
+  const corsHeaders = getCorsHeaders(request)
 
-    // Handle OPTIONS preflight
+  // Handle OPTIONS preflight
   if (request.method === 'OPTIONS') {
-    const corsHeaders = getCorsHeaders(request)
     return new Response(null, {
       status: 204,
       headers: {
@@ -34,24 +34,44 @@ async function handleRequest(request, env) {
     })
   }
 
+  // Helper to add CORS headers to any response
+  // This centralizes CORS handling so individual handlers don't need to include it
+  const addCorsHeaders = (response) => {
+    const newHeaders = new Headers(response.headers)
+    Object.entries(corsHeaders).forEach(([key, value]) => {
+      newHeaders.set(key, value)
+    })
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: newHeaders
+    })
+  }
+
+  let response
+
   // POST /api/login
   if (request.method === 'POST' && url.pathname === '/api/login') {
-    return loginHandler(request, env)  
+    response = await loginHandler(request, env)
+    return addCorsHeaders(response)
   }
 
   // GET /api/session
   if (request.method === 'GET' && url.pathname === '/api/session') {
-    return getSession(request, env)
+    response = await getSession(request, env)
+    return addCorsHeaders(response)
   }
 
   // POST /api/logout
   if (request.method === 'POST' && url.pathname === '/api/logout') {
-    return logoutHandler(request, env)
+    response = await logoutHandler(request, env)
+    return addCorsHeaders(response)
   }
 
   // POST /api/resources/upload
   if (request.method === 'POST' && url.pathname === '/api/resources/upload') {
-    return uploadResourceToSupabase(request, env)
+    response = await uploadResourceToSupabase(request, env)
+    return addCorsHeaders(response)
   }
 
   // HEAD or GET /api/resources/sem-{N}/{subject}/unit-{N}/{filename} - Semantic path
@@ -70,108 +90,126 @@ async function handleRequest(request, env) {
         },
         lookupBy: 'filename'
       };
-      return resourceStreamFromSupabase(request, env, ctx);
+      response = await resourceStreamFromSupabase(request, env, ctx);
+      return addCorsHeaders(response)
   }
 
   // HEAD or GET /api/resources/:id/stream - Legacy ID-based lookup
   const streamMatch = url.pathname.match(/^\/api\/resources\/([^/]+)\/stream\/?$/);
   if (streamMatch && (request.method === 'GET' || request.method === 'HEAD')) {
       const ctx = { params: { id: streamMatch[1] } };
-      return resourceStreamFromSupabase(request, env, ctx);
+      response = await resourceStreamFromSupabase(request, env, ctx);
+      return addCorsHeaders(response)
   }
 
   // POST /api/mint-stream-token
   if (request.method === 'POST' && url.pathname === '/api/mint-stream-token') {
-    return mintStreamToken(request, env);
+    response = await mintStreamToken(request, env);
+    return addCorsHeaders(response)
   }
 
   // POST /api/analytics/cookieless
   if (request.method === 'POST' && url.pathname === '/api/analytics/cookieless') {
-    return handleCookielessEvent(request, env)
+    response = await handleCookielessEvent(request, env)
+    return addCorsHeaders(response)
   }
 
   // POST /api/invalidate-cache/:srn
   // Endpoint to invalidate cached credentials (useful when password changes)
   if (request.method === 'POST' && url.pathname.startsWith('/api/invalidate-cache/')) {
-    return invalidateCache(request, env)
+    response = await invalidateCache(request, env)
+    return addCorsHeaders(response)
   }
 
   // POST /api/contribute/
   // Endpoint for storing social ID of interested contributor
   if (request.method === 'POST' && url.pathname.startsWith('/api/contribute')) {
-    return handleFormReq(request, env)
+    response = await handleFormReq(request, env)
+    return addCorsHeaders(response)
   }
 
   // GET /api/cache-stats
   // Endpoint to get cache statistics (requires authentication)
   if (request.method === 'GET' && url.pathname === '/api/cache-stats') {
-    return getCacheStats(request, env)
+    response = await getCacheStats(request, env)
+    return addCorsHeaders(response)
   }
 
   // GET /api/status - Public status page data
   if (request.method === 'GET' && url.pathname === '/api/status') {
-    return getStatus(request, env)
+    response = await getStatus(request, env)
+    return addCorsHeaders(response)
   }
 
   // GET /api/resources - Get all resources with optional filters
   if (request.method === 'GET' && url.pathname === '/api/resources') {
-    return getResources(request, env)
+    response = await getResources(request, env)
+    return addCorsHeaders(response)
   }
 
   // GET /api/subject/resources - Get subject resources organized hierarchically
   if (request.method === 'GET' && url.pathname === '/api/subject/resources') {
-    return getSubjectResources(request, env)
+    response = await getSubjectResources(request, env)
+    return addCorsHeaders(response)
   }
 
   // POST /api/admin/verify-passphrase - Verify admin passphrase
   if (request.method === 'POST' && url.pathname === '/api/admin/verify-passphrase') {
-    return verifyAdminPassphrase(request, env)
+    response = await verifyAdminPassphrase(request, env)
+    return addCorsHeaders(response)
   }
 
   // GET /api/admin/resources - Get all resources with pagination
   if (request.method === 'GET' && url.pathname === '/api/admin/resources') {
-    return getAdminResources(request, env)
+    response = await getAdminResources(request, env)
+    return addCorsHeaders(response)
   }
 
   // GET /api/admin/filters - Get available filter values
   if (request.method === 'GET' && url.pathname === '/api/admin/filters') {
-    return getFilters(request, env)
+    response = await getFilters(request, env)
+    return addCorsHeaders(response)
   }
 
   // PATCH /api/admin/resources/:id - Update resource metadata
   const updateResourceMatch = url.pathname.match(/^\/api\/admin\/resources\/([^/]+)\/?$/);
   if (updateResourceMatch && request.method === 'PATCH') {
     const ctx = { params: { id: updateResourceMatch[1] } };
-    return updateResource(request, env, ctx);
+    response = await updateResource(request, env, ctx);
+    return addCorsHeaders(response)
   }
 
   // DELETE /api/admin/resources/:id - Delete resource
   const deleteResourceMatch = url.pathname.match(/^\/api\/admin\/resources\/([^/]+)\/?$/);
   if (deleteResourceMatch && request.method === 'DELETE') {
     const ctx = { params: { id: deleteResourceMatch[1] } };
-    return deleteResource(request, env, ctx);
+    response = await deleteResource(request, env, ctx);
+    return addCorsHeaders(response)
   }
 
   // POST /api/status/incidents - Create new incident (authenticated)
   if (request.method === 'POST' && url.pathname === '/api/status/incidents') {
-    return createIncident(request, env)
+    response = await createIncident(request, env)
+    return addCorsHeaders(response)
   }
 
   // POST /api/status/incidents/:id/updates - Add incident update (authenticated)
   const incidentUpdateMatch = url.pathname.match(/^\/api\/status\/incidents\/([^/]+)\/updates\/?$/);
   if (incidentUpdateMatch && request.method === 'POST') {
     const ctx = { params: { id: incidentUpdateMatch[1] } };
-    return addIncidentUpdate(request, env, ctx);
+    response = await addIncidentUpdate(request, env, ctx);
+    return addCorsHeaders(response)
   }
 
   // PATCH /api/status/components/:id - Update component status (authenticated)
   const componentMatch = url.pathname.match(/^\/api\/status\/components\/([^/]+)\/?$/);
   if (componentMatch && request.method === 'PATCH') {
     const ctx = { params: { id: componentMatch[1] } };
-    return updateComponentStatus(request, env, ctx);
+    response = await updateComponentStatus(request, env, ctx);
+    return addCorsHeaders(response)
   }
 
-  return new Response('Not found', { status:404, headers: getCorsHeaders(request) })
+  return new Response('Not found', { status:404, headers: corsHeaders })
 }
 
 // Export for module workers (preferred)

@@ -1,5 +1,4 @@
 // Status page API endpoints
-import { getCorsHeaders } from '../utils/cors.js';
 import { verifyJWT } from '../utils/sign_jwt.js';
 
 // Helper to check passphrase
@@ -48,8 +47,7 @@ async function isAuthenticated(request, env) {
 
 // GET /api/status - Public endpoint for status page
 export async function getStatus(request, env) {
-    const cors = getCorsHeaders(request);
-    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+    const JSON_HEADERS = { 'Content-Type': 'application/json' };
     
     try {
         const base = env.SUPABASE_URL.replace(/\/+$/, '');
@@ -103,27 +101,26 @@ export async function getStatus(request, env) {
             recent_incidents: incidentsWithUpdates.filter(i => i.status === 'resolved')
         }), {
             status: 200,
-            headers: { 'Content-Type': 'application/json', ...cors }
+            headers: JSON_HEADERS
         });
     } catch (e) {
         console.error('getStatus error', e);
         return new Response(JSON.stringify({ error: 'failed_to_fetch_status' }), {
             status: 500,
-            headers: { 'Content-Type': 'application/json', ...cors }
+            headers: JSON_HEADERS
         });
     }
 }
 
 // POST /api/status/incidents - Create new incident (authenticated)
 export async function createIncident(request, env) {
-    const cors = getCorsHeaders(request);
-    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+    const JSON_HEADERS = { 'Content-Type': 'application/json' };
     
     const user = await isAuthenticated(request, env);
     if (!user) {
         return new Response(JSON.stringify({ error: 'unauthorized' }), {
             status: 401,
-            headers: { 'Content-Type': 'application/json', ...cors }
+            headers: JSON_HEADERS
         });
     }
     
@@ -134,7 +131,7 @@ export async function createIncident(request, env) {
         if (!title) {
             return new Response(JSON.stringify({ error: 'missing_required_fields' }), {
                 status: 400,
-                headers: { 'Content-Type': 'application/json', ...cors }
+                headers: JSON_HEADERS
             });
         }
         
@@ -190,27 +187,26 @@ export async function createIncident(request, env) {
         
         return new Response(JSON.stringify({ success: true, incident }), {
             status: 201,
-            headers: { 'Content-Type': 'application/json', ...cors }
+            headers: JSON_HEADERS
         });
     } catch (e) {
         console.error('createIncident error', e);
         return new Response(JSON.stringify({ error: 'failed_to_create_incident' }), {
             status: 500,
-            headers: { 'Content-Type': 'application/json', ...cors }
+            headers: JSON_HEADERS
         });
     }
 }
 
 // POST /api/status/incidents/:id/updates - Add update to incident (authenticated)
 export async function addIncidentUpdate(request, env, ctx) {
-    const cors = getCorsHeaders(request);
-    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+    const JSON_HEADERS = { 'Content-Type': 'application/json' };
     
     const user = await isAuthenticated(request, env);
     if (!user) {
         return new Response(JSON.stringify({ error: 'unauthorized' }), {
             status: 401,
-            headers: { 'Content-Type': 'application/json', ...cors }
+            headers: JSON_HEADERS
         });
     }
     
@@ -222,7 +218,7 @@ export async function addIncidentUpdate(request, env, ctx) {
         if (!status || !message) {
             return new Response(JSON.stringify({ error: 'missing_required_fields' }), {
                 status: 400,
-                headers: { 'Content-Type': 'application/json', ...cors }
+                headers: JSON_HEADERS
             });
         }
         
@@ -271,27 +267,26 @@ export async function addIncidentUpdate(request, env, ctx) {
         
         return new Response(JSON.stringify({ success: true, update: updates[0] }), {
             status: 201,
-            headers: { 'Content-Type': 'application/json', ...cors }
+            headers: JSON_HEADERS
         });
     } catch (e) {
         console.error('addIncidentUpdate error', e);
         return new Response(JSON.stringify({ error: 'failed_to_add_update' }), {
             status: 500,
-            headers: { 'Content-Type': 'application/json', ...cors }
+            headers: JSON_HEADERS
         });
     }
 }
 
 // PATCH /api/status/components/:id - Update component status (authenticated)
 export async function updateComponentStatus(request, env, ctx) {
-    const cors = getCorsHeaders(request);
-    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+    const JSON_HEADERS = { 'Content-Type': 'application/json' };
     
     const user = await isAuthenticated(request, env);
     if (!user) {
         return new Response(JSON.stringify({ error: 'unauthorized' }), {
             status: 401,
-            headers: { 'Content-Type': 'application/json', ...cors }
+            headers: JSON_HEADERS
         });
     }
     
@@ -303,7 +298,7 @@ export async function updateComponentStatus(request, env, ctx) {
         if (!status) {
             return new Response(JSON.stringify({ error: 'missing_status' }), {
                 status: 400,
-                headers: { 'Content-Type': 'application/json', ...cors }
+                headers: JSON_HEADERS
             });
         }
         
@@ -331,13 +326,13 @@ export async function updateComponentStatus(request, env, ctx) {
         
         return new Response(JSON.stringify({ success: true, component: components[0] }), {
             status: 200,
-            headers: { 'Content-Type': 'application/json', ...cors }
+            headers: JSON_HEADERS
         });
     } catch (e) {
         console.error('updateComponentStatus error', e);
         return new Response(JSON.stringify({ error: 'failed_to_update_component' }), {
             status: 500,
-            headers: { 'Content-Type': 'application/json', ...cors }
+            headers: JSON_HEADERS
         });
     }
 }

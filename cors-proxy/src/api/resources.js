@@ -1,5 +1,3 @@
-import { getCorsHeaders } from '../utils/cors.js';
-
 /**
  * GET /api/resources - Get all resources with optional filters
  * Query params:
@@ -10,10 +8,6 @@ import { getCorsHeaders } from '../utils/cors.js';
  *   - offset: pagination offset (default: 0)
  */
 export async function getResources(request, env) {
-    const cors = getCorsHeaders(request);
-    if (request.method === 'OPTIONS') {
-        return new Response(null, { status: 204, headers: cors });
-    }
 
     try {
         const url = new URL(request.url);
@@ -72,7 +66,7 @@ export async function getResources(request, env) {
             }
         }), {
             status: 200,
-            headers: { 'Content-Type': 'application/json', ...cors }
+            headers: { 'Content-Type': 'application/json' }
         });
 
     } catch (e) {
@@ -83,7 +77,7 @@ export async function getResources(request, env) {
             message: e.message
         }), {
             status: 500,
-            headers: { 'Content-Type': 'application/json', ...cors }
+            headers: { 'Content-Type': 'application/json' }
         });
     }
 }

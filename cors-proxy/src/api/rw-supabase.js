@@ -1,5 +1,7 @@
-import { getCorsHeaders } from '../utils/cors.js';
 import { verifyJWT } from '../utils/sign_jwt.js';
+
+// Centralized CORS applied at the worker level; only specify content-type locally.
+const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
 const BUCKET = 'fileStore';
 
@@ -180,23 +182,15 @@ function maskUrlForLogs(url) {
 }
 
 export async function uploadResourceToSupabase(request, env) {
-    const cors = getCorsHeaders(request);
-    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
 
     if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
         console.error('uploadResourceToSupabase: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not configured');
-        return new Response(JSON.stringify({ success: false, error: 'server_misconfigured' }), {
-            status: 500,
-            headers: { 'Content-Type': 'application/json', ...cors },
-        });
+        return new Response(JSON.stringify({ success: false, error: 'server_misconfigured' }), { status: 500, headers: JSON_HEADERS });
     }
 
     const contentType = request.headers.get('content-type') || '';
     if (!contentType.startsWith('multipart/')) {
-        return new Response(JSON.stringify({ success: false, error: 'invalid_content_type' }), {
-            status: 400,
-            headers: { 'Content-Type': 'application/json', ...cors },
-        });
+        return new Response(JSON.stringify({ success: false, error: 'invalid_content_type' }), { status: 400, headers: JSON_HEADERS });
     }
 
     let form;
@@ -204,10 +198,7 @@ export async function uploadResourceToSupabase(request, env) {
         form = await request.formData();
     } catch (e) {
         console.error('failed to parse formData', e);
-        return new Response(JSON.stringify({ success: false, error: 'invalid_form' }), {
-            status: 400,
-            headers: { 'Content-Type': 'application/json', ...cors },
-        });
+        return new Response(JSON.stringify({ success: false, error: 'invalid_form' }), { status: 400, headers: JSON_HEADERS });
     }
 
     // allow multiple files under field name "file"
@@ -234,10 +225,7 @@ export async function uploadResourceToSupabase(request, env) {
     const performed_by = form.get('performed_by') || null;
 
     if (!files.length || !subject || !resource_type) {
-        return new Response(JSON.stringify({ success: false, error: 'missing_fields' }), {
-            status: 400,
-            headers: { 'Content-Type': 'application/json', ...cors },
-        });
+        return new Response(JSON.stringify({ success: false, error: 'missing_fields' }), { status: 400, headers: JSON_HEADERS });
     }
 
     const results = [];
@@ -369,7 +357,7 @@ export async function uploadResourceToSupabase(request, env) {
         }
     }
     // end for
-    return new Response(JSON.stringify({ success: true, results }), { status: 201, headers: { 'Content-Type': 'application/json', ...cors } });
+    return new Response(JSON.stringify({ success: true, results }), { status: 201, headers: JSON_HEADERS });
 }
 
 // Mint a short-lived signed stream token for an authenticated user.
@@ -378,25 +366,21 @@ export async function uploadResourceToSupabase(request, env) {
 // that can be validated against Supabase Auth (/auth/v1/user). The worker
 // will verify the user then sign a token with STREAM_SIGNING_SECRET.
 export async function mintStreamToken(request, env) {
-    const cors = getCorsHeaders(request);
 
     if (!env.STREAM_SIGNING_SECRET) {
         console.error('mintStreamToken: STREAM_SIGNING_SECRET not configured');
-        return new Response(JSON.stringify({ success: false, error: 'server_misconfigured' }), {
-            status: 500,
-            headers: { 'Content-Type': 'application/json', ...cors },
-        });
+        return new Response(JSON.stringify({ success: false, error: 'server_misconfigured' }), { status: 500, headers: JSON_HEADERS });
     }
 
     if (request.method !== 'POST') {
-        return new Response(JSON.stringify({ success: false, error: 'method_not_allowed' }), { status: 405, headers: { 'Content-Type': 'application/json', ...cors } });
+    return new Response(JSON.stringify({ success: false, error: 'method_not_allowed' }), { status: 405, headers: JSON_HEADERS });
     }
 
     let body = null;
     try {
         body = await request.json();
     } catch (e) {
-        return new Response(JSON.stringify({ success: false, error: 'invalid_json' }), { status: 400, headers: { 'Content-Type': 'application/json', ...cors } });
+    return new Response(JSON.stringify({ success: false, error: 'invalid_json' }), { status: 400, headers: JSON_HEADERS });
     }
 
     const id = body && body.id ? String(body.id) : '*';
@@ -407,7 +391,7 @@ export async function mintStreamToken(request, env) {
     // env.JWT_SECRET so we don't call Supabase for auth validation.
     const authHeader = request.headers.get('authorization');
     const cookieHeader = request.headers.get('cookie');
-    if (!authHeader && !cookieHeader) return new Response(JSON.stringify({ success: false, error: 'unauthenticated' }), { status: 401, headers: { 'Content-Type': 'application/json', ...cors } });
+    if (!authHeader && !cookieHeader) return new Response(JSON.stringify({ success: false, error: 'unauthenticated' }), { status: 401, headers: JSON_HEADERS });
 
     try {
         let token = null;
@@ -422,17 +406,17 @@ export async function mintStreamToken(request, env) {
                 }
             }
         }
-        if (!token) return new Response(JSON.stringify({ success: false, error: 'unauthenticated' }), { status: 401, headers: { 'Content-Type': 'application/json', ...cors } });
+    if (!token) return new Response(JSON.stringify({ success: false, error: 'unauthenticated' }), { status: 401, headers: JSON_HEADERS });
 
         const res = await verifyJWT(token, env.JWT_SECRET);
         if (!res || !res.valid) {
             console.error('mintStreamToken: jwt verify failed', res && res.reason);
-            return new Response(JSON.stringify({ success: false, error: 'unauthenticated' }), { status: 401, headers: { 'Content-Type': 'application/json', ...cors } });
+            return new Response(JSON.stringify({ success: false, error: 'unauthenticated' }), { status: 401, headers: JSON_HEADERS });
         }
         // res.payload available if you need profile info
     } catch (e) {
         console.error('mintStreamToken: user validation error', e);
-        return new Response(JSON.stringify({ success: false, error: 'auth_check_failed' }), { status: 502, headers: { 'Content-Type': 'application/json', ...cors } });
+    return new Response(JSON.stringify({ success: false, error: 'auth_check_failed' }), { status: 502, headers: JSON_HEADERS });
     }
 
     // Create payload and sign it using HMAC-SHA256 with STREAM_SIGNING_SECRET
@@ -450,15 +434,14 @@ export async function mintStreamToken(request, env) {
         const b64sig = btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
         const token = `${b64payload}.${b64sig}`;
-        return new Response(JSON.stringify({ success: true, token }), { status: 200, headers: { 'Content-Type': 'application/json', ...cors } });
+    return new Response(JSON.stringify({ success: true, token }), { status: 200, headers: JSON_HEADERS });
     } catch (e) {
         console.error('mintStreamToken: signing error', e);
-        return new Response(JSON.stringify({ success: false, error: 'signing_failed' }), { status: 500, headers: { 'Content-Type': 'application/json', ...cors } });
+    return new Response(JSON.stringify({ success: false, error: 'signing_failed' }), { status: 500, headers: JSON_HEADERS });
     }
 }
 
 export async function resourceStreamFromSupabase(request, env, ctx) {
-    const cors = getCorsHeaders(request);
 
     // Support both ID-based lookup (legacy) and filename-based lookup (semantic paths)
     const lookupBy = ctx?.lookupBy || 'id';
@@ -551,10 +534,7 @@ export async function resourceStreamFromSupabase(request, env, ctx) {
     const providedToken = urlObj.searchParams.get('token') || (request.headers.get('authorization') || '').split(' ')[1] || null;
     if (!env.STREAM_SIGNING_SECRET) {
         console.error('resourceStreamFromSupabase: STREAM_SIGNING_SECRET not set');
-        return new Response(JSON.stringify({ success: false, error: 'server_misconfigured' }), {
-            status: 500,
-            headers: { 'Content-Type': 'application/json', ...cors },
-        });
+        return new Response(JSON.stringify({ success: false, error: 'server_misconfigured' }), { status: 500, headers: JSON_HEADERS });
     }
     // Token verification will happen after metadata fetch for both lookup types
     // (we need the resource ID for filename-based lookups)
@@ -598,7 +578,7 @@ export async function resourceStreamFromSupabase(request, env, ctx) {
         console.error('supabase metadata request error', e);
     }
 
-    if (!row || !row.storage_key) return new Response('Not found', { status: 404, headers: cors });
+    if (!row || !row.storage_key) return new Response('Not found', { status: 404 });
 
     // --- Token verification (works for both ID-based and filename-based lookups) ---
     const resourceId = row.id || id;
@@ -650,10 +630,7 @@ export async function resourceStreamFromSupabase(request, env, ctx) {
             }
         } else {
             // not valid session and token not valid -> unauthorized
-            return new Response(JSON.stringify({ success: false, error: 'unauthorized' }), {
-                status: 401,
-                headers: { 'Content-Type': 'application/json', ...cors },
-            });
+            return new Response(JSON.stringify({ success: false, error: 'unauthorized' }), { status: 401, headers: JSON_HEADERS });
         }
     }
     // --- end token verification ---
@@ -670,11 +647,11 @@ export async function resourceStreamFromSupabase(request, env, ctx) {
                 if (!headResp.ok) {
                     const txt = await headResp.text().catch(() => '<no body>');
                     console.error('upstream object HEAD failed', headResp.status, txt);
-                    return new Response(txt, { status: headResp.status, headers: cors });
+                    return new Response(txt, { status: headResp.status });
                 }
 
                 // Build response headers for HEAD: include content-type and length if present
-                const respHeaders = { ...cors };
+                const respHeaders = {};
                 const ct = headResp.headers.get('content-type') || row.content_type || 'application/octet-stream';
                 respHeaders['Content-Type'] = ct;
                 const len = headResp.headers.get('content-length');
@@ -683,10 +660,7 @@ export async function resourceStreamFromSupabase(request, env, ctx) {
                 return new Response(null, { status: 200, headers: respHeaders });
             } catch (e) {
                 console.error('error performing HEAD against storage object', e);
-                return new Response(JSON.stringify({ success: false, error: 'head_request_failed' }), {
-                    status: 502,
-                    headers: { 'Content-Type': 'application/json', ...cors },
-                });
+                return new Response(JSON.stringify({ success: false, error: 'head_request_failed' }), { status: 502, headers: JSON_HEADERS });
             }
         }
 
@@ -707,10 +681,10 @@ export async function resourceStreamFromSupabase(request, env, ctx) {
                 if (!upstream.ok && upstream.status !== 206) {
                     const txt = await upstream.text().catch(() => '<no body>');
                     console.error('upstream object fetch failed', upstream.status, txt);
-                    return new Response(txt, { status: upstream.status, headers: { ...cors, 'Content-Type': 'text/plain' } });
+                    return new Response(txt, { status: upstream.status, headers: { 'Content-Type': 'text/plain' } });
                 }
 
-                const respHeaders = { ...cors };
+                const respHeaders = {};
                 const copyHeaders = ['content-type', 'content-length', 'content-disposition', 'accept-ranges', 'cache-control', 'last-modified', 'etag'];
                 for (const h of copyHeaders) {
                     const v = upstream.headers.get(h);
@@ -724,16 +698,10 @@ export async function resourceStreamFromSupabase(request, env, ctx) {
                 return new Response(upstream.body, { status: upstream.status, headers: respHeaders });
             } catch (e) {
                 console.error('error obtaining signed url or proxying', e);
-                return new Response(JSON.stringify({ success: false, error: 'sign_or_proxy_error' }), {
-                    status: 502,
-                    headers: { 'Content-Type': 'application/json', ...cors },
-                });
+                return new Response(JSON.stringify({ success: false, error: 'sign_or_proxy_error' }), { status: 502, headers: JSON_HEADERS });
             }
     } catch (e) {
         console.error('error obtaining signed url or proxying', e);
-        return new Response(JSON.stringify({ success: false, error: 'sign_or_proxy_error' }), {
-            status: 502,
-            headers: { 'Content-Type': 'application/json', ...cors },
-        });
+        return new Response(JSON.stringify({ success: false, error: 'sign_or_proxy_error' }), { status: 502, headers: JSON_HEADERS });
     }
 }

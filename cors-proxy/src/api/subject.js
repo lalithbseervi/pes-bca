@@ -3,8 +3,6 @@
  * Returns resources organized by unit and resource_type in hierarchical structure
  */
 
-import { getCorsHeaders } from '../utils/cors.js';
-
 /**
  * Get subject resources organized hierarchically
  * @param {Request} request - The request object
@@ -21,7 +19,7 @@ export async function getSubjectResources(request, env) {
                 error: 'Subject parameter is required' 
             }), {
                 status: 400,
-                headers: getCorsHeaders(request)
+                headers: { 'Content-Type': 'application/json' }
             });
         }
 
@@ -75,7 +73,7 @@ export async function getSubjectResources(request, env) {
             total: resources.length
         }), {
             status: 200,
-            headers: getCorsHeaders(request)
+            headers: { 'Content-Type': 'application/json' }
         });
 
     } catch (error) {
@@ -85,7 +83,7 @@ export async function getSubjectResources(request, env) {
             details: error.message 
         }), {
             status: 500,
-            headers: getCorsHeaders(request)
+            headers: { 'Content-Type': 'application/json' }
         });
     }
 }

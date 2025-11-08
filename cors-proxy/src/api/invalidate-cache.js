@@ -1,4 +1,3 @@
-import { getCorsHeaders } from "../utils/cors.js"
 import { invalidateCachedAuth } from "../utils/auth-cache.js"
 
 export async function invalidateCache(request, env) {    
@@ -10,7 +9,7 @@ export async function invalidateCache(request, env) {
     if (!srn) {
       return new Response(JSON.stringify({ success: false, message: 'SRN required' }), { 
         status: 400, 
-        headers: { ...JSON_HEADERS, ...getCorsHeaders(request) } 
+        headers: JSON_HEADERS
       })
     }
 
@@ -21,6 +20,6 @@ export async function invalidateCache(request, env) {
       message: `Cached credentials invalidated for ${srn}` 
     }), { 
       status: 200, 
-      headers: { ...JSON_HEADERS, ...getCorsHeaders(request) } 
+      headers: JSON_HEADERS
     })
 }

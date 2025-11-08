@@ -1,6 +1,8 @@
 // Admin panel API endpoints for managing resources
-import { getCorsHeaders } from '../utils/cors.js';
 import { verifyJWT } from '../utils/sign_jwt.js';
+
+// Central CORS is applied in the main worker; only set content type locally.
+const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
 // Helper to check passphrase
 function verifyPassphrase(request, env) {
@@ -48,8 +50,6 @@ async function isAuthenticated(request, env) {
 
 // POST /api/admin/verify-passphrase - Verify admin passphrase
 export async function verifyAdminPassphrase(request, env) {
-    const cors = getCorsHeaders(request);
-    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
     
     try {
         const body = await request.json();
@@ -58,33 +58,31 @@ export async function verifyAdminPassphrase(request, env) {
         if (!passphrase || passphrase !== env.STATUS_ADMIN_PASSPHRASE) {
             return new Response(JSON.stringify({ error: 'Invalid passphrase' }), {
                 status: 401,
-                headers: { ...cors, 'Content-Type': 'application/json' }
+                headers: JSON_HEADERS
             });
         }
         
         return new Response(JSON.stringify({ valid: true }), {
             status: 200,
-            headers: { ...cors, 'Content-Type': 'application/json' }
+            headers: JSON_HEADERS
         });
     } catch (e) {
         console.error('verify passphrase error', e);
         return new Response(JSON.stringify({ error: 'Invalid request' }), {
             status: 400,
-            headers: { ...cors, 'Content-Type': 'application/json' }
+            headers: JSON_HEADERS
         });
     }
 }
 
 // GET /api/admin/resources - Get all resources with pagination and filtering
 export async function getResources(request, env) {
-    const cors = getCorsHeaders(request);
-    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
     
     const user = await isAuthenticated(request, env);
     if (!user) {
         return new Response(JSON.stringify({ error: 'Unauthorized' }), {
             status: 401,
-            headers: { ...cors, 'Content-Type': 'application/json' }
+            headers: JSON_HEADERS
         });
     }
     
@@ -152,29 +150,24 @@ export async function getResources(request, env) {
                 total,
                 pages: Math.ceil(total / limit)
             }
-        }), {
-            status: 200,
-            headers: { ...cors, 'Content-Type': 'application/json' }
-        });
+        }), { status: 200, headers: JSON_HEADERS });
     } catch (e) {
         console.error('get resources error', e);
         return new Response(JSON.stringify({ error: e.message }), {
             status: 500,
-            headers: { ...cors, 'Content-Type': 'application/json' }
+            headers: JSON_HEADERS
         });
     }
 }
 
 // PATCH /api/admin/resources/:id - Update resource metadata
 export async function updateResource(request, env, ctx) {
-    const cors = getCorsHeaders(request);
-    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
     
     const user = await isAuthenticated(request, env);
     if (!user) {
         return new Response(JSON.stringify({ error: 'Unauthorized' }), {
             status: 401,
-            headers: { ...cors, 'Content-Type': 'application/json' }
+            headers: JSON_HEADERS
         });
     }
     
@@ -194,7 +187,7 @@ export async function updateResource(request, env, ctx) {
         if (Object.keys(updates).length === 0) {
             return new Response(JSON.stringify({ error: 'No valid fields to update' }), {
                 status: 400,
-                headers: { ...cors, 'Content-Type': 'application/json' }
+                headers: JSON_HEADERS
             });
         }
         
@@ -243,27 +236,25 @@ export async function updateResource(request, env, ctx) {
         
         return new Response(JSON.stringify({ success: true, resource: updated[0] }), {
             status: 200,
-            headers: { ...cors, 'Content-Type': 'application/json' }
+            headers: JSON_HEADERS
         });
     } catch (e) {
         console.error('update resource error', e);
         return new Response(JSON.stringify({ error: e.message }), {
             status: 500,
-            headers: { ...cors, 'Content-Type': 'application/json' }
+            headers: JSON_HEADERS
         });
     }
 }
 
 // DELETE /api/admin/resources/:id - Delete resource and its file
 export async function deleteResource(request, env, ctx) {
-    const cors = getCorsHeaders(request);
-    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
     
     const user = await isAuthenticated(request, env);
     if (!user) {
         return new Response(JSON.stringify({ error: 'Unauthorized' }), {
             status: 401,
-            headers: { ...cors, 'Content-Type': 'application/json' }
+            headers: JSON_HEADERS
         });
     }
     
@@ -288,7 +279,7 @@ export async function deleteResource(request, env, ctx) {
         if (!resources || resources.length === 0) {
             return new Response(JSON.stringify({ error: 'Resource not found' }), {
                 status: 404,
-                headers: { ...cors, 'Content-Type': 'application/json' }
+                headers: JSON_HEADERS
             });
         }
         
@@ -345,27 +336,25 @@ export async function deleteResource(request, env, ctx) {
         
         return new Response(JSON.stringify({ success: true }), {
             status: 200,
-            headers: { ...cors, 'Content-Type': 'application/json' }
+            headers: JSON_HEADERS
         });
     } catch (e) {
         console.error('delete resource error', e);
         return new Response(JSON.stringify({ error: e.message }), {
             status: 500,
-            headers: { ...cors, 'Content-Type': 'application/json' }
+            headers: JSON_HEADERS
         });
     }
 }
 
 // GET /api/admin/filters - Get available filter values
 export async function getFilters(request, env) {
-    const cors = getCorsHeaders(request);
-    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
     
     const user = await isAuthenticated(request, env);
     if (!user) {
         return new Response(JSON.stringify({ error: 'Unauthorized' }), {
             status: 401,
-            headers: { ...cors, 'Content-Type': 'application/json' }
+            headers: JSON_HEADERS
         });
     }
     
@@ -394,19 +383,15 @@ export async function getFilters(request, env) {
         const typesData = await typesResp.json();
         const resource_types = [...new Set(typesData.map(r => r.resource_type).filter(Boolean))];
         
-        return new Response(JSON.stringify({
-            subjects,
-            semesters,
-            resource_types
-        }), {
+        return new Response(JSON.stringify({ subjects, semesters, resource_types }), {
             status: 200,
-            headers: { ...cors, 'Content-Type': 'application/json' }
+            headers: JSON_HEADERS
         });
     } catch (e) {
         console.error('get filters error', e);
         return new Response(JSON.stringify({ error: e.message }), {
             status: 500,
-            headers: { ...cors, 'Content-Type': 'application/json' }
+            headers: JSON_HEADERS
         });
     }
 }

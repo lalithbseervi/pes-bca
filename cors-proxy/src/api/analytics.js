@@ -1,16 +1,13 @@
-import { getCorsHeaders } from "../utils/cors.js";
-
 export async function handleCookielessEvent(request, env) {
   console.log('handleCookielessEvent: incoming', request.method, request.url);
   const JSON_HEADERS = { 'Content-Type': 'application/json' };
-  const CORS_HEADERS = getCorsHeaders(request);
 
   let body;
   try {
     body = await request.json();
     console.log('handleCookielessEvent: body', body);
   } catch (e) {
-    return new Response(JSON.stringify({ success: false, error: 'invalid_json' }), { status: 400, headers: { ...JSON_HEADERS, ...CORS_HEADERS } });
+    return new Response(JSON.stringify({ success: false, error: 'invalid_json' }), { status: 400, headers: JSON_HEADERS });
   }
 
   // validate minimum
@@ -22,7 +19,7 @@ export async function handleCookielessEvent(request, env) {
   const PH_HOST = env.POSTHOG_HOST || 'https://app.posthog.com';
 
   if (!WRITE_KEY) {
-    return new Response(JSON.stringify({ success: false, error: 'no_write_key' }), { status: 500, headers: { ...JSON_HEADERS, ...CORS_HEADERS } });
+    return new Response(JSON.stringify({ success: false, error: 'no_write_key' }), { status: 500, headers: JSON_HEADERS });
   }
 
   // Build PostHog payload. Do NOT set a persistent distinct_id for privacy.
@@ -55,11 +52,11 @@ export async function handleCookielessEvent(request, env) {
     }
 
     if (!resp.ok) {
-      return new Response(JSON.stringify({ success: false, forwarded: false }), { status: 502, headers: { ...JSON_HEADERS, ...CORS_HEADERS } });
+      return new Response(JSON.stringify({ success: false, forwarded: false }), { status: 502, headers: JSON_HEADERS });
     }
 
-    return new Response(JSON.stringify({ success: true }), { status: 200, headers: { ...JSON_HEADERS, ...CORS_HEADERS } });
+    return new Response(JSON.stringify({ success: true }), { status: 200, headers: JSON_HEADERS });
   } catch (err) {
-    return new Response(JSON.stringify({ success: false, error: String(err) }), { status: 502, headers: { ...JSON_HEADERS, ...CORS_HEADERS } });
+    return new Response(JSON.stringify({ success: false, error: String(err) }), { status: 502, headers: JSON_HEADERS });
   }
 }
