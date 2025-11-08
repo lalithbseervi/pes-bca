@@ -161,11 +161,10 @@
     </article>
 </main>
 <script>
-    // Get subject code from page extra or URL
+    // Get subject code from page extra 
     const subjectCode = '{{ page.extra.subject_code }}';
     const WORKER_URL = (location.hostname === 'pes-bca.pages.dev') ? 'https://cors-proxy.devpages.workers.dev' : 'http://localhost:8787';
     
-    // Subject code to full name mapping (from uploadFiles.html)
     const subjectNames = {
         'cfp': 'Computing Fundamentals with Python',
         'wd': 'Web Design',

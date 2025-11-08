@@ -119,70 +119,269 @@
               </div>
             </div>
             
+            <div id="loading-resources" class="loading-message" style="text-align: center; padding: 2rem;">
+              <p>Loading resources...</p>
+            </div>
+            
             <div id="no-results" class="no-results" style="display: none;">
               No results found. Try different search terms.
             </div>
             
-            <div class="parent-parent" id="content-area">
-            <ul class="parent" style="list-style-type: none;">
-                <li>
-                    <details open="true">
-                        <summary>Sem-1</summary>
-                        <ul>
-                            <li id="subject-wd">
-                                {% include 'wd.html' %}
-                            </li>
-                            <li id="subject-cfp">
-                                {% include 'cfp.html' %}
-                            </li>
-                            <li id="subject-mp">
-                                {% include 'mp.html' %}
-                            </li>
-                            <li id="subject-mfca">
-                                {% include 'mfca.html' %}
-                            </li>
-                            <li id="subject-pce">
-                                {% include 'pce.html' %}
-                            </li>
-                            <li>
-                                <details open="true">
-                                    <summary>CIEP (Constitutional Law, Intellectual Property, and Cyber Law)</summary>
-                                    <ul>
-                                        <li>
-                                            <details open="true">
-                                                <summary>Sample QA</summary>
-                                                <ul>
-                                                    <li><a href="/static/AllConstitutionQ&A.pdf">Constitutional Law QA</a> [credits: <a  href="https://github.com/jaanhavik777/StudyMaterial-PESU/blob/main/Semester%201/UL24CE121%20-%20Constitution%20of%20India/AllConstitutionQ%26A.pdf">github.com/jaanhavik777</a>]</li>
-                                                </ul>
-                                            </details>
-                                        </li>
-                                    </ul>
-                                </details>
-                            </li>
-                        </ul>
-                    </details>
-                </li>  
-            </ul>
+            <div class="parent-parent" id="content-area" style="display: none;">
+              <ul class="parent" style="list-style-type: none;" id="resources-list">
+                <!-- Resources will be dynamically loaded here -->
+              </ul>
             </div>
         </section>
     </article>
 </main>
-<p>Last Updated: 07-11-2025, 23:01:08</p>
-<script>
-    // Close all child <details> when a parent <details> is closed
-    document.addEventListener('DOMContentLoaded', function () {
-        document.querySelectorAll('details').forEach(function (details) {
-            details.addEventListener('toggle', function () {
-                if (!details.open) {
-                    details.querySelectorAll('details').forEach(function (child) {
-                        child.open = false;
-                    });
-                }
-            });
-        });
+<p id="last-updated">Last Updated: Loading...</p>
+<script type="module">
+import { API_BASE_URL } from '/js/utils.js';
+
+let allResources = [];
+
+// Load resources from API
+async function loadResources() {
+    try {
+        const loadingEl = document.getElementById('loading-resources');
+        const contentArea = document.getElementById('content-area');
+        
+        const response = await fetch(`${API_BASE_URL}/api/resources`);
+        if (!response.ok) throw new Error('Failed to fetch resources');
+        
+        const data = await response.json();
+        allResources = data.resources || [];
+        
+        // Group resources by semester
+        const grouped = groupResources(allResources);
+        
+        // Render the tree structure
+        renderResourceTree(grouped);
+        
+        // Hide loading, show content
+        loadingEl.style.display = 'none';
+        contentArea.style.display = 'block';
+        
+        // Update last updated timestamp with most recent resource
+        const mostRecentResource = allResources.reduce((latest, resource) => {
+            if (!resource.created_at) return latest;
+            const resourceDate = new Date(resource.created_at);
+            const latestDate = latest ? new Date(latest.created_at) : null;
+            return (!latestDate || resourceDate > latestDate) ? resource : latest;
+        }, null);
+        
+        const lastUpdatedDate = mostRecentResource?.created_at 
+            ? new Date(mostRecentResource.created_at)
+            : new Date();
+        
+        document.getElementById('last-updated').textContent = 
+            `Last Updated: ${lastUpdatedDate.toLocaleString('en-GB', { 
+                day: '2-digit', 
+                month: '2-digit', 
+                year: 'numeric', 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit' 
+            })}`;
+        
+        // Setup details toggle behavior
+        setupDetailsToggle();
+        
+    } catch (error) {
+        console.error('Failed to load resources:', error);
+        document.getElementById('loading-resources').innerHTML = 
+            '<p style="color: #ef4444;">Failed to load resources. Please refresh the page.</p>';
+    }
+}
+
+// Group resources by semester > subject > unit > resource_type
+function groupResources(resources) {
+    const grouped = {};
+    
+    resources.forEach(resource => {
+        const semester = resource.semester || 'sem-1';
+        const subject = resource.subject || 'unknown';
+        const unit = resource.unit || 'General';
+        const type = resource.resource_type || 'Miscellaneous';
+        
+        if (!grouped[semester]) grouped[semester] = {};
+        if (!grouped[semester][subject]) grouped[semester][subject] = {};
+        if (!grouped[semester][subject][unit]) grouped[semester][subject][unit] = {};
+        if (!grouped[semester][subject][unit][type]) grouped[semester][subject][unit][type] = [];
+        
+        grouped[semester][subject][unit][type].push(resource);
     });
     
-    // Search and filter functionality
+    return grouped;
+}
+
+// Subject name mapping
+const subjectNames = {
+    'wd': 'Web Design',
+    'cfp': 'Computing Fundamentals with Python',
+    'mp': 'Macro Programming',
+    'mfca': 'Mathematical Foundation for Computer Applications',
+    'pce': 'Professional Communication and Ethics'
+};
+
+// Render the complete tree structure
+function renderResourceTree(grouped) {
+    const list = document.getElementById('resources-list');
+    list.innerHTML = '';
+    
+    // Sort semesters
+    const semesters = Object.keys(grouped).sort();
+    
+    semesters.forEach((semester, semIndex) => {
+        const semesterLi = document.createElement('li');
+        const semesterDetails = document.createElement('details');
+        semesterDetails.open = semIndex === 0; // Open first semester by default
+        
+        const semesterSummary = document.createElement('summary');
+        semesterSummary.textContent = formatSemesterName(semester);
+        semesterDetails.appendChild(semesterSummary);
+        
+        const subjectsList = document.createElement('ul');
+        
+        // Sort subjects
+        const subjects = Object.keys(grouped[semester]).sort();
+        
+        subjects.forEach(subject => {
+            const subjectLi = document.createElement('li');
+            subjectLi.id = `subject-${subject}`;
+            
+            const subjectDetails = document.createElement('details');
+            subjectDetails.open = false; // Keep subjects closed by default
+            
+            const subjectSummary = document.createElement('summary');
+            subjectSummary.textContent = subjectNames[subject] || subject.toUpperCase();
+            subjectDetails.appendChild(subjectSummary);
+            
+            const unitsList = document.createElement('ul');
+            
+            // Sort units
+            const units = Object.keys(grouped[semester][subject]).sort((a, b) => {
+                // Numeric sort for units
+                const aNum = parseInt(a);
+                const bNum = parseInt(b);
+                if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum;
+                return a.localeCompare(b);
+            });
+            
+            units.forEach(unit => {
+                const unitLi = document.createElement('li');
+                const unitDetails = document.createElement('details');
+                unitDetails.open = false; // Keep units closed by default
+                
+                const unitSummary = document.createElement('summary');
+                unitSummary.textContent = `Unit ${unit}`;
+                unitDetails.appendChild(unitSummary);
+                
+                const typesList = document.createElement('ul');
+                
+                // Sort resource types
+                const types = Object.keys(grouped[semester][subject][unit]).sort();
+                
+                types.forEach(type => {
+                    const typeLi = document.createElement('li');
+                    const typeDetails = document.createElement('details');
+                    typeDetails.open = false;
+                    
+                    const typeSummary = document.createElement('summary');
+                    typeSummary.textContent = type;
+                    typeDetails.appendChild(typeSummary);
+                    
+                    const resourcesList = document.createElement('ul');
+                    
+                    // Sort resources by link_title
+                    const resources = grouped[semester][subject][unit][type].sort((a, b) => 
+                        (a.link_title || a.filename).localeCompare(b.link_title || b.filename)
+                    );
+                    
+                    resources.forEach(resource => {
+                        const resourceLi = document.createElement('li');
+                        const link = document.createElement('a');
+                        const title = resource.link_title || resource.filename;
+                        link.href = `/pdf-viewer?file=${encodeURIComponent(resource.stream_url)}&title=${encodeURIComponent(title)}`;
+                        link.textContent = title;
+                        link.setAttribute('data-filename', resource.filename);
+                        link.setAttribute('data-title', resource.link_title || '');
+                        resourceLi.appendChild(link);
+                        resourcesList.appendChild(resourceLi);
+                    });
+                    
+                    typeDetails.appendChild(resourcesList);
+                    typeLi.appendChild(typeDetails);
+                    typesList.appendChild(typeLi);
+                });
+                
+                unitDetails.appendChild(typesList);
+                unitLi.appendChild(unitDetails);
+                unitsList.appendChild(unitLi);
+            });
+            
+            subjectDetails.appendChild(unitsList);
+            subjectLi.appendChild(subjectDetails);
+            subjectsList.appendChild(subjectLi);
+        });
+        
+        // Add manually defined subjects (not in database) for this semester
+        addManualSubjects(subjectsList, semester);
+        
+        semesterDetails.appendChild(subjectsList);
+        semesterLi.appendChild(semesterDetails);
+        list.appendChild(semesterLi);
+    });
+}
+
+// Add manual subjects that aren't in the API
+function addManualSubjects(subjectsList, semester) {
+    // Add CIEP for sem-1 only
+    if (semester === 'sem-1') {
+        const manualHTML = `
+            <li id="subject-ciep">
+                <details>
+                    <summary>CIEP (Constitutional of India, Cyber Law, and Professional Ethics)</summary>
+                    <ul>
+                        <li>
+                            <details>
+                                <summary>Sample QA</summary>
+                                <ul>
+                                    <li>
+                                        <a href="/static/AllConstitutionQ&A.pdf">Constitutional Law QA</a>
+                                        [credits: <a href="https://github.com/jaanhavik777/StudyMaterial-PESU/blob/main/Semester%201/UL24CE121%20-%20Constitution%20of%20India/AllConstitutionQ%26A.pdf">github.com/jaanhavik777</a>]
+                                    </li>
+                                </ul>
+                            </details>
+                        </li>
+                    </ul>
+                </details>
+            </li>
+        `;
+        subjectsList.insertAdjacentHTML('beforeend', manualHTML);
+    }
+}
+
+function formatSemesterName(sem) {
+    const match = sem.match(/sem-(\d+)/i);
+    if (match) return `Semester ${match[1]}`;
+    return sem;
+}
+
+function setupDetailsToggle() {
+    document.querySelectorAll('details').forEach(function (details) {
+        details.addEventListener('toggle', function () {
+            if (!details.open) {
+                details.querySelectorAll('details').forEach(function (child) {
+                    child.open = false;
+                });
+            }
+        });
+    });
+}
+
+// Search and filter functionality
     function applyFilters() {
         const searchTerm = document.getElementById('search-input').value.toLowerCase().trim();
         const contentArea = document.getElementById('content-area');
@@ -288,6 +487,9 @@
                 }
             });
         }
+        
+        // Load resources when page loads
+        loadResources();
     });
 </script>
 {% endmacro home_page %}

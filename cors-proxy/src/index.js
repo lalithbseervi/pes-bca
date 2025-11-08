@@ -8,8 +8,9 @@ import { handleFormReq } from "./api/contributeForm.js"
 import { handleCookielessEvent } from "./api/analytics.js"
 import { uploadResourceToSupabase, resourceStreamFromSupabase, mintStreamToken } from "./api/rw-supabase.js"
 import { getStatus, createIncident, addIncidentUpdate, updateComponentStatus } from "./api/status.js"
-import { verifyAdminPassphrase, getResources, updateResource, deleteResource, getFilters } from "./api/admin.js"
+import { verifyAdminPassphrase, getResources as getAdminResources, updateResource, deleteResource, getFilters } from "./api/admin.js"
 import { getSubjectResources } from "./api/subject.js"
+import { getResources } from "./api/resources.js"
 // JWT utils are used inside route handlers
 
 addEventListener('fetch', event => {
@@ -93,6 +94,11 @@ async function handleRequest(request, env) {
     return getStatus(request, env)
   }
 
+  // GET /api/resources - Get all resources with optional filters
+  if (request.method === 'GET' && url.pathname === '/api/resources') {
+    return getResources(request, env)
+  }
+
   // GET /api/subject/resources - Get subject resources organized hierarchically
   if (request.method === 'GET' && url.pathname === '/api/subject/resources') {
     return getSubjectResources(request, env)
@@ -105,7 +111,7 @@ async function handleRequest(request, env) {
 
   // GET /api/admin/resources - Get all resources with pagination
   if (request.method === 'GET' && url.pathname === '/api/admin/resources') {
-    return getResources(request, env)
+    return getAdminResources(request, env)
   }
 
   // GET /api/admin/filters - Get available filter values
