@@ -1,7 +1,7 @@
 {
   "name": "PESU BCA Study Materials",
   "short_name": "PESU BCA",
-  "description": "Organized collection of study materials for BCA '25 1st Sem",
+  "description": "Organized collection of study materials for BCA '25",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#1a1a1a",
@@ -10,6 +10,20 @@
   "categories": ["education", "productivity"],
   "lang": "en",
   "scope": "/",
+  "shortcuts": [
+    {
+      "name": "Sem-1 Resources",
+      "url": "/sem-1/"
+    },
+    {
+      "name": "Upload Materials",
+      "url": "/upload/"
+    },
+    {
+      "name": "Posts",
+      "url": "/posts/"
+    }
+  ],
   "icons": [
     {
       "src": "/android-chrome-192x192.png",
