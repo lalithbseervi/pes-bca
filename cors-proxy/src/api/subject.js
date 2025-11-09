@@ -112,12 +112,21 @@ function organizeResources(resources, env) {
             organized[unit][type] = [];
         }
 
-        // Build semantic PDF viewer URL: /pdf-viewer?file=sem-N/subject/unit-N/filename&title=...
+
+        // Build semantic PDF viewer URL:
+        // - For unit === 'all': sem-N/subject/resource_type/unit-all/filename
+        // - For others:        sem-N/subject/unit-N/filename
         const semester = resource.semester || 'sem-1';
         const semNum = semester.match(/\d+/)?.[0] || '1';
-        const filePath = `sem-${semNum}/${resource.subject}/unit-${unit}/${resource.filename}`;
+        let filePath;
+        const encodedFilename = encodeURIComponent(resource.filename);
+        if (unit === 'all') {
+            filePath = `sem-${semNum}/${resource.subject}/${type}/unit-all/${encodedFilename}`;
+        } else {
+            filePath = `sem-${semNum}/${resource.subject}/unit-${unit}/${encodedFilename}`;
+        }
         const title = resource.link_title || resource.filename;
-        const pdfViewerUrl = `/pdf-viewer?file=${filePath}&title=${encodeURIComponent(title)}`;
+    const pdfViewerUrl = `/pdf-viewer?file=${filePath}&title=${encodeURIComponent(title)}`;
 
         // Add resource to the appropriate array
         organized[unit][type].push({

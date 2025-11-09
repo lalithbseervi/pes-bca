@@ -107,7 +107,29 @@ async function handleRequest(request, env) {
     return addCorsHeaders(response)
   }
 
-  // HEAD or GET /api/resources/sem-{N}/{subject}/unit-{N}/{filename} - Semantic path
+
+  // HEAD or GET /api/resources/sem-{N}/{subject}/{resource_type}/unit-all/{filename} - Semantic path for unit-all
+  const semanticAllUnitMatch = url.pathname.match(/^\/api\/resources\/sem-(\d+)\/([^/]+)\/([^/]+)\/unit-all\/([^/]+)\/?$/);
+  if (semanticAllUnitMatch && (request.method === 'GET' || request.method === 'HEAD')) {
+      const semester = semanticAllUnitMatch[1];
+      const subject = semanticAllUnitMatch[2];
+      const resource_type = semanticAllUnitMatch[3];
+      const filename = semanticAllUnitMatch[4];
+      const ctx = {
+        params: {
+          semester: `sem-${semester}`,
+          subject: subject,
+          resource_type: resource_type,
+          unit: 'all',
+          filename: filename
+        },
+        lookupBy: 'filename'
+      };
+      response = await resourceStreamFromSupabase(request, env, ctx);
+      return addCorsHeaders(response)
+  }
+
+  // HEAD or GET /api/resources/sem-{N}/{subject}/unit-{N}/{filename} - Semantic path for regular units
   const semanticStreamMatch = url.pathname.match(/^\/api\/resources\/sem-(\d+)\/([^/]+)\/unit-(\d+)\/([^/]+)\/?$/);
   if (semanticStreamMatch && (request.method === 'GET' || request.method === 'HEAD')) {
       const semester = semanticStreamMatch[1];

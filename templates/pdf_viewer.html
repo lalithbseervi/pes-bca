@@ -136,28 +136,38 @@
     pdfPath = urlParams.get('file');
     title = urlParams.get('title'); // Get title from URL parameter first
     
-    // Check if file param is a semantic path (e.g., "sem-1/cfp/unit-2/filename.pdf")
+    // Check if file param is a semantic path
     if (pdfPath && !pdfPath.startsWith('http') && !pdfPath.startsWith('/api/')) {
       // Parse semantic path from file parameter
       const pathParts = pdfPath.split('/').filter(Boolean);
       
+      // Pattern A: sem-N/<subject>/unit-N/<filename>
       if (pathParts.length === 4) {
         const semMatch = pathParts[0].match(/^sem-(\d+)$/);
         const unitMatch = pathParts[2].match(/^unit-(\d+)$/);
-        
         if (semMatch && unitMatch) {
           semester = semMatch[1];
           subjectCode = pathParts[1];
           unit = unitMatch[1];
           filename = decodeURIComponent(pathParts[3]);
-          
-          // Fallback: Extract title from filename if not provided in URL parameter
-          if (!title) {
-            title = filename.replace(/^\d+_/, '').replace(/\.[^.]+$/, '').replace(/_/g, ' ');
-          }
-          
-          // Build full API URL for PDF stream using API_BASE_URL
+          if (!title) title = filename.replace(/^\d+_/, '').replace(/\.[^.]+$/, '').replace(/_/g, ' ');
           pdfPath = `${API_BASE_URL}/api/resources/sem-${semester}/${subjectCode}/unit-${unit}/${encodeURIComponent(filename)}`;
+        }
+      }
+
+      // Pattern B (all-units): sem-N/<subject>/<type>/unit-all/<filename>
+      else if (pathParts.length === 5) {
+        const semMatch = pathParts[0].match(/^sem-(\d+)$/);
+        const typeSegment = pathParts[2];
+        const isAllUnit = pathParts[3] === 'unit-all';
+        if (semMatch && isAllUnit) {
+          semester = semMatch[1];
+          subjectCode = pathParts[1];
+          const resourceType = typeSegment; // keep as-is (QA, Notes, etc.)
+          unit = 'all';
+          filename = decodeURIComponent(pathParts[4]);
+          if (!title) title = filename.replace(/^\d+_/, '').replace(/\.[^.]+$/, '').replace(/_/g, ' ');
+          pdfPath = `${API_BASE_URL}/api/resources/sem-${semester}/${subjectCode}/${resourceType}/unit-all/${encodeURIComponent(filename)}`;
         }
       }
     }
@@ -495,7 +505,7 @@
 
     // Extract subject from file path
     function extractSubjectFromPath(path) {
-      const match = path.match(/\/(wd|cfp|mp|mfca|pce)\//i);
+      const match = path.match(/\/(wd|cfp|mp|mfca|pce|ciep)\//i);
       return match ? match[1].toUpperCase() : 'Unknown';
     }
 
@@ -577,14 +587,20 @@
         // Navigation buttons
         if (prevBtn && idx > 0) {
           const prev = files[idx - 1];
-          prevBtn.href = prev.url || `/pdf-viewer?file=sem-${semester}/${subjectCode}/unit-${prev.unit}/${prev.filename}`;
+          {
+            const prevPath = prev.url ? null : `sem-${semester}/${subjectCode}/unit-${prev.unit}/${encodeURIComponent(prev.filename || '')}`;
+            prevBtn.href = prev.url || `/pdf-viewer?file=${encodeURIComponent(prevPath)}&title=${encodeURIComponent((prev.title || prev.filename || '').toString())}`;
+          }
           prevBtn.innerText = '← ' + (prev.title || prev.filename || 'Prev');
           prevBtn.style.display = 'inline-block';
           prevBtn.setAttribute('aria-hidden', 'false');
         }
         if (nextBtn && idx < files.length - 1) {
           const next = files[idx + 1];
-          nextBtn.href = next.url || `/pdf-viewer?file=sem-${semester}/${subjectCode}/unit-${next.unit}/${next.filename}`;
+          {
+            const nextPath = next.url ? null : `sem-${semester}/${subjectCode}/unit-${next.unit}/${encodeURIComponent(next.filename || '')}`;
+            nextBtn.href = next.url || `/pdf-viewer?file=${encodeURIComponent(nextPath)}&title=${encodeURIComponent((next.title || next.filename || '').toString())}`;
+          }
           nextBtn.innerText = (next.title || next.filename || 'Next') + ' →';
           nextBtn.style.display = 'inline-block';
           nextBtn.setAttribute('aria-hidden', 'false');
@@ -637,12 +653,12 @@
     if (!path) return null;
     const s = String(path);
     // Common subject shortnames found in paths or data files
-    const known = ['wd', 'cfp', 'mp', 'mfca', 'pce'];
+    const known = ['wd', 'cfp', 'mp', 'mfca', 'pce', 'ciep', 'cprog', 'db', 'pos', 'coa', 'pd', 'evs', 'ds', 'dsa', 'oop', 'dc', 'elec1', 'dm', 'da', 'wad', 'se', 'elec2', 'cyberlaw', 'waf', 'stats', 'elec3', 'elec4', 'entre', 'cloud', 'intern'];
     // 1) look for /<subject>/ segments
-    const m = s.match(/\/(wd|cfp|mp|mfca|pce)\b/i);
+    const m = s.match(/\/(wd|cfp|mp|mfca|pce|ciep|cprog|db|pos|coa|pd|evs|ds|dsa|oop|dc|elec1|dm|da|wad|se|elec2|cyberlaw|waf|stats|elec3|elec4|entre|cloud|intern)\b/i);
     if (m) return m[1].toLowerCase();
     // 2) look for data/<subject>.json references
-    const m2 = s.match(/data\/(wd|cfp|mp|mfca|pce)\.json/i);
+    const m2 = s.match(/data\/(wd|cfp|mp|mfca|pce|ciep|cprog|db|pos|coa|pd|evs|ds|dsa|oop|dc|elec1|dm|da|wad|se|elec2|cyberlaw|waf|stats|elec3|elec4|entre|cloud|intern)\.json/i);
     if (m2) return m2[1].toLowerCase();
     // 3) try any path segment that matches known list
     const parts = s.split('/').filter(Boolean);
@@ -660,23 +676,7 @@
     return m ? `Unit ${m[1]}` : null;
   };
 
-  async function getResourcesWithPrefix(prefix) {
-    const db = await openDB();
-    return new Promise((res, rej) => {
-      const tx = db.transaction('resources', 'readonly');
-      const store = tx.objectStore('resources');
-      const out = [];
-      const req = store.openCursor();
-      req.onsuccess = evt => {
-        const cur = evt.target.result;
-        if (!cur) { res(out); return; }
-        const p = cur.value.path;
-        if (p.startsWith(prefix)) out.push(cur.value);
-        cur.continue();
-      };
-      req.onerror = () => rej(req.error);
-    });
-  }
+  // Removed legacy JSON/IndexedDB navigation helpers (resources loaded via API now)
 
 </script>
 {% endblock main_content %}

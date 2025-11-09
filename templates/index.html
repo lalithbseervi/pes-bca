@@ -341,11 +341,18 @@ function renderResourceTree(grouped) {
                         const resourceLi = document.createElement('li');
                         const link = document.createElement('a');
                         const title = resource.link_title || resource.filename;
-                        // Build semantic URL with file parameter and title: /pdf-viewer?file=sem-N/subject/unit-N/filename&title=...
+                        // Build semantic URL; special-case unit-all to include resource type
                         const semesterNumber = semester.match(/\d+/)[0];
                         const filename = resource.filename || '';
-                        const filePath = `sem-${semesterNumber}/${subject}/unit-${unit}/${filename}`;
-                        link.href = `/pdf-viewer?file=${filePath}&title=${encodeURIComponent(title)}`;
+                        let filePath;
+                        if (unit === 'all') {
+                            // Include type segment for all-units resources
+                            filePath = `sem-${semesterNumber}/${subject}/${type}/unit-all/${encodeURIComponent(filename)}`;
+                        } else {
+                            filePath = `sem-${semesterNumber}/${subject}/unit-${unit}/${encodeURIComponent(filename)}`;
+                        }
+                        // Encode the entire filePath when placing into query string to avoid breaking on & and spaces
+                        link.href = `/pdf-viewer?file=${encodeURIComponent(filePath)}&title=${encodeURIComponent(title)}`;
                         link.textContent = title;
                         link.setAttribute('data-filename', resource.filename);
                         link.setAttribute('data-title', resource.link_title || '');

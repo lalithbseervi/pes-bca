@@ -553,11 +553,16 @@ export async function resourceStreamFromSupabase(request, env, ctx) {
         let metaUrl;
         if (lookupBy === 'filename') {
             // Query by semantic path components
+            const cleanSemester = semester || '';
+            const cleanSubject = subject || '';
+            const cleanUnit = unit || '';
+            // filename may arrive URL-encoded from the route; decode once before encoding into query
+            const cleanFilename = filename ? decodeURIComponent(filename) : '';
             const filters = [
-                `semester=eq.${encodeURIComponent(semester)}`,
-                `subject=eq.${encodeURIComponent(subject)}`,
-                `unit=eq.${encodeURIComponent(unit)}`,
-                `filename=eq.${encodeURIComponent(filename)}`
+                `semester=eq.${encodeURIComponent(cleanSemester)}`,
+                `subject=eq.${encodeURIComponent(cleanSubject)}`,
+                `unit=eq.${encodeURIComponent(cleanUnit)}`,
+                `filename=eq.${encodeURIComponent(cleanFilename)}`
             ].join('&');
             metaUrl = `${env.SUPABASE_URL.replace(/\/+$/, '')}/rest/v1/fileStore?select=id,storage_key,content_type,filename&${filters}`;
         } else {
