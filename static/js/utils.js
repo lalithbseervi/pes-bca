@@ -65,20 +65,25 @@ export function formatBytes(bytes, decimals = 2) {
 
 /**
  * Check if user is authenticated (has valid session)
+ * Uses sessionSync module if available, otherwise fallback
  * @returns {boolean} True if authenticated
  */
 export function isAuthenticated() {
+  // Use sessionSync if available
+  if (window.sessionSync && typeof window.sessionSync.isLoggedIn === 'function') {
+    return window.sessionSync.isLoggedIn();
+  }
+  
+  // Fallback for backward compatibility
   const sessionData = sessionStorage.getItem('user_session');
   if (!sessionData) return false;
   
   try {
     const session = JSON.parse(sessionData);
-    // Check if session has required fields and is not expired
-    if (!session || !session.user) return false;
+    if (!session || !session.srn) return false;
     
-    // Optional: Check expiration if your session includes expires_at
-    if (session.expires_at) {
-      const expiresAt = new Date(session.expires_at);
+    if (session.expiresAt) {
+      const expiresAt = new Date(session.expiresAt);
       if (expiresAt < new Date()) {
         sessionStorage.removeItem('user_session');
         return false;
@@ -94,9 +99,16 @@ export function isAuthenticated() {
 
 /**
  * Get current user session data
+ * Uses sessionSync module if available, otherwise fallback
  * @returns {object|null} Parsed session object or null
  */
 export function getSession() {
+  // Use sessionSync if available
+  if (window.sessionSync && typeof window.sessionSync.getSession === 'function') {
+    return window.sessionSync.getSession();
+  }
+  
+  // Fallback for backward compatibility
   const sessionData = sessionStorage.getItem('user_session');
   if (!sessionData) return null;
   

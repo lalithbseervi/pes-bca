@@ -1,8 +1,8 @@
 (function() {
     'use strict';
     
-    // API Base URL - one-liner approach
-    const API_BASE_URL = (location.hostname === 'pes-bca.pages.dev') ? 'https://cors-proxy.devpages.workers.dev' : 'http://localhost:8787';
+    // Use global API_BASE_URL from utils.js (loaded via common-init.js)
+    const API_BASE_URL = window.API_BASE_URL || 'http://localhost:8787';
 
     // Check if user has opted out
     function hasOptedOut() {

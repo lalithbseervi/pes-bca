@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pesu-bca-v2.5.1';
+const CACHE_NAME = 'pesu-bca-v2.6.0';
 const OFFLINE_URL = '/offline.html';
 
 // Files to cache immediately
@@ -20,7 +20,7 @@ const STATIC_ASSETS = [
   '/js/utils.js',
   '/js/common-init.js',
   '/js/form.js',
-  '/js/pdf-nav.js',
+  '/js/session-sync.js',
   '/js/themetoggle.js',
   // Theme JavaScript files
   '/js/codeblock.js',
@@ -225,14 +225,57 @@ async function refreshCachedAssetsOnDemand() {
   }
 }
 
-// Listen for messages from pages (e.g. trigger refresh on page load)
+// Listen for messages from pages (e.g. trigger refresh on page load, session sync)
 self.addEventListener('message', (event) => {
   const data = event.data || {};
+  
   if (data && data.type === 'REFRESH_ON_LOAD') {
     // Run refresh but don't block message handling
     event.waitUntil(refreshCachedAssetsOnDemand());
   }
+  
+  // Handle session sync messages
+  if (data && data.type === 'SESSION_SYNC') {
+    const action = data.action;
+    
+    if (action === 'login' || action === 'refresh') {
+      // Store session info in service worker scope for potential background operations
+      console.log('[SW] Session sync:', action);
+      event.waitUntil(handleSessionUpdate(data.session));
+    } else if (action === 'logout') {
+      console.log('[SW] Session cleared');
+      event.waitUntil(handleSessionClear());
+    }
+  }
 });
+
+// Session management in service worker
+let cachedSession = null;
+
+async function handleSessionUpdate(sessionData) {
+  cachedSession = sessionData;
+  console.log('[SW] Session cached:', sessionData?.srn);
+  
+  // Notify all clients about session update
+  const clients = await self.clients.matchAll({ includeUncontrolled: true });
+  for (const client of clients) {
+    client.postMessage({ 
+      type: 'SESSION_UPDATED', 
+      session: sessionData 
+    });
+  }
+}
+
+async function handleSessionClear() {
+  cachedSession = null;
+  console.log('[SW] Session cleared');
+  
+  // Notify all clients about session clear
+  const clients = await self.clients.matchAll({ includeUncontrolled: true });
+  for (const client of clients) {
+    client.postMessage({ type: 'SESSION_CLEARED' });
+  }
+}
 
 // Background sync for offline actions
 self.addEventListener('sync', event => {

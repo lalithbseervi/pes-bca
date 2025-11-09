@@ -1,11 +1,10 @@
+import { API_BASE_URL } from './utils.js';
+
 document.getElementById('contact-form').addEventListener('submit', async function (e) {
     e.preventDefault(); 
 
     const socialId = document.getElementById('social_id').value;
     const responseMessage = document.getElementById('response-message');
-    
-    // API Base URL - one-liner approach
-    const API_BASE_URL = (location.hostname === 'pes-bca.pages.dev') ? 'https://cors-proxy.devpages.workers.dev' : 'http://localhost:8787';
 
     // Validate input
     if (!socialId) {
