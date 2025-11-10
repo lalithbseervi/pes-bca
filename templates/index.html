@@ -509,6 +509,11 @@ function setupDetailsToggle() {
         // Load resources when page loads
         loadResources();
     });
+
+    // Expose functions to global scope so inline handlers (onclick) work
+    // The page uses inline onclick attributes for the search buttons.
+    window.applyFilters = applyFilters;
+    window.clearFilters = clearFilters;
 </script>
 {% endmacro home_page %}
 

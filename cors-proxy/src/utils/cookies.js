@@ -13,7 +13,6 @@ function isLocalFromRequest(request) {
 
 export function makeCookie(name, value, maxAgeSec, request) {
   const isLocal = isLocalFromRequest(request)
-  console.log(`isLocal: ${isLocal}`)
   const attrs = [
     `${name}=${value}`,
     `Max-Age=${maxAgeSec}`,
