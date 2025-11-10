@@ -473,13 +473,22 @@ function setupDetailsToggle() {
         contentArea.querySelectorAll('li, details').forEach(el => {
             el.style.display = '';
         });
-        
-        // Reset details to initial state (first 2 levels open)
-        contentArea.querySelectorAll('details').forEach(details => {
-            const level = getDetailsLevel(details);
-            details.open = level < 2;
+
+        // Reset details to initial state: open first semester, close others
+        const semesterDetails = Array.from(contentArea.querySelectorAll(':scope > ul > li > details'));
+        semesterDetails.forEach((semDetails, idx) => {
+            semDetails.open = idx === 0; // open only first semester
+
+            // Close subjects and units inside each semester for a clean reset
+            semDetails.querySelectorAll(':scope > ul > li > details').forEach(subjectDetails => {
+                subjectDetails.open = false;
+                // Also close deeper nested details
+                subjectDetails.querySelectorAll('details').forEach(d => d.open = false);
+            });
         });
-        
+
+
+
         noResults.style.display = 'none';
     }
     
