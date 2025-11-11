@@ -138,6 +138,7 @@
 <p id="last-updated">Last Updated: Loading...</p>
 <script type="module">
 import { API_BASE_URL } from '/js/utils.js';
+import { initHomeSearchSuggest } from '/js/init-search-suggest.js';
 
 let allResources = [];
 
@@ -185,8 +186,16 @@ async function loadResources() {
                 second: '2-digit' 
             })}`;
         
-        // Setup details toggle behavior
+                // Setup details toggle behavior
         setupDetailsToggle();
+
+        // Initialize search suggestions for homepage input
+        try {
+            const searchInput = document.getElementById('search-input');
+            initHomeSearchSuggest(searchInput, allResources, applyFilters);
+        } catch (err) {
+            console.warn('Search suggest init failed', err);
+        }
         
     } catch (error) {
         console.error('Failed to load resources:', error);

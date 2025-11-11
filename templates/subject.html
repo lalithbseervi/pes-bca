@@ -194,11 +194,30 @@
             
             // Initialize details toggle behavior
             initializeDetailsToggle();
+
+            // Initialize search suggestion for subject page
+            try {
+                initSubjectSuggest();
+            } catch (err) {
+                console.warn('Subject search suggest init failed', err);
+            }
             
         } catch (error) {
             console.error('Error loading subject resources:', error);
             document.getElementById('loading').style.display = 'none';
             document.getElementById('error').style.display = 'block';
+        }
+    }
+
+    // Initialize search suggestions for subject page using rendered links
+    async function initSubjectSuggest() {
+        try {
+            const mod = await import('/js/init-search-suggest.js');
+            const initSubjectSearchSuggest = mod.initSubjectSearchSuggest;
+            const inputEl = document.getElementById('search-input');
+            initSubjectSearchSuggest(inputEl, applyFilters);
+        } catch (err) {
+            console.warn('Failed to init subject search suggest', err);
         }
     }
     
