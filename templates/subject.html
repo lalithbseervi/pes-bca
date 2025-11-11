@@ -40,11 +40,12 @@
         padding: 0.625rem 0.875rem;
         color: #f3f4f6;
         font-size: 0.95rem;
-        transition: all 0.2s;
+        transition: border-color 0.3s ease, box-shadow 0.2s ease, background 0.2s ease;
     }
-    
+
     .filter-field input:focus {
         outline: none;
+        /* Animate the entire border to the accent color */
         border-color: #10b981;
         box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
     }

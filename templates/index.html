@@ -37,13 +37,14 @@
   }
   
   .filter-field input {
-    width: 100%;
-    padding: 0.5rem;
-    border: 1px solid rgba(55, 65, 81, 0.8);
-    border-radius: 6px;
-    font-size: 0.875rem;
-    background: rgba(17, 24, 39, 0.5);
-    color: #f3f4f6;
+      width: 100%;
+      padding: 0.5rem;
+      border: 1px solid rgba(55, 65, 81, 0.8);
+      border-radius: 6px;
+      font-size: 0.875rem;
+      background: rgba(17, 24, 39, 0.5);
+      color: #f3f4f6;
+      transition: border-color 0.3s ease, background 0.2s ease;
   }
   
   .filter-field input::placeholder {
@@ -51,8 +52,9 @@
   }
   
   .filter-field input:focus {
-    outline: none;
-    border-color: #10b981;
+      outline: none;
+      /* Animate the entire border to the accent color */
+      border-color: #10b981;
   }
   
   .filter-btn {

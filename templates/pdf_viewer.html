@@ -72,14 +72,39 @@
 
   .pdf-breadcrumb a {
     color: #10b981;
-    text-decoration: none;
     transition: color 0.2s;
     font-size: 1rem;
+    background-color: inherit;
+    position: relative;
+    text-decoration: none; /* we'll render an animated underline using ::after */
   }
 
-  .pdf-breadcrumb a:hover {
+  /* Animated underline using a pseudo-element so we can transition it smoothly */
+  .pdf-breadcrumb a::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: -2px;
+    height: 2px;
+    width: 100%;
+    background-color: #059669; /* same as hover color */
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.18s ease, opacity 0.18s ease;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .pdf-breadcrumb a:hover,
+  .pdf-breadcrumb a:focus-visible {
     color: #059669;
-    text-decoration: underline;
+    text-decoration: none;
+  }
+
+  .pdf-breadcrumb a:hover::after,
+  .pdf-breadcrumb a:focus-visible::after {
+    transform: scaleX(1);
+    opacity: 1;
   }
 
   .pdf-breadcrumb .separator {
