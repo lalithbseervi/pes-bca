@@ -7,6 +7,7 @@
     "prebuild": "bash scripts/update-sw-version.sh",
     "build": "zola build",
     "serve": "zola serve",
+    "dev": "zola serve & npx wrangler dev cors-proxy/src/index.js",
     "update-sw-version": "bash scripts/update-sw-version.sh"
   }
 }
