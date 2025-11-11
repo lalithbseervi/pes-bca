@@ -59,9 +59,27 @@ export function createSearchSuggest(inputEl, options = {}) {
       li.style.background = '#0b1220';
       li.dataset.index = i;
       li.innerHTML = `<div style=\"font-weight:600\">${escapeHtml(it.text)}</div><div style=\"font-size:0.85em; color:#9aa6b4;\">${escapeHtml(it.meta||'')}\</div>`;
+      // When user clicks with mouse/touch, choose this item. Use mousedown
+      // to prevent the input from blurring before the click handler runs.
       li.addEventListener('mousedown', (ev) => {
         ev.preventDefault(); // prevent input blur before click
         choose(i);
+      });
+
+      // Show hover/active effect when pointer is over an item. We set
+      // selectedIndex so keyboard navigation and visual highlight logic
+      // remain unified. Clear the selection on pointer leave.
+      li.addEventListener('pointerenter', () => {
+        selectedIndex = i;
+        updateHighlight();
+      });
+      li.addEventListener('pointerleave', () => {
+        // Only clear hover highlight if the pointer leaves this item and
+        // the current selectedIndex still points to it.
+        if (selectedIndex === i) {
+          selectedIndex = -1;
+          updateHighlight();
+        }
       });
       list.appendChild(li);
     });
@@ -73,7 +91,7 @@ export function createSearchSuggest(inputEl, options = {}) {
 
   function updateHighlight() {
     Array.from(list.children).forEach((li, idx) => {
-      li.style.background = idx === selectedIndex ? 'rgba(74,160,230,0.18)' : '#0b1220';
+      li.style.background = idx === selectedIndex ? 'rgba(59,130,246,0.35)' : '#0b1220';
     });
   }
 
