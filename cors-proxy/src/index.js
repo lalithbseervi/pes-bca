@@ -6,6 +6,7 @@ import { invalidateCache } from "./api/invalidate-cache.js"
 import { getCacheStats } from "./api/cache-stats.js"
 import { handleFormReq } from "./api/contributeForm.js"
 import { handleCookielessEvent } from "./api/analytics.js"
+import { handleDebugCookies } from "./api/debug.js"
 import { uploadResourceToSupabase, resourceStreamFromSupabase, mintStreamToken } from "./api/rw-supabase.js"
 import { getStatus, createIncident, addIncidentUpdate, updateComponentStatus } from "./api/status.js"
 import { verifyAdminPassphrase, getResources as getAdminResources, updateResource, deleteResource, getFilters } from "./api/admin.js"
@@ -166,6 +167,12 @@ async function handleRequest(request, env) {
   // POST /api/analytics/cookieless
   if (request.method === 'POST' && url.pathname === '/api/analytics/cookieless') {
     response = await handleCookielessEvent(request, env)
+    return addCorsHeaders(response)
+  }
+
+  // GET /api/debug/cookies - debug endpoint to inspect the Cookie header seen by the worker
+  if (request.method === 'GET' && url.pathname === '/api/debug/cookies') {
+    response = await handleDebugCookies(request, env)
     return addCorsHeaders(response)
   }
 

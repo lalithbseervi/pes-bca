@@ -20,7 +20,10 @@ export function makeCookie(name, value, maxAgeSec, request) {
     'HttpOnly',
   ]
   if (!isLocal) {
-    attrs.push('Secure', 'SameSite=None', 'Partitioned')
+    // Use cross-site cookies for production. Note: some browsers (or privacy
+    // extensions) may not support the `Partitioned` attribute and can block
+    // third-party cookies. Omit `Partitioned` for broader compatibility.
+    attrs.push('Secure', 'SameSite=None')
   }
   return attrs.join('; ')
 }
@@ -28,7 +31,7 @@ export function makeCookie(name, value, maxAgeSec, request) {
 export function clearCookie(name, request) {
   const isLocal = isLocalFromRequest(request)
   const base = `${name}=; Max-Age=0; Path=/; HttpOnly`
-  return isLocal ? base : `${base}; Secure; SameSite=None; Partitioned`
+  return isLocal ? base : `${base}; Secure; SameSite=None`
 }
 
 export function parseCookies(header) {

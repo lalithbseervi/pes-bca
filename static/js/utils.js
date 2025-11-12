@@ -3,9 +3,11 @@
  */
 
 // API Base URL - Environment detection
-export const API_BASE_URL = (location.hostname === 'pes-bca.pages.dev') 
-  ? 'https://cors-proxy.devpages.workers.dev' 
-  : 'http://localhost:8787';
+// Use local worker during local development (localhost), otherwise use
+// same-origin relative paths so requests go through Pages Functions (/api/*)
+export const API_BASE_URL = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+  ? 'http://localhost:8787'
+  : '';
 
 /**
  * Display a temporary message/alert to the user
