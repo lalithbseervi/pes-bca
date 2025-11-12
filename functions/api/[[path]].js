@@ -13,6 +13,9 @@ export async function onRequest(context) {
   const upstreamPath = apiIndex === -1 ? url.pathname : url.pathname.substring(apiIndex);
   const upstreamUrl = new URL(upstreamBase + upstreamPath + url.search);
 
+  // Diagnostic log to confirm invocation and routing. Visible in Pages Functions logs.
+  try { console.log('Pages Function invoked', { method: request.method, path: url.pathname, upstream: upstreamUrl.toString() }) } catch (e) {}
+
   // Clone headers from incoming request but avoid forwarding hop-by-hop headers
   const outHeaders = new Headers();
   for (const [k, v] of request.headers) {
@@ -25,10 +28,10 @@ export async function onRequest(context) {
     outHeaders.set('Origin', request.headers.get('origin'));
   }
 
-  // If this is an OPTIONS preflight, forward a simple 204 immediately to avoid
-  // issues where upstream may not allow OPTIONS. This keeps behavior stable
-  // for clients performing preflights.
+  // If this is an OPTIONS preflight, answer locally to avoid forwarding
+  // preflight requests that upstream may not accept.
   if (request.method === 'OPTIONS') {
+    try { console.log('Handling OPTIONS preflight locally for', url.pathname) } catch (e) {}
     return new Response(null, {
       status: 204,
       headers: {
@@ -53,7 +56,24 @@ export async function onRequest(context) {
   upstreamRequest.headers.delete('expect');
   upstreamRequest.headers.delete('proxy-authorization');
 
-  const resp = await fetch(upstreamRequest, { redirect: 'manual' });
+  let resp;
+  try {
+    resp = await fetch(upstreamRequest, { redirect: 'manual' });
+  } catch (err) {
+    try { console.error('Upstream fetch failed', String(err), upstreamUrl.toString()) } catch (e) {}
+    return new Response(JSON.stringify({ ok: false, error: 'upstream fetch failed', detail: String(err) }), { status: 502, headers: { 'Content-Type': 'application/json' } })
+  }
+
+  // If upstream returns an error, log a snippet of the body to aid debugging
+  if (resp.status >= 400) {
+    try {
+      const clone = resp.clone();
+      const text = await clone.text().catch(()=>'<unreadable>');
+      try { console.warn('Upstream error', { status: resp.status, statusText: resp.statusText, body: text.slice(0,2000) }) } catch (e) {}
+    } catch (e) {
+      // ignore logging errors
+    }
+  }
 
   // Return upstream response directly. This will forward Set-Cookie headers
   // from the upstream to the client, which causes cookies to be set for the
