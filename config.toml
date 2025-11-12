@@ -24,7 +24,7 @@ highlight_themes_css = [
 ]
 
 [extra]
-theme = "toggle"
+theme = "dark"
 toc = true
 use_cdn = false
 repo_url = "https://github.com/lalithbseervi/notes/"
