@@ -25,16 +25,35 @@ export async function onRequest(context) {
     outHeaders.set('Origin', request.headers.get('origin'));
   }
 
-  // Forward the request to upstream
-  const fetchOpts = {
-    method: request.method,
-    headers: outHeaders,
-    // forward body for non-GET/HEAD
-    body: (request.method === 'GET' || request.method === 'HEAD') ? undefined : request.body,
-    redirect: 'manual'
-  };
+  // If this is an OPTIONS preflight, forward a simple 204 immediately to avoid
+  // issues where upstream may not allow OPTIONS. This keeps behavior stable
+  // for clients performing preflights.
+  if (request.method === 'OPTIONS') {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        'Access-Control-Allow-Origin': request.headers.get('Origin') || request.headers.get('origin') || url.origin,
+        'Access-Control-Allow-Credentials': 'true',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': request.headers.get('access-control-request-headers') || 'Content-Type, Authorization, X-Admin-Passphrase',
+        'Access-Control-Max-Age': '86400'
+      }
+    })
+  }
 
-  const resp = await fetch(upstreamUrl.toString(), fetchOpts);
+  // Use the original request as the base for the upstream request. Constructing
+  // a new Request from the incoming one (but with the upstream URL) preserves
+  // method, body, and other properties reliably across environments and avoids
+  // subtle body/stream issues that can cause upstream 405 responses.
+  const upstreamRequest = new Request(upstreamUrl.toString(), request);
+  // Remove hop-by-hop headers that shouldn't be forwarded
+  upstreamRequest.headers.delete('host');
+  upstreamRequest.headers.delete('connection');
+  upstreamRequest.headers.delete('upgrade');
+  upstreamRequest.headers.delete('expect');
+  upstreamRequest.headers.delete('proxy-authorization');
+
+  const resp = await fetch(upstreamRequest, { redirect: 'manual' });
 
   // Return upstream response directly. This will forward Set-Cookie headers
   // from the upstream to the client, which causes cookies to be set for the
