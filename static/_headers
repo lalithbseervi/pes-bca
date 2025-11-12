@@ -2,12 +2,10 @@
   Cache-Control: no-cache, no-store, must-revalidate
   Pragma: no-cache
   Expires: 0
-
-/*
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
-  Content-Security-Policy: default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https: blob:; style-src 'self' 'unsafe-inline' https:; img-src 'self' https: data: blob:; font-src 'self' https: data:; connect-src 'self' https: wss: blob: data:; worker-src 'self' blob:; frame-src 'self' https:; object-src 'none'
-
+  # Allow PostHog hosts (api + assets) explicitly so session recording and assets load correctly
+  Content-Security-Policy: default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https: blob: https://*.posthog.com https://*.i.posthog.com; style-src 'self' 'unsafe-inline' https:; img-src 'self' https: data: blob:; font-src 'self' https: data:; connect-src 'self' https: wss: blob: data: https://*.posthog.com https://*.i.posthog.com; worker-src 'self' blob:; frame-src 'self' https://*.posthog.com; object-src 'none'
 /*.html
 Cache-Control: public, max-age=0, must-revalidate
 
