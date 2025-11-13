@@ -1,4 +1,6 @@
 export async function onRequest(context) {
+  // Wrap the whole handler so unexpected errors don't fail silently.
+  try {
   // Proxy any /api/* request to configured backend (cors-proxy worker) so
   // auth endpoints become first-party (Set-Cookie will be scoped to Pages
   // domain). Configure CORS_PROXY_BASE in Pages environment to change the
@@ -18,6 +20,21 @@ export async function onRequest(context) {
 
   // Diagnostic log to confirm invocation and routing. Visible in Pages Functions logs.
   try { console.log('Pages Function invoked', { method: request.method, path: url.pathname, upstream: upstreamUrl.toString() }) } catch (e) {}
+
+  // helper to add basic CORS headers to responses from this function
+  function addCorsHeaders(response) {
+    try {
+      const newHeaders = new Headers(response.headers);
+      const origin = request.headers.get('Origin') || request.headers.get('origin') || url.origin;
+      newHeaders.set('Access-Control-Allow-Origin', origin);
+      newHeaders.set('Access-Control-Allow-Credentials', 'true');
+      return new Response(response.body, { status: response.status, statusText: response.statusText, headers: newHeaders });
+    } catch (e) {
+      // If adding headers fails, return the original response
+      try { console.error('addCorsHeaders error', e) } catch (e2) {}
+      return response;
+    }
+  }
 
   // Quick, gated diagnostics: if caller includes ?diag=1 return a small JSON
   // echo so you can confirm the Pages Function is reached from the browser
@@ -42,7 +59,10 @@ export async function onRequest(context) {
       return new Response(JSON.stringify(diag, null, 2), { status: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': origin, 'Access-Control-Allow-Credentials': 'true' } });
     }
   } catch (e) {
-    try { console.error('diag handler error', e) } catch (e2) {}
+    try { console.error('diag handler error', e) } catch (e2) { /* noop */ }
+    // If diag handling itself errors, return a visible error instead of
+    // letting the function fail silently.
+    return new Response(JSON.stringify({ ok: false, error: 'diag_handler_error', message: String(e && e.message) }), { status: 500, headers: { 'Content-Type': 'application/json' } });
   }
 
   // Clone headers from incoming request but avoid forwarding hop-by-hop headers
@@ -89,8 +109,8 @@ export async function onRequest(context) {
   try {
     resp = await fetch(upstreamRequest, { redirect: 'manual' });
   } catch (err) {
-    try { console.error('Upstream fetch failed', String(err), upstreamUrl.toString()) } catch (e) {}
-    return new Response(JSON.stringify({ ok: false, error: 'upstream fetch failed', detail: String(err) }), { status: 502, headers: { 'Content-Type': 'application/json' } })
+    try { console.error('Upstream fetch failed', String(err), upstreamUrl.toString()) } catch (e) { /* noop */ }
+    return new Response(JSON.stringify({ ok: false, error: 'upstream_fetch_failed', detail: String(err && err.message) }), { status: 502, headers: { 'Content-Type': 'application/json' } })
   }
 
   // If upstream returns an error, log a snippet of the body to aid debugging
@@ -98,9 +118,9 @@ export async function onRequest(context) {
     try {
       const clone = resp.clone();
       const text = await clone.text().catch(()=>'<unreadable>');
-      try { console.warn('Upstream error', { status: resp.status, statusText: resp.statusText, body: text.slice(0,2000) }) } catch (e) {}
+      try { console.warn('Upstream error', { status: resp.status, statusText: resp.statusText, body: (text && text.slice) ? text.slice(0,2000) : String(text) }) } catch (e) { console.error('warn logging failed', e) }
     } catch (e) {
-      // ignore logging errors
+      try { console.error('error cloning upstream response', e) } catch (e2) {}
     }
     // Return a short diagnostic JSON when upstream returns >=400 to help
     // debugging of 4xx/5xx responses (temporary). Filter out sensitive
@@ -126,6 +146,7 @@ export async function onRequest(context) {
       return addCorsHeaders(new Response(JSON.stringify(diag, null, 2), { status: resp.status, headers: { 'Content-Type': 'application/json' } }));
     } catch (e) {
       try { console.error('Error preparing debug response', e) } catch (e2) {}
+      return new Response(JSON.stringify({ ok: false, error: 'debug_response_error', message: String(e && e.message) }), { status: 500, headers: { 'Content-Type': 'application/json' } });
     }
   }
 
@@ -141,10 +162,20 @@ export async function onRequest(context) {
   respHeaders.set('Access-Control-Allow-Credentials', 'true');
 
   // Create and return a new Response so we can control headers easily
-  const body = await resp.arrayBuffer();
-  return new Response(body, {
-    status: resp.status,
-    statusText: resp.statusText,
-    headers: respHeaders
-  });
+  try {
+    const body = await resp.arrayBuffer();
+    return new Response(body, {
+      status: resp.status,
+      statusText: resp.statusText,
+      headers: respHeaders
+    });
+  } catch (e) {
+    try { console.error('Error reading upstream body', e) } catch (e2) {}
+    return new Response(JSON.stringify({ ok: false, error: 'read_upstream_body_failed', message: String(e && e.message) }), { status: 502, headers: { 'Content-Type': 'application/json' } });
+  }
+  } catch (err) {
+    // Final catch-all so Pages Functions always returns a visible error and logs it.
+    try { console.error('Pages Function unhandled error', err) } catch (e) {}
+    return new Response(JSON.stringify({ ok: false, error: 'function_unhandled_exception', message: String(err && err.message) }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+  }
 }
