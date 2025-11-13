@@ -76,6 +76,31 @@ export async function onRequest(context) {
     } catch (e) {
       // ignore logging errors
     }
+    // Return a short diagnostic JSON when upstream returns >=400 to help
+    // debugging of 4xx/5xx responses (temporary). Filter out sensitive
+    // headers (Set-Cookie, Authorization, Cookie, Proxy-Authorization).
+    try {
+      const clone2 = resp.clone();
+      const bodyText = await clone2.text().catch(()=>'<unreadable>');
+      const safeHeaders = {};
+      for (const [k,v] of resp.headers) {
+        const lk = k.toLowerCase();
+        if (['set-cookie','authorization','cookie','proxy-authorization'].includes(lk)) continue;
+        safeHeaders[k] = v;
+      }
+      const diag = {
+        debug: true,
+        pagesInvoked: true,
+        upstreamUrl: upstreamUrl.toString(),
+        upstreamStatus: resp.status,
+        upstreamStatusText: resp.statusText,
+        upstreamHeaders: safeHeaders,
+        upstreamBodySnippet: (bodyText && bodyText.slice) ? bodyText.slice(0,2000) : String(bodyText)
+      };
+      return addCorsHeaders(new Response(JSON.stringify(diag, null, 2), { status: resp.status, headers: { 'Content-Type': 'application/json' } }));
+    } catch (e) {
+      try { console.error('Error preparing debug response', e) } catch (e2) {}
+    }
   }
 
   // Return upstream response directly. This will forward Set-Cookie headers
