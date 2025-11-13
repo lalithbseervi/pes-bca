@@ -120,22 +120,13 @@ document.addEventListener('DOMContentLoaded', async function() {
             return;
         }
 
-        // Check Turnstile BEFORE showing loading screen
-        const turnstileResponse = window.turnstile?.getResponse?.() || window._turnstileToken;
-        
-        if (!turnstileResponse) {
-            showError('Please complete the verification challenge first');
-            return;
-        }
-
         loginModal.style.display = 'none';
         loadingOverlay.style.display = 'flex';
 
         try {
             const payload = {
                 srn,
-                password,
-                turnstileToken: turnstileResponse,
+                password
             };
 
             // Use postLoginRedirect from localStorage if available
@@ -198,15 +189,15 @@ document.addEventListener('DOMContentLoaded', async function() {
                 return;
             } else {
                 showError(data.message || 'Invalid SRN/PRN or password. Please try again.');
+                try { localStorage.removeItem('postLoginRedirect'); } catch (e) { /* ignore */ }
                 loginModal.style.display = 'block';
-                window.turnstile?.reset()
             }
         } catch (error) {
             console.error(error)
             loadingOverlay.style.display = 'none';
             showError('Network error. Please check your connection and try again.');
+            try { localStorage.removeItem('postLoginRedirect'); } catch (e) { /* ignore */ }
             loginModal.style.display = 'block';
-            window.turnstile?.reset()
         }
     }
 
@@ -262,6 +253,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     loginForm.addEventListener('submit', handleLogin);
     
     cancelButton.addEventListener('click', function() {
+        try { localStorage.removeItem('postLoginRedirect'); } catch (e) { /* ignore */ }
         if (content) content.remove();
         loginModal.style.display = 'none';
         return window.showAccessDenied();
@@ -270,6 +262,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Close modal when clicking outside
     loginModal.addEventListener('click', function(event) {
         if (event.target === loginModal) {
+            try { localStorage.removeItem('postLoginRedirect'); } catch (e) { /* ignore */ }
             loginModal.style.display = 'none';
         }
     });

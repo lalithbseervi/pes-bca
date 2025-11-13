@@ -1,4 +1,3 @@
-import { verifyTurnstile } from "../utils/cf-turnstile.js";
 import { invalidateCachedAuth, verifyCachedCredentials, cacheAuthResult } from "../utils/auth-cache.js";
 import { makeCookie } from "../utils/cookies.js";
 import { signJWT } from "../utils/sign_jwt.js";
@@ -12,20 +11,7 @@ export async function loginHandler(request, env) {
     return new Response(JSON.stringify({ success:false, message:'invalid json' }), { status:400, headers: JSON_HEADERS })
   }
 
-  const { srn, password, turnstileToken } = body
-  const turnstileSecret = env.TURNSTILE_SECRET
-  if (!turnstileSecret) {
-    return new Response(JSON.stringify({ success:false, message:'server misconfigured' }), { status:500, headers: JSON_HEADERS })
-  }
-
-  if (!turnstileToken) {
-    return new Response(JSON.stringify({ success:false, message:'human verification required' }), { status:400, headers: JSON_HEADERS })
-  }
-
-  const verification = await verifyTurnstile(turnstileSecret, turnstileToken, request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for'))
-  if (!verification.success) {
-    return new Response(JSON.stringify({ success:false, message:'human verification failed', detail: verification }), { status:403, headers: JSON_HEADERS })
-  }
+  const { srn, password } = body
 
   // Step 1: Check cached credentials first (fast path)
   const cachedAuth = await verifyCachedCredentials(env, srn, password)

@@ -149,25 +149,6 @@
     display: none;
 }
 
-/* Turnstile widget container */
-#turnstile-widget {
-    padding: 12px;
-    background-color: #2a2a2a;
-    border: 2px solid #333;
-    border-radius: 8px;
-    border-left: 3px solid #666;
-    transition: all 0.3s ease;
-}
-
-#turnstile-widget:hover {
-    border-color: #444;
-}
-
-/* Style for verification hint text */
-#turnstile-widget + small {
-    transition: color 0.3s ease;
-}
-
 @media (max-width: 480px) {
     .login-modal-content {
         margin: 5% auto;
