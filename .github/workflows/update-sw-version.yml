@@ -19,12 +19,10 @@ jobs:
           chmod +x ./scripts/update-sw-version.sh
 
       - name: Run update-sw-version (use commit hash)
-        working-directory: lms
         run: |
           ./scripts/update-sw-version.sh --commit-hash
 
       - name: Commit updated config.toml if changed
-        working-directory: lms
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
