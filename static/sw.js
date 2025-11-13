@@ -138,6 +138,31 @@ self.addEventListener('fetch', event => {
   const networkResp = await fetch(event.request);
         if (!networkResp) return networkResp;
 
+        // Detect Cloudflare challenge pages or other HTML-based gating responses.
+        // Some Cloudflare challenges are HTML pages that can be returned with 200/403/503
+        // and may confuse clients when served from a service worker cache. We read a
+        // small snippet of HTML and look for known markers. If found, don't cache it
+        // and mark the response so it's easier to diagnose from the browser.
+        try {
+          const ct = networkResp.headers.get('content-type') || '';
+          if (ct.includes('text/html')) {
+            const cloneForDetect = networkResp.clone();
+            const textSnippet = (await cloneForDetect.text()).slice(0, 2000);
+            const markers = ['Checking your browser', 'cf-browser-verification', 'cf-challenge', 'Cloudflare', 'captcha', 'Turnstile'];
+            const found = markers.some(m => textSnippet.indexOf(m) !== -1);
+            if (found) {
+              // Remove any stale cached entry for this request to avoid re-serving challenge
+              cache.delete(event.request).catch(()=>{});
+              const headers = new Headers(networkResp.headers);
+              headers.set('X-Service-Worker-Cache', 'BYPASS');
+              headers.set('X-Service-Worker-Challenge-Detected', '1');
+              return new Response(networkResp.body, { status: networkResp.status || 200, statusText: networkResp.statusText, headers });
+            }
+          }
+        } catch (e) {
+          console.warn('[SW] Challenge-detect error', e);
+        }
+
         // If not a successful basic response, just forward (e.g., opaque, error, pdf)
         if (networkResp.status === 0 || networkResp.type !== 'basic' || networkResp.status >= 400) {
           const headers = new Headers(networkResp.headers);
