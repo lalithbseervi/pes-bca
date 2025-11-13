@@ -6,7 +6,10 @@ export async function onRequest(context) {
   const { request, env } = context;
   const url = new URL(request.url);
 
-  const upstreamBase = env.CORS_PROXY_BASE || 'https://cors-proxy.devpages.workers.dev';
+  // By default forward to the current Pages origin so the cors-proxy is called
+  // directly (first-party). An explicit CORS_PROXY_BASE env var can override
+  // this for testing or alternate deployments.
+  const upstreamBase = env.CORS_PROXY_BASE || url.origin;
 
   // Build upstream URL keeping the /api path and query
   const apiIndex = url.pathname.indexOf('/api');
