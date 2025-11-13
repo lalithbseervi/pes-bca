@@ -1,5 +1,9 @@
 name: Update sw_version
 
+# Give this workflow explicit write permission so GITHUB_TOKEN can commit
+permissions:
+  contents: write
+
 on:
   push:
     branches: [ master ]
@@ -29,7 +33,7 @@ jobs:
           if [ -n "$(git status --porcelain)" ]; then
             git add config.toml
             git commit -m "chore: bump sw_version [ci skip]" || echo "no changes to commit"
-            git push origin HEAD:main || echo "push failed"
+            git push origin HEAD:${GITHUB_REF#refs/heads/} || echo "push failed"
           else
             echo "No changes to config.toml"
           fi
