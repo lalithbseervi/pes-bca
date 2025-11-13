@@ -22,33 +22,6 @@ async function handleRequest(request, env) {
   const url = new URL(request.url)
   const corsHeaders = getCorsHeaders(request)
 
-  // Request-start logging so we can see incoming requests in worker logs.
-  try { console.log('cors-proxy invoked', { method: request.method, path: url.pathname, query: url.search }) } catch (e) {}
-
-  // Gated diagnostics: if ?diag=1 is present, return a small, safe JSON
-  // echo so you can confirm the worker is reached from the browser.
-  try {
-    if (url.searchParams.get('diag') === '1') {
-      const safeHeaders = {}
-      for (const [k, v] of request.headers) {
-        const lk = k.toLowerCase()
-        if (['authorization', 'cookie', 'set-cookie', 'proxy-authorization'].includes(lk)) continue
-        safeHeaders[k] = v
-      }
-      const origin = request.headers.get('Origin') || request.headers.get('origin') || url.origin
-      const diag = {
-        proxyInvoked: true,
-        method: request.method,
-        pathname: url.pathname,
-        upstreamGuess: (env && env.CORS_PROXY_BASE) ? env.CORS_PROXY_BASE : url.origin,
-        headers: safeHeaders
-      }
-      return addCorsHeaders(new Response(JSON.stringify(diag, null, 2), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-    }
-  } catch (e) {
-    try { console.error('diag handler error in cors-proxy', e) } catch (e2) {}
-  }
-
   // Handle OPTIONS preflight
   if (request.method === 'OPTIONS') {
     return new Response(null, {
