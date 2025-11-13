@@ -2,8 +2,8 @@
 
 {% block main_content %}
 <meta name="robots" content="noindex,nofollow" />
-<link rel="stylesheet" href="/css/admin.css">
-<link rel="stylesheet" href="/css/forms.css">
+<link rel="stylesheet" href="/css/admin.css?v={{ config.extra.sw_version }}">
+<link rel="stylesheet" href="/css/forms.css?v={{ config.extra.sw_version }}">
 
 <style>
   .component-grid {
@@ -189,7 +189,7 @@
 </div>
 
 <script type="module">
-import { API_BASE_URL, showMessage, checkAdminAuth, getAdminPassphrase } from '/js/utils.js';
+import { API_BASE_URL, showMessage, checkAdminAuth, getAdminPassphrase } from '/js/utils.js?v={{ config.extra.sw_version }}';
 
 let selectedIncidentId = null;
 let components = [];

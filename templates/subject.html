@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 
 {% block main_content %}
-<link rel="stylesheet" href="/css/index.css">
-<link defer rel="stylesheet" href="/css/alerts.css">
-<script defer src="/js/openLinkHandler.js"></script>
+<link rel="stylesheet" href="/css/index.css?v={{ config.extra.sw_version }}">
+<link defer rel="stylesheet" href="/css/alerts.css?v={{ config.extra.sw_version }}">
+<script defer src="/js/openLinkHandler.js?v={{ config.extra.sw_version }}"></script>
 <style>
     .search-filters {
         background: rgba(31, 41, 55, 0.95);
@@ -163,7 +163,9 @@
     // Get subject code and semester from page extra 
     const subjectCode = '{{ page.extra.subject_code }}';
     const semester = '{{ page.extra.semester | default(value="1") }}';
-    const WORKER_URL = (location.hostname === 'pes-bca.pages.dev') ? 'https://cors-proxy.devpages.workers.dev' : 'http://localhost:8787';
+    // Use the same-origin API base when available so requests go through Pages Functions.
+    // During local development, window.API_BASE_URL is set to 'http://localhost:8787'.
+    const WORKER_URL = (window && window.API_BASE_URL) ? window.API_BASE_URL : '';
     
     // Shared utility: Get nesting level of a details element
     function getDetailsLevel(element) {
@@ -213,7 +215,7 @@
     // Initialize search suggestions for subject page using rendered links
     async function initSubjectSuggest() {
         try {
-            const mod = await import('/js/init-search-suggest.js');
+            const mod = await import('/js/init-search-suggest.js?v={{ config.extra.sw_version }}');
             const initSubjectSearchSuggest = mod.initSubjectSearchSuggest;
             const inputEl = document.getElementById('search-input');
             initSubjectSearchSuggest(inputEl, applyFilters);

@@ -1,8 +1,18 @@
-const CACHE_NAME = 'pesu-bca-v2.7.0';
+// Derive cache name from the sw.js URL query parameter `v` so the same
+// config.extra.sw_version used by templates controls the SW cache name.
+let _swVer = 'v0';
+try {
+  const u = new URL(self.location.href);
+  _swVer = u.searchParams.get('v') || 'v0';
+} catch (e) { /* ignore */ }
+const CACHE_NAME = `pesu-bca-${_swVer}`;
 const OFFLINE_URL = '/offline.html';
 
 // Files to cache immediately
-const STATIC_ASSETS = [
+// Build the list at runtime so we append the dynamic version token derived
+// from the service worker URL (?v=...) — this keeps the SW cache aligned
+// with the templates which also use config.extra.sw_version.
+const VERSIONED_ASSETS = [
   // CSS files
   '/css/main.css',
   '/css/login_form.css',
@@ -26,7 +36,11 @@ const STATIC_ASSETS = [
   '/js/codeblock.js',
   '/js/toc.js',
   '/js/note.js',
-  '/js/searchElasticlunr.min.js',
+  '/js/searchElasticlunr.min.js'
+];
+
+// Assets we intentionally leave unversioned (images, icons, PDF.js viewer, manifest, offline)
+const UNVERSIONED_ASSETS = [
   // Icons
   '/icons/search.svg',
   '/icons/sun.svg',
@@ -38,13 +52,17 @@ const STATIC_ASSETS = [
   '/apple-touch-icon.png',
   '/favicon-16x16.png',
   '/favicon-32x32.png',
-  // PDF.js viewer files
+  // PDF.js viewer files (keep unversioned to avoid changing viewer internals unexpectedly)
   '/pdfjs/build/pdf.mjs',
   '/pdfjs/build/pdf.worker.mjs',
   '/pdfjs/web/viewer.mjs',
   '/pdfjs/web/viewer.css',
   OFFLINE_URL
 ];
+
+// Append the dynamic version token to the versioned assets so their cache keys
+// match the templates' `?v=` query param. Keep unversioned assets as-is.
+const STATIC_ASSETS = VERSIONED_ASSETS.map(p => `${p}?v=${_swVer}`).concat(UNVERSIONED_ASSETS);
 
 console.log('[SW] Script loaded');
 self.addEventListener('error', e => console.error('[SW] Error event:', e));
@@ -126,16 +144,19 @@ self.addEventListener('fetch', event => {
   event.respondWith(
     (async () => {
       try {
+        // Open cache and use a cache-first strategy: return cached assets when
+        // present (fast), otherwise fetch from network and populate the cache.
         const cache = await caches.open(CACHE_NAME);
         const cached = await cache.match(event.request);
         if (cached) {
-          // Tag cached hits with explicit status header (non-invasive)
           const headers = new Headers(cached.headers);
           headers.set('X-Service-Worker-Cache', 'HIT');
           return new Response(cached.body, { status: cached.status || 200, statusText: cached.statusText, headers });
         }
 
-  const networkResp = await fetch(event.request);
+        // Not cached — fetch from network. We use no-cache to prefer fresh content
+        // from upstream (but caching behavior is controlled by our cache-busting policy).
+        const networkResp = await fetch(event.request, { cache: 'no-cache' });
         if (!networkResp) return networkResp;
 
         // Detect Cloudflare challenge pages or other HTML-based gating responses.

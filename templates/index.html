@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 {% macro home_page(section) %}
 <!-- Preload critical CSS to reduce render-blocking -->
-<link rel="preload" href="/css/index.css" as="style" onload="this.rel='stylesheet'">
-<noscript><link rel="stylesheet" href="/css/index.css"></noscript>
-<link rel="preload" href="/css/alerts.css" as="style" onload="this.rel='stylesheet'">
-<noscript><link rel="stylesheet" href="/css/alerts.css"></noscript>
-<script defer src="/js/openLinkHandler.js"></script>
+<link rel="preload" href="/css/index.css?v={{ config.extra.sw_version }}" as="style" onload="this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="/css/index.css?v={{ config.extra.sw_version }}"></noscript>
+<link rel="preload" href="/css/alerts.css?v={{ config.extra.sw_version }}" as="style" onload="this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="/css/alerts.css?v={{ config.extra.sw_version }}"></noscript>
+<script defer src="/js/openLinkHandler.js?v={{ config.extra.sw_version }}"></script>
 <style>
   .search-filters {
     background: rgba(31, 41, 55, 0.5);
@@ -139,8 +139,8 @@
 </main>
 <p id="last-updated">Last Updated: Loading...</p>
 <script type="module">
-import { API_BASE_URL } from '/js/utils.js';
-import { initHomeSearchSuggest } from '/js/init-search-suggest.js';
+import { API_BASE_URL } from '/js/utils.js?v={{ config.extra.sw_version }}';
+import { initHomeSearchSuggest } from '/js/init-search-suggest.js?v={{ config.extra.sw_version }}';
 
 let allResources = [];
 
