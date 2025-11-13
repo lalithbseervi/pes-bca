@@ -1,0 +1,37 @@
+name: Update sw_version
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch: {}
+
+jobs:
+  bump-sw-version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Ensure script is executable
+        run: |
+          chmod +x ./scripts/update-sw-version.sh
+
+      - name: Run update-sw-version (use commit hash)
+        working-directory: lms
+        run: |
+          ./scripts/update-sw-version.sh --commit-hash
+
+      - name: Commit updated config.toml if changed
+        working-directory: lms
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if [ -n "$(git status --porcelain)" ]; then
+            git add config.toml
+            git commit -m "chore: bump sw_version [ci skip]" || echo "no changes to commit"
+            git push origin HEAD:main || echo "push failed"
+          else
+            echo "No changes to config.toml"
+          fi
