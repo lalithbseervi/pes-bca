@@ -551,11 +551,27 @@ form.addEventListener('submit', async (e) => {
   }
 
   const filesToSend = selectedFiles.length ? selectedFiles : Array.from(fileInput.files || []).map(f => ({ file: f, title: formatDefaultTitle(f.name) || f.name }));
-  if (!filesToSend.length) {
+    if (!filesToSend.length) {
     showAlert('Please select at least one file', 'error');
     setUploading(false);
     return;
   }
+
+    // Client-side PDF validation: ensure all files are PDFs
+    function isPdfFile(file) {
+      if (!file) return false;
+      const name = (file.name || '').toLowerCase();
+      if (file.type && file.type === 'application/pdf') return true;
+      return name.endsWith('.pdf');
+    }
+
+    for (const sf of filesToSend) {
+      if (!isPdfFile(sf.file)) {
+        showAlert('Only PDF files are allowed. Remove invalid files and try again.', 'error');
+        setUploading(false);
+        return;
+      }
+    }
 
   // Append each file and its linkTitle (same order)
   for (const sf of filesToSend) {

@@ -250,6 +250,33 @@ export async function uploadResourceToSupabase(request, env) {
                 throw new Error('read_file_failed');
             }
 
+            // Server-side PDF validation: ensure the uploaded bytes look like a PDF
+            try {
+                const u8 = new Uint8Array(ab || []);
+                // Quick MIME hint check (may be empty or spoofed) - not authoritative
+                if (file.type && file.type !== 'application/pdf') {
+                    // Log a warning but still validate by magic bytes below
+                    console.warn('upload: file.type is not application/pdf', file.type, file.name);
+                }
+
+                // Look for the ASCII signature "%PDF-" within the first 1KB
+                const pattern = [0x25, 0x50, 0x44, 0x46, 0x2D]; // '%PDF-'
+                const maxScan = Math.min(u8.length, 1024);
+                let found = false;
+                for (let i = 0; i + pattern.length <= maxScan; i++) {
+                    let ok = true;
+                    for (let j = 0; j < pattern.length; j++) {
+                        if (u8[i + j] !== pattern[j]) { ok = false; break; }
+                    }
+                    if (ok) { found = true; break; }
+                }
+                if (!found) {
+                    throw new Error('invalid_pdf_file');
+                }
+            } catch (e) {
+                throw new Error(e.message || 'invalid_pdf_file');
+            }
+
             const hashBuf = await crypto.subtle.digest('SHA-256', ab);
             const checksum = Array.from(new Uint8Array(hashBuf)).map((b) => b.toString(16).padStart(2, '0')).join('');
 
