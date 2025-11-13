@@ -19,6 +19,32 @@ export async function onRequest(context) {
   // Diagnostic log to confirm invocation and routing. Visible in Pages Functions logs.
   try { console.log('Pages Function invoked', { method: request.method, path: url.pathname, upstream: upstreamUrl.toString() }) } catch (e) {}
 
+  // Quick, gated diagnostics: if caller includes ?diag=1 return a small JSON
+  // echo so you can confirm the Pages Function is reached from the browser
+  // (safe: filters out sensitive headers). This does not affect normal
+  // routing when the query param is absent.
+  try {
+    if (url.searchParams.get('diag') === '1') {
+      const safeHeaders = {};
+      for (const [k, v] of request.headers) {
+        const lk = k.toLowerCase();
+        if (['authorization', 'cookie', 'set-cookie', 'proxy-authorization'].includes(lk)) continue;
+        safeHeaders[k] = v;
+      }
+      const diag = {
+        pagesInvoked: true,
+        method: request.method,
+        pathname: url.pathname,
+        upstream: upstreamUrl.toString(),
+        headers: safeHeaders
+      };
+      const origin = request.headers.get('Origin') || request.headers.get('origin') || url.origin;
+      return new Response(JSON.stringify(diag, null, 2), { status: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': origin, 'Access-Control-Allow-Credentials': 'true' } });
+    }
+  } catch (e) {
+    try { console.error('diag handler error', e) } catch (e2) {}
+  }
+
   // Clone headers from incoming request but avoid forwarding hop-by-hop headers
   const outHeaders = new Headers();
   for (const [k, v] of request.headers) {
