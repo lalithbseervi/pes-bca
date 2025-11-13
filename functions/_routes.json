@@ -1,6 +1,9 @@
 {
   "version": 1,
   "include": [
+    "/api/*",
+    "/api/*/*",
+    "/api/*/*/*",
     "/*.pdf",
     "/*/*.pdf",
     "/*/*/*.pdf",
