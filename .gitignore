@@ -9,6 +9,8 @@ node_modules/
 
 # Static Content
 *.pdf
+*.docx
+*.pptx
 
 # Cloudflare Workers sensitive files
 .dev.vars
