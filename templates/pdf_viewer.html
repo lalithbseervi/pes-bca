@@ -57,7 +57,7 @@
     color: #f3f4f6;
     font-weight: 600;
   }
-  
+
   .pdf-header h1::before {
     content: '';
   }
@@ -76,7 +76,8 @@
     font-size: 1rem;
     background-color: inherit;
     position: relative;
-    text-decoration: none; /* we'll render an animated underline using ::after */
+    text-decoration: none;
+    /* we'll render an animated underline using ::after */
   }
 
   /* Animated underline using a pseudo-element so we can transition it smoothly */
@@ -87,7 +88,8 @@
     bottom: -2px;
     height: 2px;
     width: 100%;
-    background-color: #059669; /* same as hover color */
+    background-color: #059669;
+    /* same as hover color */
     transform: scaleX(0);
     transform-origin: left;
     transition: transform 0.18s ease, opacity 0.18s ease;
@@ -112,7 +114,7 @@
     user-select: none;
     font-size: 1rem;
   }
-  
+
   .pdf-breadcrumb .current {
     font-size: 1rem;
   }
@@ -149,23 +151,23 @@
 <script type="module">
   import { API_BASE_URL } from '/js/utils.js?v={{ config.extra.sw_version }}';
   window.API_BASE_URL = API_BASE_URL;
-  
+
   // Global variables for navigation
   let pdfPath, semester, subjectCode, unit, filename, title, normalizedPdfPath;
-  
+
   document.addEventListener('DOMContentLoaded', async function () {
     if (!sessionStorage.getItem('user_session')) { localStorage.setItem('postLoginRedirect', window.location.href); }
-    
+
     // Get URL parameters
     const urlParams = new URLSearchParams(window.location.search);
     pdfPath = urlParams.get('file');
     title = urlParams.get('title'); // Get title from URL parameter first
-    
+
     // Check if file param is a semantic path
     if (pdfPath && !pdfPath.startsWith('http') && !pdfPath.startsWith('/api/')) {
       // Parse semantic path from file parameter
       const pathParts = pdfPath.split('/').filter(Boolean);
-      
+
       // Pattern A: sem-N/<subject>/unit-N/<filename>
       if (pathParts.length === 4) {
         const semMatch = pathParts[0].match(/^sem-(\d+)$/);
@@ -196,12 +198,12 @@
         }
       }
     }
-    
+
     // If pdfPath is a relative /api/ path, make it absolute with API_BASE_URL
     if (pdfPath && pdfPath.startsWith('/api/') && !pdfPath.startsWith('http')) {
       pdfPath = API_BASE_URL + pdfPath;
     }
-    
+
     // Fallback: check for legacy query parameters (only if not already set)
     if (!subjectCode) subjectCode = urlParams.get('subjectCode');
     if (!unit) unit = urlParams.get('unit');
@@ -306,7 +308,7 @@
     // Fetch subject name from API instead of hardcoded mapping
     let displaySubject = null;
     let displaySubjectCode = subjectCode;
-    
+
     // Fallback: extract from path for legacy URLs
     if (!displaySubjectCode && pdfPath) {
       const extractedSubject = extractSubjectFromPath(pdfPath);
@@ -336,17 +338,17 @@
 
     // Build breadcrumb navigation
     let breadcrumbHTML = '';
-    
+
     if (displaySubject && displaySubjectCode) {
       // Link to subject page using /sem-N/subject-code format
       const semesterPath = semester ? `/sem-${semester}/${displaySubjectCode}/` : `/#subject-${displaySubjectCode}`;
       breadcrumbHTML += `<a href="${semesterPath}">${displaySubject}</a>`;
-      
+
       if (displayUnit) {
         breadcrumbHTML += `<span class="separator" style="margin: 0 0.5rem;">/</span>`;
         breadcrumbHTML += `<a href="${semesterPath}">Unit ${displayUnit}</a>`;
       }
-      
+
       if (title) {
         breadcrumbHTML += `<span class="separator" style="margin: 0 0.5rem;">/</span>`;
         breadcrumbHTML += `<span class="current">${title}</span>`;
@@ -385,24 +387,24 @@
         // and absolute URLs (including blob: and other origins) are preserved.
         const absUrl = new URL(path, window.location.href).href;
         // Try HEAD first (small, efficient)
-            let r = await fetch(absUrl, { method: 'HEAD', cache: 'no-store' });
-            if (r.ok) {
-              const newToken = r.headers.get('X-Stream-Token') || r.headers.get('x-stream-token');
-              if (newToken) try { sessionStorage.setItem('stream_token', newToken); } catch (e) {}
-              return { ok: true, status: r.status, contentType: r.headers.get('content-type') };
-            }
+        let r = await fetch(absUrl, { method: 'HEAD', cache: 'no-store' });
+        if (r.ok) {
+          const newToken = r.headers.get('X-Stream-Token') || r.headers.get('x-stream-token');
+          if (newToken) try { sessionStorage.setItem('stream_token', newToken); } catch (e) { }
+          return { ok: true, status: r.status, contentType: r.headers.get('content-type') };
+        }
         // Some servers reject HEAD -> try a tiny GET with Range to minimize data
-      r = await fetch(absUrl, {
-        method: 'GET',
-        headers: { 'Range': 'bytes=0-0' },
-        cache: 'no-store',
-        credentials: 'include'
-      });
-      if (r.ok || r.status === 206) {
-        const newToken = r.headers.get('X-Stream-Token') || r.headers.get('x-stream-token');
-        if (newToken) try { sessionStorage.setItem('stream_token', newToken); } catch (e) {}
-        return { ok: true, status: r.status, contentType: r.headers.get('content-type') };
-      }
+        r = await fetch(absUrl, {
+          method: 'GET',
+          headers: { 'Range': 'bytes=0-0' },
+          cache: 'no-store',
+          credentials: 'include'
+        });
+        if (r.ok || r.status === 206) {
+          const newToken = r.headers.get('X-Stream-Token') || r.headers.get('x-stream-token');
+          if (newToken) try { sessionStorage.setItem('stream_token', newToken); } catch (e) { }
+          return { ok: true, status: r.status, contentType: r.headers.get('content-type') };
+        }
         return { ok: false, status: r.status, statusText: r.statusText };
       } catch (err) {
         return { ok: false, error: err.message || String(err) };
@@ -437,7 +439,7 @@
       // Since pdfPath is now a full URL with API_BASE_URL, we need to fetch it
       // and create a blob URL for PDF.js (avoids cross-origin issues)
       let fileToUse = normalizedPdfPath || pdfPath;
-      
+
       try {
         // If fileToUse is a full URL (which it should be), fetch and blob it
         if (fileToUse && (fileToUse.startsWith('http://') || fileToUse.startsWith('https://'))) {
@@ -452,10 +454,10 @@
               }
               const headerBytes = new Uint8Array(ab.slice(0, 8));
               const isPdf = headerBytes[0] === 0x25 && // %
-                            headerBytes[1] === 0x50 && // P
-                            headerBytes[2] === 0x44 && // D
-                            headerBytes[3] === 0x46 && // F
-                            headerBytes[4] === 0x2D;   // -
+                headerBytes[1] === 0x50 && // P
+                headerBytes[2] === 0x44 && // D
+                headerBytes[3] === 0x46 && // F
+                headerBytes[4] === 0x2D;   // -
               if (!isPdf) {
                 console.error('File does not appear to be a PDF (missing %PDF- signature).');
                 showPdfError('File is not a valid PDF.', 'Missing %PDF- header.');
@@ -485,12 +487,12 @@
         return;
       }
 
-    let pdfViewerUrl = `/pdfjs/web/viewer.html?file=${encodeURIComponent(fileToUse)}`;
-    try {
-    const orig = (title && title.trim()) ? title.trim() : null;
-    if (orig) pdfViewerUrl += `&origFilename=${encodeURIComponent(orig)}`;
-    } catch (e) {}
-    document.getElementById('pdf-container').innerHTML = `
+      let pdfViewerUrl = `/pdfjs/web/viewer.html?file=${encodeURIComponent(fileToUse)}`;
+      try {
+        const orig = (title && title.trim()) ? title.trim() : null;
+        if (orig) pdfViewerUrl += `&origFilename=${encodeURIComponent(orig)}`;
+      } catch (e) { }
+      document.getElementById('pdf-container').innerHTML = `
       <div style="width: 100%; height: 90vh;">
         <iframe src="${pdfViewerUrl}" 
             style="width: 100%; height: 100%; border: none;"
@@ -505,23 +507,36 @@
       if (window.posthog && sessionData) {
         try {
           const session = JSON.parse(sessionData);
-          posthog.identify(session.srn, {
-            srn: session.srn,
-            name: session.profile.name || session.srn,
-            branch: session.profile?.branch,
-            semester: session.profile?.semester,
-            is_pwa: window.matchMedia('(display-mode: standalone)').matches
-          });
-          posthog.capture('pdf_viewed', {
-            pdf_path: pdfPath,
-            pdf_title: title || 'Unknown',
-            file_name: pdfPath.split('/').pop(),
-            subject: extractSubjectFromPath(pdfPath),
-            unit: extractUnitFromPath(pdfPath),
-            view_timestamp: new Date().toISOString(),
-            referrer: document.referrer,
-            is_pwa: window.matchMedia('(display-mode: standalone)').matches
-          });
+
+          // Only send PII if user has not opted out
+          if (window.isPIITrackingAllowed && window.isPIITrackingAllowed()) {
+            posthog.identify(session.srn, {
+              srn: session.srn,
+              name: session.profile.name || session.srn,
+              branch: session.profile?.branch,
+              semester: session.profile?.semester,
+              is_pwa: window.matchMedia('(display-mode: standalone)').matches
+            });
+            posthog.capture('pdf_viewed', {
+              pdf_path: pdfPath,
+              pdf_title: title || 'Unknown',
+              file_name: pdfPath.split('/').pop(),
+              subject: extractSubjectFromPath(pdfPath),
+              unit: extractUnitFromPath(pdfPath),
+              view_timestamp: new Date().toISOString(),
+              referrer: document.referrer,
+              is_pwa: window.matchMedia('(display-mode: standalone)').matches
+            });
+          } else {
+            // Track PDF view without PII when opted out
+            posthog.capture('pdf_viewed', {
+              pdf_title: title || 'Unknown',
+              subject: extractSubjectFromPath(pdfPath),
+              unit: extractUnitFromPath(pdfPath),
+              view_timestamp: new Date().toISOString(),
+              is_pwa: window.matchMedia('(display-mode: standalone)').matches
+            });
+          }
         } catch (error) {
           console.error('PostHog tracking error:', error);
         }
@@ -545,7 +560,7 @@
       try {
         const prevBtn = document.getElementById('pdf-prev');
         const nextBtn = document.getElementById('pdf-next');
-        
+
         console.debug('buildNav (API-driven): start', { subjectCode, filename, semester });
 
         // We need subjectCode and filename to build navigation
@@ -557,7 +572,7 @@
         // Fetch all resources for this subject from the API
         const apiUrl = `${API_BASE_URL}/api/subject/resources?subject=${encodeURIComponent(subjectCode)}`;
         const resp = await fetch(apiUrl, { cache: 'no-store' });
-        
+
         if (!resp.ok) {
           console.warn('buildNav: API fetch failed', resp.status);
           return;
@@ -598,7 +613,7 @@
           const bMatch = bFilename.match(/^(\d+)/);
           const aNum = aMatch ? parseInt(aMatch[1]) : 999999;
           const bNum = bMatch ? parseInt(bMatch[1]) : 999999;
-          
+
           return aNum - bNum;
         });
 
@@ -643,7 +658,7 @@
     if (sessionStorage.getItem('logged_in') === 'true' && typeof window.loadPdfViewer === 'function') {
       window.loadPdfViewer();
     }
-    
+
     // Build navigation after variables are set
     buildNav();
   });

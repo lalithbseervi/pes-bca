@@ -111,6 +111,12 @@ self.addEventListener('activate', event => {
 
 // Fetch event - serve from cache, fallback to network
 self.addEventListener('fetch', event => {
+  // Ensure PostHog assets are never cached
+  if (event.request.url.includes('us-assets.i.posthog.com')) {
+    event.respondWith(fetch(event.request, { cache: 'no-store' }));
+    return;
+  }
+
   // Skip non-GET or external requests
   if (event.request.method !== 'GET' || !event.request.url.startsWith(self.location.origin)) {
     return;

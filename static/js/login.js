@@ -25,15 +25,17 @@ document.addEventListener('DOMContentLoaded', async function() {
                 if (content) content.style.display = 'block';
                 if (typeof window.loadPdfViewer === 'function') window.loadPdfViewer();
                 
-                // Update PostHog if available
+                // Update PostHog if available (only if PII tracking is allowed)
                 if (window.posthog && data) {
-                    posthog.identify(data.srn, {
-                        srn: data.srn,
-                        name: data.profile?.name || 'Unknown',
-                        branch: data.profile?.branch,
-                        semester: data.profile?.semester,
-                        synced_from_tab: true
-                    });
+                    if (window.isPIITrackingAllowed && window.isPIITrackingAllowed()) {
+                        posthog.identify(data.srn, {
+                            srn: data.srn,
+                            name: data.profile?.name || 'Unknown',
+                            branch: data.profile?.branch,
+                            semester: data.profile?.semester,
+                            synced_from_tab: true
+                        });
+                    }
                 }
                 break;
                 
@@ -155,17 +157,24 @@ document.addEventListener('DOMContentLoaded', async function() {
                 storeSession(sessionData); // This now broadcasts automatically via sessionSync
 
                 if (window.posthog) {
-                    posthog.identify(sessionData.srn, {
-                        srn: sessionData.srn,
-                        name: sessionData.profile?.name || 'Unknown',
-                        branch: sessionData.profile?.branch,
-                        semester: sessionData.profile?.semester,
-                        login_cached: data.cached || false  // Track if login used cache
-                    });
-                    posthog.capture('user_login', { 
-                        srn: sessionData.srn,
-                        cached: data.cached || false,
-                    });
+                    if (window.isPIITrackingAllowed && window.isPIITrackingAllowed()) {
+                        posthog.identify(sessionData.srn, {
+                            srn: sessionData.srn,
+                            name: sessionData.profile?.name || 'Unknown',
+                            branch: sessionData.profile?.branch,
+                            semester: sessionData.profile?.semester,
+                            login_cached: data.cached || false  // Track if login used cache
+                        });
+                        posthog.capture('user_login', { 
+                            srn: sessionData.srn,
+                            cached: data.cached || false,
+                        });
+                    } else {
+                        // Track login event without PII when opted out
+                        posthog.capture('user_login', { 
+                            cached: data.cached || false,
+                        });
+                    }
                 }
 
                 // Show a brief message if login was cached (fast)
@@ -207,13 +216,15 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (sessionSync.isLoggedIn()) {
             const sessionData = sessionSync.getSession();
             if (window.posthog && sessionData) {
-                posthog.identify(sessionData.srn, {
-                    srn: sessionData.srn,
-                    name: sessionData.profile?.name || 'Unknown',
-                    branch: sessionData.profile?.branch,
-                    semester: sessionData.profile?.semester,
-                    session_restored: true,
-                });
+                if (window.isPIITrackingAllowed && window.isPIITrackingAllowed()) {
+                    posthog.identify(sessionData.srn, {
+                        srn: sessionData.srn,
+                        name: sessionData.profile?.name || 'Unknown',
+                        branch: sessionData.profile?.branch,
+                        semester: sessionData.profile?.semester,
+                        session_restored: true,
+                    });
+                }
             }
             if (content) content.style.display = 'block';
             if (typeof window.loadPdfViewer === 'function') window.loadPdfViewer();
@@ -225,13 +236,15 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (ok) {
             const sessionData = sessionSync.getSession();
             if (window.posthog && sessionData) {
-                posthog.identify(sessionData.srn, {
-                    srn: sessionData.srn,
-                    name: sessionData.profile?.name || 'Unknown',
-                    branch: sessionData.profile?.branch,
-                    semester: sessionData.profile?.semester,
-                    session_restored: true,
-                });
+                if (window.isPIITrackingAllowed && window.isPIITrackingAllowed()) {
+                    posthog.identify(sessionData.srn, {
+                        srn: sessionData.srn,
+                        name: sessionData.profile?.name || 'Unknown',
+                        branch: sessionData.profile?.branch,
+                        semester: sessionData.profile?.semester,
+                        session_restored: true,
+                    });
+                }
             }
             if (content) content.style.display = 'block';
             if (typeof window.loadPdfViewer === 'function') window.loadPdfViewer();

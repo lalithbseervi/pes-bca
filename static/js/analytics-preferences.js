@@ -353,8 +353,15 @@
         }, 2000);
     });
 
+    // Helper function to check if PII tracking is allowed
+    function isPIITrackingAllowed() {
+        // If user has opted out, no PII should be sent
+        return !hasOptedOut();
+    }
+
     // Expose functions globally
     window.showAnalyticsSettings = showAnalyticsSettings;
     window.analyticsOptOut = optOut;
     window.analyticsOptIn = optIn;
+    window.isPIITrackingAllowed = isPIITrackingAllowed;
 })();
