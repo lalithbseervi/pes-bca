@@ -1,8 +1,11 @@
 (function() {
     'use strict';
     
-    // Use global API_BASE_URL from utils.js (loaded via common-init.js)
-    const API_BASE_URL = window.API_BASE_URL || 'http://localhost:8787';
+    // Detect API base URL based on hostname (same pattern as utils.js)
+    // Use same-origin empty string for production, local worker URL for dev
+    const API_BASE_URL = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+        ? 'http://localhost:8787'
+        : '';
 
     // Check if user has opted out
     function hasOptedOut() {
@@ -53,6 +56,8 @@
         localStorage.setItem('analytics_opt_out', 'false');
         
         waitForPostHog(() => {
+            // Switch to cookie-based tracking for better attribution
+            posthog.set_config({ cookieless_mode: false });
             posthog.opt_in_capturing();
             posthog.capture('analytics_opted_in', {
                 timestamp: new Date().toISOString()
@@ -340,10 +345,17 @@
 
     // Initialize on page load
     window.addEventListener('load', function() {
-        // Apply opt-out preference if set
-        if (hasOptedOut()) {
+        // Apply user preference if they've made a choice
+        if (hasUserMadeChoice()) {
             waitForPostHog(() => {
-                posthog.opt_out_capturing();
+                if (hasOptedOut()) {
+                    // Keep cookieless mode on and opt out
+                    posthog.opt_out_capturing();
+                } else {
+                    // User opted in - switch to cookie mode and opt in
+                    posthog.set_config({ cookieless_mode: false });
+                    posthog.opt_in_capturing();
+                }
             });
         }
 
