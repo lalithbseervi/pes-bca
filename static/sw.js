@@ -150,10 +150,13 @@ self.addEventListener('fetch', event => {
   event.respondWith(
     (async () => {
       try {
-        // Open cache and use a cache-first strategy: return cached assets when
-        // present (fast), otherwise fetch from network and populate the cache.
+        // Cache-first strategy with strict matching (don't ignore query params).
+        // Since we use version query params (?v=...) for cache-busting, changing
+        // the version creates a new cache key, forcing a fresh network fetch.
+        // This gives us instant cache hits for unchanged assets and automatic
+        // updates when the version changes - no need for network-first overhead.
         const cache = await caches.open(CACHE_NAME);
-        const cached = await cache.match(event.request);
+        const cached = await cache.match(event.request, { ignoreSearch: false });
         if (cached) {
           const headers = new Headers(cached.headers);
           headers.set('X-Service-Worker-Cache', 'HIT');
@@ -197,13 +200,15 @@ self.addEventListener('fetch', event => {
           return new Response(networkResp.body, { status: networkResp.status || 200, statusText: networkResp.statusText, headers });
         }
 
-        // Clone for caching
+        // Only cache versioned assets dynamically (those with ?v= query param)
+        // This prevents non-versioned requests from polluting the cache
         const toCache = networkResp.clone();
-        if (
-          event.request.url.includes('/css/') ||
-          event.request.url.includes('/js/') ||
-          event.request.destination === 'image'
-        ) {
+        const shouldCache = (
+          (event.request.url.includes('/css/') || event.request.url.includes('/js/')) &&
+          url.searchParams.has('v')
+        ) || event.request.destination === 'image';
+        
+        if (shouldCache) {
           cache.put(event.request, toCache).catch(err => console.error('[SW] Failed dynamic cache put:', event.request.url, err));
         }
         // For HTML documents (other than viewer.html handled above), just return the original response unmodified
