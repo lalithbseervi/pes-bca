@@ -163,16 +163,19 @@ document.addEventListener('DOMContentLoaded', async function() {
                             name: sessionData.profile?.name || 'Unknown',
                             branch: sessionData.profile?.branch,
                             semester: sessionData.profile?.semester,
-                            login_cached: data.cached || false  // Track if login used cache
+                            login_cached: data.cached || false,  // Track if login used cache
+                            guest_mode: data.guest_mode || false  // Track if guest login
                         });
                         posthog.capture('user_login', { 
                             srn: sessionData.srn,
                             cached: data.cached || false,
+                            guest_mode: data.guest_mode || false,
                         });
                     } else {
                         // Track login event without PII when opted out
                         posthog.capture('user_login', { 
                             cached: data.cached || false,
+                            guest_mode: data.guest_mode || false,
                         });
                     }
                 }
@@ -197,6 +200,14 @@ document.addEventListener('DOMContentLoaded', async function() {
                 if (data.redirect != '/') window.location.href = data.redirect
                 return;
             } else {
+                // Check if guest fallback is enabled
+                if (res.status === 503 && data.guest_fallback_enabled) {
+                    const guestInfo = document.getElementById('guest-info-message');
+                    if (guestInfo) {
+                        guestInfo.style.display = 'block';
+                    }
+                }
+                
                 showError(data.message || 'Invalid SRN/PRN or password. Please try again.');
                 try { localStorage.removeItem('postLoginRedirect'); } catch (e) { /* ignore */ }
                 loginModal.style.display = 'block';

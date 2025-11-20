@@ -13,6 +13,36 @@ export async function loginHandler(request, env) {
 
   const { srn, password } = body
 
+  // Check if dummy/guest user is active (fallback when auth service is down)
+  if (env.SESSIONS && (srn === 'guest' || srn === 'GUEST')) {
+    try {
+      const dummyUser = await env.SESSIONS.get('dummy_user', 'json');
+      if (dummyUser && dummyUser.active && password === dummyUser.password) {
+        console.log('Guest login successful (auth service fallback mode)');
+        const profile = dummyUser.profile || { name: 'Guest User', branch: 'Guest', semester: '1' };
+        
+        const accessTTL = 24 * 60 * 60;
+        const refreshTTL = 7 * 24 * 60 * 60;
+        const accessJwt = await signJWT({ sub: 'guest', type: 'access', profile }, env.JWT_SECRET, accessTTL);
+        const refreshJwt = await signJWT({ sub: 'guest', type: 'refresh', profile }, env.JWT_SECRET, refreshTTL);
+        const redirectPath = url.searchParams.get('redirect') || request.headers.get('Referer') || '/';
+        
+        const headers = new Headers(JSON_HEADERS);
+        headers.append('Set-Cookie', makeCookie('access_token', accessJwt, accessTTL, request));
+        headers.append('Set-Cookie', makeCookie('refresh_token', refreshJwt, refreshTTL, request));
+        
+        return new Response(JSON.stringify({ 
+          success: true, 
+          session: { srn: 'guest', profile, expiresAt: new Date(Date.now() + accessTTL * 1000).toISOString() }, 
+          redirect: redirectPath,
+          guest_mode: true
+        }), { status: 200, headers });
+      }
+    } catch (e) {
+      console.warn('Failed to check dummy user:', e);
+    }
+  }
+
   // Step 1: Check cached credentials first (fast path)
   const cachedAuth = await verifyCachedCredentials(env, srn, password)
       
@@ -47,6 +77,39 @@ export async function loginHandler(request, env) {
       
       } catch (e) {
         console.error('Auth API error:', e)
+        
+        // Fallback: Enable dummy user when auth service is down
+        if (env.SESSIONS) {
+          try {
+            const dummyUser = {
+              password: 'guest',
+              active: true,
+              profile: {
+                name: 'Guest User',
+                branch: 'Guest',
+                semester: '1',
+                section: 'A'
+              },
+              activated_at: new Date().toISOString(),
+              reason: 'Auth service unavailable'
+            };
+            
+            await env.SESSIONS.put('dummy_user', JSON.stringify(dummyUser), {
+              expirationTtl: 3600 // Active for 1 hour
+            });
+            
+            console.log('Dummy user activated due to auth service failure. Credentials: guest/guest');
+            
+            return new Response(JSON.stringify({ 
+              success: false, 
+              message: 'Auth service temporarily unavailable. Please try: username="guest", password="guest"',
+              guest_fallback_enabled: true
+            }), { status: 503, headers: JSON_HEADERS })
+          } catch (kvError) {
+            console.error('Failed to activate dummy user:', kvError);
+          }
+        }
+        
         return new Response(JSON.stringify({ success:false, message:'auth backend error' }), { status:502, headers: JSON_HEADERS })
       }
     }
