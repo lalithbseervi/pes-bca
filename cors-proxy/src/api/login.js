@@ -14,32 +14,48 @@ export async function loginHandler(request, env) {
   const { srn, password } = body
 
   // Check if dummy/guest user is active (fallback when auth service is down)
-  if (env.SESSIONS && (srn === 'guest' || srn === 'GUEST')) {
+  if (srn === 'guest' || srn === 'GUEST') {
     try {
       const dummyUser = await env.SESSIONS.get('dummy_user', 'json');
-      if (dummyUser && dummyUser.active && password === dummyUser.password) {
-        console.log('Guest login successful (auth service fallback mode)');
-        const profile = dummyUser.profile || { name: 'Guest User', branch: 'Guest', semester: '1' };
-        
-        const accessTTL = 24 * 60 * 60;
-        const refreshTTL = 7 * 24 * 60 * 60;
-        const accessJwt = await signJWT({ sub: 'guest', type: 'access', profile }, env.JWT_SECRET, accessTTL);
-        const refreshJwt = await signJWT({ sub: 'guest', type: 'refresh', profile }, env.JWT_SECRET, refreshTTL);
-        const redirectPath = url.searchParams.get('redirect') || request.headers.get('Referer') || '/';
-        
-        const headers = new Headers(JSON_HEADERS);
-        headers.append('Set-Cookie', makeCookie('access_token', accessJwt, accessTTL, request));
-        headers.append('Set-Cookie', makeCookie('refresh_token', refreshJwt, refreshTTL, request));
-        
+      if (!dummyUser || !dummyUser.active) {
         return new Response(JSON.stringify({ 
-          success: true, 
-          session: { srn: 'guest', profile, expiresAt: new Date(Date.now() + accessTTL * 1000).toISOString() }, 
-          redirect: redirectPath,
-          guest_mode: true
-        }), { status: 200, headers });
+          success: false, 
+          message: 'Guest auth not enabled' 
+        }), { status: 401, headers: JSON_HEADERS });
       }
+      
+      if (password !== dummyUser.password) {
+        return new Response(JSON.stringify({ 
+          success: false, 
+          message: 'Invalid guest credentials' 
+        }), { status: 401, headers: JSON_HEADERS });
+      }
+      
+      console.log('Guest login successful (auth service fallback mode)');
+      const profile = dummyUser.profile || { name: 'Guest User', branch: 'Guest', semester: '1' };
+      
+      const accessTTL = 24 * 60 * 60;
+      const refreshTTL = 7 * 24 * 60 * 60;
+      const accessJwt = await signJWT({ sub: 'guest', type: 'access', profile }, env.JWT_SECRET, accessTTL);
+      const refreshJwt = await signJWT({ sub: 'guest', type: 'refresh', profile }, env.JWT_SECRET, refreshTTL);
+      const redirectPath = url.searchParams.get('redirect') || request.headers.get('Referer') || '/';
+      
+      const headers = new Headers(JSON_HEADERS);
+      headers.append('Set-Cookie', makeCookie('access_token', accessJwt, accessTTL, request));
+      headers.append('Set-Cookie', makeCookie('refresh_token', refreshJwt, refreshTTL, request));
+      
+      return new Response(JSON.stringify({ 
+        success: true, 
+        session: { srn: 'guest', profile, expiresAt: new Date(Date.now() + accessTTL * 1000).toISOString() }, 
+        redirect: redirectPath,
+        guest_mode: true
+      }), { status: 200, headers });
     } catch (e) {
-      console.warn('Failed to check dummy user:', e);
+      console.error('Guest auth check failed:', e);
+      return new Response(JSON.stringify({ 
+        success: false, 
+        message: 'Guest auth not enabled' 
+      }), { status: 401, headers: JSON_HEADERS });
     }
   }
 
@@ -88,7 +104,6 @@ export async function loginHandler(request, env) {
                 name: 'Guest User',
                 branch: 'Guest',
                 semester: '1',
-                section: 'A'
               },
               activated_at: new Date().toISOString(),
               reason: 'Auth service unavailable'

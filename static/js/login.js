@@ -200,15 +200,19 @@ document.addEventListener('DOMContentLoaded', async function() {
                 if (data.redirect != '/') window.location.href = data.redirect
                 return;
             } else {
-                // Check if guest fallback is enabled
+                // Guest fallback enabled path
                 if (res.status === 503 && data.guest_fallback_enabled) {
                     const guestInfo = document.getElementById('guest-info-message');
-                    if (guestInfo) {
-                        guestInfo.style.display = 'block';
-                    }
+                    if (guestInfo) guestInfo.style.display = 'block';
                 }
-                
-                showError(data.message || 'Invalid SRN/PRN or password. Please try again.');
+                // Explicit guest fallback not enabled response
+                if (data.message === 'Guest auth not enabled') {
+                    const guestInfo = document.getElementById('guest-info-message');
+                    if (guestInfo) guestInfo.style.display = 'none';
+                    showError('Guest login currently disabled. Use regular credentials.');
+                } else {
+                    showError(data.message || 'Invalid SRN/PRN or password. Please try again.');
+                }
                 try { localStorage.removeItem('postLoginRedirect'); } catch (e) { /* ignore */ }
                 loginModal.style.display = 'block';
             }
