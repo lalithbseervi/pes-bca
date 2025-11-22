@@ -30,7 +30,13 @@ export async function cacheAuthResult(env, srn, password, profile) {
   const passwordHash = await hashPassword(password)
   const cacheKey = `auth_cache:${srn}:${passwordHash}`
   const cacheTTL = 60 * 60 * 24 * 14 // 14 days
-  await env.SESSIONS.put(cacheKey, JSON.stringify(profile), { expirationTtl: cacheTTL })
+  
+  const cachedData = {
+    ...profile,
+    created_at: new Date().toISOString()
+  }
+  
+  await env.SESSIONS.put(cacheKey, JSON.stringify(cachedData), { expirationTtl: cacheTTL })
 }
 
 /**
