@@ -43,6 +43,21 @@ See https://github.com/adobe-type-tools/cmap-resources
   window.PDFJSViewerConfiguration = window.PDFJSViewerConfiguration || {};
   // 0 = NONE, 1 = THUMBS, 2 = OUTLINE (see PDF.js constants)
   window.PDFJSViewerConfiguration.sidebarViewOnLoad = 0;
+  
+  // Suppress non-critical PDF.js warnings (colorspace, unsupported headers)
+  // These are informational only and don't affect core functionality
+  const originalWarn = console.warn;
+  console.warn = function(...args) {
+    const msg = args.join(' ');
+    // Filter out known cosmetic warnings from complex PDFs
+    if (msg.includes('Unknown colorspace') || 
+        msg.includes('Unsupported header type') ||
+        msg.includes('pclr') || 
+        msg.includes('cmap')) {
+      return; // Suppress
+    }
+    originalWarn.apply(console, args);
+  };
 </script>
 <script defer src="viewer.js"></script>
   </head>

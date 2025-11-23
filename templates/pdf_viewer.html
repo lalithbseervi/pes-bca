@@ -439,49 +439,60 @@
 
     // Load PDF viewer if session is valid (login.js will handle showing/hiding)
     async function loadPdfViewer() {
-      // Since pdfPath is now a full URL with API_BASE_URL, we need to fetch it
-      // and create a blob URL for PDF.js (avoids cross-origin issues)
       let fileToUse = normalizedPdfPath || pdfPath;
 
       try {
-        // If fileToUse is a full URL (which it should be), fetch and blob it
+        // Unified approach: always fetch and create blob URL
+        // Works in both dev (cross-origin) and prod (same-origin)
+        // Avoids PDF.js origin validation issues entirely
         if (fileToUse && (fileToUse.startsWith('http://') || fileToUse.startsWith('https://'))) {
           try {
-            const resp = await fetch(fileToUse, { cache: 'no-store', credentials: 'include' });
+            const resp = await fetch(fileToUse, { 
+              cache: 'no-store', 
+              credentials: 'include' 
+            });
+            
             if (resp.ok) {
-              // Validate PDF signature before creating blob URL to avoid pdf.js "Invalid PDF structure" later.
-              // We read a small slice instead of full blob first.
+              // Validate PDF header
               const ab = await resp.arrayBuffer();
               if (ab.byteLength < 8) {
                 console.warn('PDF fetch returned too few bytes');
+                showPdfError('Invalid PDF file.', 'File too small.');
+                return;
               }
+              
               const headerBytes = new Uint8Array(ab.slice(0, 8));
               const isPdf = headerBytes[0] === 0x25 && // %
                 headerBytes[1] === 0x50 && // P
                 headerBytes[2] === 0x44 && // D
                 headerBytes[3] === 0x46 && // F
                 headerBytes[4] === 0x2D;   // -
+              
               if (!isPdf) {
                 console.error('File does not appear to be a PDF (missing %PDF- signature).');
                 showPdfError('File is not a valid PDF.', 'Missing %PDF- header.');
-                return; // abort viewer load
+                return;
               }
-              // Create blob URL from validated buffer
+              
+              // Create blob URL - works everywhere, no origin issues
               const blob = new Blob([ab], { type: 'application/pdf' });
-              const blobUrl = URL.createObjectURL(blob);
-              fileToUse = blobUrl;
+              fileToUse = URL.createObjectURL(blob);
             } else {
-              console.warn('fetch for PDF failed', resp.status);
+              console.warn('PDF fetch failed', resp.status);
+              showPdfError('Cannot access PDF file.', `HTTP ${resp.status}`);
+              return;
             }
           } catch (e) {
-            console.warn('fetch failed', e);
+            console.warn('PDF fetch failed:', e);
+            showPdfError('Failed to load PDF.', e.message);
+            return;
           }
         }
       } catch (e) {
-        // ignore errors and use original fileToUse
+        console.warn('PDF preparation error:', e);
       }
 
-      // check availability first (use resolved fileToUse)
+      // Quick availability check (blob URLs always pass)
       const info = await checkPdfAvailable(fileToUse);
       if (!info.ok) {
         const msg = info.status ? `HTTP ${info.status} ${info.statusText || ''}` : (info.error || 'File not found or network error');
@@ -499,7 +510,8 @@
       <div style="width: 100%; height: 90vh;">
         <iframe src="${pdfViewerUrl}" 
             style="width: 100%; height: 100%; border: none;"
-            allow="fullscreen">
+            allow="fullscreen"
+            loading="lazy">
           <p>Loading PDF viewer...</p>
         </iframe>
       </div>
