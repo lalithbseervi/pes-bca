@@ -733,6 +733,15 @@ export async function resourceStreamFromSupabase(request, env, ctx) {
                     const v = upstream.headers.get(h);
                     if (v) respHeaders[h] = v;
                 }
+                // Ensure Accept-Ranges always advertised so PDF.js can attempt partial loading
+                if (!respHeaders['accept-ranges']) {
+                    respHeaders['Accept-Ranges'] = 'bytes';
+                }
+                // Debug header to detect when full body was delivered without Range request
+                const rangeRequested = request.headers.get('range');
+                if (!rangeRequested && respHeaders['content-length']) {
+                    respHeaders['X-Debug-Full-Fetch'] = 'true';
+                }
 
                 // attach freshly minted token (if any) so clients can refresh
                 if (freshlyMintedToken) {
