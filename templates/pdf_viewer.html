@@ -632,6 +632,7 @@
             prevBtn.href = prev.url || `/pdf-viewer?file=${encodeURIComponent(prevPath)}&title=${encodeURIComponent((prev.title || prev.filename || '').toString())}`;
           }
           prevBtn.innerText = '← ' + (prev.title || prev.filename || 'Prev');
+          prevBtn.title = (prev.title || prev.filename || 'Previous document');
           prevBtn.style.display = 'inline-block';
           prevBtn.setAttribute('aria-hidden', 'false');
         }
@@ -642,6 +643,7 @@
             nextBtn.href = next.url || `/pdf-viewer?file=${encodeURIComponent(nextPath)}&title=${encodeURIComponent((next.title || next.filename || '').toString())}`;
           }
           nextBtn.innerText = (next.title || next.filename || 'Next') + ' →';
+          nextBtn.title = (next.title || next.filename || 'Next document');
           nextBtn.style.display = 'inline-block';
           nextBtn.setAttribute('aria-hidden', 'false');
         }
