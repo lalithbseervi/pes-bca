@@ -37,6 +37,13 @@ See https://github.com/adobe-type-tools/cmap-resources
 <link rel="preload" href="viewer.css" as="style" onload="this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="viewer.css"></noscript>
 
+<!-- Provide configuration BEFORE loading viewer.js so preferences apply early -->
+<script>
+  // Ensure sidebar closed on load.
+  window.PDFJSViewerConfiguration = window.PDFJSViewerConfiguration || {};
+  // 0 = NONE, 1 = THUMBS, 2 = OUTLINE (see PDF.js constants)
+  window.PDFJSViewerConfiguration.sidebarViewOnLoad = 0;
+</script>
 <script defer src="viewer.js"></script>
   </head>
 
@@ -524,4 +531,31 @@ See https://github.com/adobe-type-tools/cmap-resources
       })();
     </script>
   </body>
+  <script>
+    (function enforceClosedSidebar(){
+      // Poll for the application if not yet initialized.
+      const MAX_WAIT = 4000; // ms
+      const POLL_INTERVAL = 2000;
+      const start = Date.now();
+      function tryClose(){
+        const app = window.PDFViewerApplication || globalThis.PDFViewerApplication;
+        if(app && app.pdfSidebar){
+          // Remove any persisted open state.
+          try { localStorage.removeItem('pdfjs.sidebarView'); } catch(e) {}
+          if(app.pdfSidebar.isOpen){
+            app.pdfSidebar.close();
+          }
+          return; // done
+        }
+        if(Date.now() - start < MAX_WAIT){
+          setTimeout(tryClose, POLL_INTERVAL);
+        }
+      }
+      // Also hook into events fired by viewer.js
+      document.addEventListener('webviewerloaded', tryClose);
+      document.addEventListener('pagesinit', tryClose);
+      // Initial attempt
+      tryClose();
+    })();
+  </script>
 </html>
