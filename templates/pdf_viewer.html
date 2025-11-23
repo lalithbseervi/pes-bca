@@ -442,57 +442,102 @@
       let fileToUse = normalizedPdfPath || pdfPath;
 
       try {
-        // Unified approach: always fetch and create blob URL
-        // Works in both dev (cross-origin) and prod (same-origin)
-        // Avoids PDF.js origin validation issues entirely
+        // Check if URL is cross-origin (needs CORS proxy for range requests)
+        const fileUrl = new URL(fileToUse, window.location.href);
+        const isCrossOrigin = fileUrl.origin !== window.location.origin;
+        
         if (fileToUse && (fileToUse.startsWith('http://') || fileToUse.startsWith('https://'))) {
-          try {
-            const resp = await fetch(fileToUse, { 
-              cache: 'no-store', 
-              credentials: 'include' 
-            });
-            
-            if (resp.ok) {
-              // Validate PDF header
-              const ab = await resp.arrayBuffer();
-              if (ab.byteLength < 8) {
-                console.warn('PDF fetch returned too few bytes');
-                showPdfError('Invalid PDF file.', 'File too small.');
+          // Only do full fetch + blob for cross-origin URLs (local dev with localhost:8787)
+          // For same-origin (production), pass URL directly for native range request support
+          if (isCrossOrigin) {
+            try {
+              const resp = await fetch(fileToUse, { 
+                cache: 'no-store', 
+                credentials: 'include' 
+              });
+              
+              if (resp.ok) {
+                // Validate PDF header
+                const ab = await resp.arrayBuffer();
+                if (ab.byteLength < 8) {
+                  console.warn('PDF fetch returned too few bytes');
+                  showPdfError('Invalid PDF file.', 'File too small.');
+                  return;
+                }
+                
+                const headerBytes = new Uint8Array(ab.slice(0, 8));
+                const isPdf = headerBytes[0] === 0x25 && // %
+                  headerBytes[1] === 0x50 && // P
+                  headerBytes[2] === 0x44 && // D
+                  headerBytes[3] === 0x46 && // F
+                  headerBytes[4] === 0x2D;   // -
+                
+                if (!isPdf) {
+                  console.error('File does not appear to be a PDF (missing %PDF- signature).');
+                  showPdfError('File is not a valid PDF.', 'Missing %PDF- header.');
+                  return;
+                }
+                
+                // Create blob URL for cross-origin (avoids origin mismatch)
+                const blob = new Blob([ab], { type: 'application/pdf' });
+                fileToUse = URL.createObjectURL(blob);
+                console.log('Cross-origin PDF: using blob URL (full download)');
+              } else {
+                console.warn('PDF fetch failed', resp.status);
+                showPdfError('Cannot access PDF file.', `HTTP ${resp.status}`);
                 return;
               }
-              
-              const headerBytes = new Uint8Array(ab.slice(0, 8));
-              const isPdf = headerBytes[0] === 0x25 && // %
-                headerBytes[1] === 0x50 && // P
-                headerBytes[2] === 0x44 && // D
-                headerBytes[3] === 0x46 && // F
-                headerBytes[4] === 0x2D;   // -
-              
-              if (!isPdf) {
-                console.error('File does not appear to be a PDF (missing %PDF- signature).');
-                showPdfError('File is not a valid PDF.', 'Missing %PDF- header.');
-                return;
-              }
-              
-              // Create blob URL - works everywhere, no origin issues
-              const blob = new Blob([ab], { type: 'application/pdf' });
-              fileToUse = URL.createObjectURL(blob);
-            } else {
-              console.warn('PDF fetch failed', resp.status);
-              showPdfError('Cannot access PDF file.', `HTTP ${resp.status}`);
+            } catch (e) {
+              console.warn('PDF fetch failed:', e);
+              showPdfError('Failed to load PDF.', e.message);
               return;
             }
-          } catch (e) {
-            console.warn('PDF fetch failed:', e);
-            showPdfError('Failed to load PDF.', e.message);
-            return;
+          } else {
+            // Same-origin: just validate, then pass URL directly to PDF.js
+            // PDF.js will use efficient range requests for lazy-loading
+            try {
+              const headResp = await fetch(fileToUse, { 
+                method: 'HEAD',
+                cache: 'no-store', 
+                credentials: 'include' 
+              });
+              
+              if (!headResp.ok) {
+                // Try range request fallback
+                const rangeResp = await fetch(fileToUse, {
+                  headers: { 'Range': 'bytes=0-7' },
+                  cache: 'no-store',
+                  credentials: 'include'
+                });
+                
+                if (rangeResp.ok || rangeResp.status === 206) {
+                  const headerBytes = new Uint8Array(await rangeResp.arrayBuffer());
+                  const isPdf = headerBytes[0] === 0x25 && headerBytes[1] === 0x50 && 
+                                headerBytes[2] === 0x44 && headerBytes[3] === 0x46 && 
+                                headerBytes[4] === 0x2D;
+                  
+                  if (!isPdf) {
+                    showPdfError('File is not a valid PDF.', 'Missing %PDF- header.');
+                    return;
+                  }
+                  console.log('Same-origin PDF: using direct URL (lazy range requests)');
+                } else {
+                  showPdfError('Cannot access PDF file.', `HTTP ${rangeResp.status}`);
+                  return;
+                }
+              } else {
+                console.log('Same-origin PDF: using direct URL (lazy range requests)');
+              }
+            } catch (e) {
+              console.warn('Pre-flight check failed:', e);
+            }
           }
         }
       } catch (e) {
         console.warn('PDF preparation error:', e);
       }
 
-      // Quick availability check (blob URLs always pass)
+      // Quick availability check
       const info = await checkPdfAvailable(fileToUse);
       if (!info.ok) {
         const msg = info.status ? `HTTP ${info.status} ${info.statusText || ''}` : (info.error || 'File not found or network error');
