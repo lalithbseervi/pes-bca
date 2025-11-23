@@ -122,8 +122,11 @@
   .pdf-breadcrumb .current {
     color: #f3f4f6;
   }
-  /* Page-specific override: allow this page's content to use full available width */
+  /* pdf-viewer container specific: wider content on large screens, full width on small */
   div.content { max-width: 70%; }
+  @media (max-width: 900px) {
+    div.content { max-width: 100%; }
+  }
 </style>
 
 <!-- Include login component for session management -->
