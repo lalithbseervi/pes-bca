@@ -43,6 +43,13 @@ See https://github.com/adobe-type-tools/cmap-resources
   window.PDFJSViewerConfiguration = window.PDFJSViewerConfiguration || {};
   // 0 = NONE, 1 = THUMBS, 2 = OUTLINE (see PDF.js constants)
   window.PDFJSViewerConfiguration.sidebarViewOnLoad = 0;
+  // Disable automatic prefetch of remaining PDF data; only fetch on-demand.
+  window.PDFJSViewerConfiguration.disableAutoFetch = true;
+  // Keep streaming enabled so range requests still work; set to true to disable streaming altogether.
+  window.PDFJSViewerConfiguration.disableStream = false;
+  // Debug log to confirm config applied.
+  console.log('[PDF CONFIG] disableAutoFetch:', window.PDFJSViewerConfiguration.disableAutoFetch,
+              'disableStream:', window.PDFJSViewerConfiguration.disableStream);
   
   // Suppress non-critical PDF.js warnings (colorspace, unsupported headers)
   // These are informational only and don't affect core functionality

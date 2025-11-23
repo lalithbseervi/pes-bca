@@ -691,12 +691,14 @@ export async function resourceStreamFromSupabase(request, env, ctx) {
                     return new Response(txt, { status: headResp.status });
                 }
 
-                // Build response headers for HEAD: include content-type and length if present
+                // Build response headers for HEAD: include content-type, length, and advertise range support
                 const respHeaders = {};
                 const ct = headResp.headers.get('content-type') || row.content_type || 'application/octet-stream';
                 respHeaders['Content-Type'] = ct;
                 const len = headResp.headers.get('content-length');
                 if (len) respHeaders['Content-Length'] = len;
+                // Explicitly advertise byte-range support so PDF.js can issue Range requests
+                respHeaders['Accept-Ranges'] = 'bytes';
 
                 return new Response(null, { status: 200, headers: respHeaders });
             } catch (e) {
