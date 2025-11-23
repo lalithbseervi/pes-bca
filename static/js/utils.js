@@ -127,7 +127,6 @@ export function getSession() {
  * @param {string} redirectUrl - URL to redirect to after login (default: current page)
  */
 export function redirectToLogin(redirectUrl = window.location.href) {
-  localStorage.setItem('postLoginRedirect', redirectUrl);
   window.location.href = '/';
 }
 

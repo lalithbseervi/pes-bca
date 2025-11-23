@@ -131,13 +131,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                 password
             };
 
-            // Use postLoginRedirect from localStorage if available
-            let redirectPath = '/';
-            if (localStorage.getItem('postLoginRedirect')) {
-                redirectPath = localStorage.getItem('postLoginRedirect');
-                localStorage.removeItem('postLoginRedirect');
-            }
-            const loginUrl = `${API_BASE_URL}/api/login?redirect=${encodeURIComponent(redirectPath)}`;
+            // Always request login redirect to root. Server may use Referer for context.
+            const loginUrl = `${API_BASE_URL}/api/login?redirect=${encodeURIComponent('/')}`;
             const res = await fetch(loginUrl, {
                 method: 'POST',
                 headers: { 
@@ -213,14 +208,12 @@ document.addEventListener('DOMContentLoaded', async function() {
                 } else {
                     showError(data.message || 'Invalid SRN/PRN or password. Please try again.');
                 }
-                try { localStorage.removeItem('postLoginRedirect'); } catch (e) { /* ignore */ }
                 loginModal.style.display = 'block';
             }
         } catch (error) {
             console.error(error)
             loadingOverlay.style.display = 'none';
             showError('Network error. Please check your connection and try again.');
-            try { localStorage.removeItem('postLoginRedirect'); } catch (e) { /* ignore */ }
             loginModal.style.display = 'block';
         }
     }
@@ -281,7 +274,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     loginForm.addEventListener('submit', handleLogin);
     
     cancelButton.addEventListener('click', function() {
-        try { localStorage.removeItem('postLoginRedirect'); } catch (e) { /* ignore */ }
         if (content) content.remove();
         loginModal.style.display = 'none';
         return window.showAccessDenied();
@@ -290,7 +282,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Close modal when clicking outside
     loginModal.addEventListener('click', function(event) {
         if (event.target === loginModal) {
-            try { localStorage.removeItem('postLoginRedirect'); } catch (e) { /* ignore */ }
             loginModal.style.display = 'none';
         }
     });

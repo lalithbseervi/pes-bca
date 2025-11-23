@@ -156,8 +156,6 @@
   let pdfPath, semester, subjectCode, unit, filename, title, normalizedPdfPath;
 
   document.addEventListener('DOMContentLoaded', async function () {
-    if (!sessionStorage.getItem('user_session')) { localStorage.setItem('postLoginRedirect', window.location.href); }
-
     // Get URL parameters
     const urlParams = new URLSearchParams(window.location.search);
     pdfPath = urlParams.get('file');

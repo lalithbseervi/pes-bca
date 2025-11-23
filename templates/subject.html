@@ -414,10 +414,6 @@
     
     // Search on Enter key
     document.addEventListener('DOMContentLoaded', function() {
-        if (!sessionStorage.getItem('user_session')) { 
-            localStorage.setItem('postLoginRedirect', window.location.href); 
-        }
-        
         const searchInput = document.getElementById('search-input');
         if (searchInput) {
             searchInput.addEventListener('keypress', function(e) {
