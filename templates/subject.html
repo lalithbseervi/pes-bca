@@ -276,11 +276,8 @@
         try {
             const etag = localStorage.getItem(SUBJECT_CACHE_HASH_KEY);
             const url = `${WORKER_URL}/api/subject/resources?subject=${encodeURIComponent(subjectCode)}`;
-            console.log('Fetching subject resources from:', url);
             const response = await fetch(url, { headers: etag ? { 'If-None-Match': etag } : {} });
-            
-            console.log('Response status:', response.status, 'OK:', response.ok);
-            
+                        
             if (response.status === 304) {
                 // No change - ensure UI is visible
                 document.getElementById('loading').style.display = 'none';
