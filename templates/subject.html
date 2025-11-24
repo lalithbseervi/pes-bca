@@ -279,7 +279,8 @@
     async function loadSubjectResources() {
         try {
             const etag = localStorage.getItem(SUBJECT_CACHE_HASH_KEY);
-            const url = `${WORKER_URL}/api/subject/resources?subject=${encodeURIComponent(subjectCode)}`;
+            // Add timestamp to bypass Chrome's aggressive caching (removed after ETag is established)
+            const url = `${WORKER_URL}/api/subject/resources?subject=${encodeURIComponent(subjectCode)}&_t=${Date.now()}`;
             const response = await fetch(url, { headers: etag ? { 'If-None-Match': etag } : {} });
                         
             if (response.status === 304) {

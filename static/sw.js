@@ -147,8 +147,9 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Pass through API requests with ETag headers - they use 304 responses which have no body
-  if (url.pathname.startsWith('/api/') && event.request.headers.has('If-None-Match')) {
+  // Pass through ALL API requests - never cache API responses in SW
+  // API endpoints use their own caching strategy (ETag, 304, localStorage)
+  if (url.pathname.startsWith('/api/')) {
     event.respondWith(fetch(event.request));
     return;
   }

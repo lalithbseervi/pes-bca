@@ -630,7 +630,8 @@
         }
 
         // Fetch all resources for this subject from the API
-        const apiUrl = `${API_BASE_URL}/api/subject/resources?subject=${encodeURIComponent(subjectCode)}`;
+        // Add timestamp to bypass Chrome's aggressive caching
+        const apiUrl = `${API_BASE_URL}/api/subject/resources?subject=${encodeURIComponent(subjectCode)}&_t=${Date.now()}`;
         const resp = await fetch(apiUrl, { cache: 'no-store' });
 
         if (!resp.ok) {
@@ -657,6 +658,12 @@
         if (!files.length) {
           console.debug('buildNav: no files found for subject', subjectCode);
           return;
+        }
+
+        // Debug: check if unit field exists
+        if (files.length > 0) {
+          console.debug('buildNav: sample resource fields:', Object.keys(files[0]));
+          console.debug('buildNav: sample resource:', files[0]);
         }
 
         // Sort files by unit number, then by leading number in filename
