@@ -143,8 +143,8 @@ import { API_BASE_URL } from '/js/utils.js?v={{ config.extra.sw_version }}';
 import { initHomeSearchSuggest } from '/js/init-search-suggest.js?v={{ config.extra.sw_version }}';
 
 let allResources = [];
-const RESOURCE_CACHE_KEY = 'all_resources_snapshot_v1';
-const RESOURCE_CACHE_HASH_KEY = 'all_resources_etag_v1';
+const RESOURCE_CACHE_KEY = 'all_resources_snapshot_v2';
+const RESOURCE_CACHE_HASH_KEY = 'all_resources_etag_v2';
 
 function updateLastUpdated() {
     // Show current time as last check time since we no longer have created_at timestamps

@@ -182,8 +182,8 @@
     }
     
     // Use shared resource cache instead of per-subject cache
-    const SHARED_CACHE_KEY = 'all_resources_snapshot_v1';
-    const SUBJECT_CACHE_HASH_KEY = `subject_etag_v1_${subjectCode}`;
+    const SHARED_CACHE_KEY = 'all_resources_snapshot_v2';
+    const SUBJECT_CACHE_HASH_KEY = `subject_etag_v2_${subjectCode}`;
     
     let cachedData = null;
 
@@ -245,10 +245,13 @@
             if (!organized[unit]) organized[unit] = {};
             if (!organized[unit][type]) organized[unit][type] = [];
             
+            // Keep unit and resource_type for buildNav sorting
             organized[unit][type].push({
                 id: resource.id,
                 title: resource.link_title,
-                filename: resource.filename
+                filename: resource.filename,
+                unit: unit,
+                resource_type: type
             });
         }
         
