@@ -223,11 +223,12 @@
         const filename = encodeURIComponent(resource.filename);
         const title = encodeURIComponent(resource.link_title || resource.filename);
         
+        // Use subjectCode from page context (resources from API don't have subject field)
         let filePath;
         if (actualUnit === 'all') {
-            filePath = `sem-${semNum}/${resource.subject}/${type}/unit-all/${filename}`;
+            filePath = `sem-${semNum}/${subjectCode}/${type}/unit-all/${filename}`;
         } else {
-            filePath = `sem-${semNum}/${resource.subject}/unit-${actualUnit}/${filename}`;
+            filePath = `sem-${semNum}/${subjectCode}/unit-${actualUnit}/${filename}`;
         }
         
         return `/pdf-viewer?file=${encodeURIComponent(filePath)}&title=${title}`;
