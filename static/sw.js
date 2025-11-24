@@ -147,6 +147,12 @@ self.addEventListener('fetch', event => {
     return;
   }
 
+  // Pass through API requests with ETag headers - they use 304 responses which have no body
+  if (url.pathname.startsWith('/api/') && event.request.headers.has('If-None-Match')) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
   event.respondWith(
     (async () => {
       try {
