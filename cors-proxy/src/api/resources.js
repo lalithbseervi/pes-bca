@@ -132,16 +132,8 @@ export async function getResources(request, env) {
                     }
                 }
 
-        // Add semantic stream URLs to resources
+        // Determine which resources to send (delta or full)
         const resourcesToSend = isDelta ? deltaResources : resources;
-        const resourcesWithUrls = resourcesToSend.map(r => {
-            const semester = r.semester || 'sem-1';
-            const semNum = semester.match(/\d+/)?.[0] || '1';
-            return {
-                ...r,
-                stream_url: `${new URL(request.url).origin}/api/resources/sem-${semNum}/${r.subject}/unit-${r.unit}/${encodeURIComponent(r.filename)}`
-            };
-        });
         
         // Create slim metadata version for efficient caching (minimal: id, title, filename, context fields)
         // URL is built client-side to save storage space
