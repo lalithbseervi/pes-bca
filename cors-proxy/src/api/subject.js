@@ -161,12 +161,15 @@ function organizeResources(resources, env) {
         const title = resource.link_title || resource.filename;
     const pdfViewerUrl = `/pdf-viewer?file=${filePath}&title=${encodeURIComponent(title)}`;
 
-        // Add resource to the appropriate array (minimal metadata: id, title, filename)
-        // URL is built client-side to save storage space
+        // Add resource to the appropriate array (include essential metadata)
+        // Keep the object minimal but include `unit` and `resource_type` which
+        // client-side navigation (`buildNav`) relies on for sorting.
         organized[unit][type].push({
             id: resource.id,
             title: resource.link_title,
-            filename: resource.filename
+            filename: resource.filename,
+            unit: unit,
+            resource_type: type
         });
     }
 
