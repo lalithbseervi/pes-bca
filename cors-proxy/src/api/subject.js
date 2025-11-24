@@ -66,25 +66,58 @@ export async function getSubjectResources(request, env) {
         // Organize resources by unit -> resource_type
         const organized = organizeResources(resources, env);
 
-        return new Response(JSON.stringify({
-            subject: subject,
-            subjectName: subjectName, // Full name from database (if available)
-            resources: organized,
-            total: resources.length
-        }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' }
-        });
+                // Compute ETag hash for subject-specific dataset (only using returned fields)
+                const hashInput = Object.entries(organized)
+                    .flatMap(([unit, types]) => Object.entries(types).flatMap(([type, arr]) => arr.map(r => `${r.id}|${r.filename}|${r.title || ''}`)))
+                    .sort()
+                    .join('\n');
+                let h = 0x811c9dc5;
+                for (let i = 0; i < hashInput.length; i++) {
+                    h ^= hashInput.charCodeAt(i);
+                    h = (h >>> 0) * 0x01000193;
+                    h = h >>> 0;
+                }
+                const etag = 'W/"sub-' + subject + '-' + h.toString(16) + '"';
+
+                const inm = request.headers.get('If-None-Match');
+                if (inm && inm === etag) {
+                    return new Response(null, {
+                        status: 304,
+                        headers: {
+                            'ETag': etag,
+                            'Cache-Control': 'public, max-age=30',
+                            'Vary': 'If-None-Match',
+                            'Access-Control-Allow-Origin': request.headers.get('Origin') || '*',
+                            'Access-Control-Allow-Credentials': 'true'
+                        }
+                    });
+                }
+
+                return new Response(JSON.stringify({
+                    subject: subject,
+                    subjectName: subjectName, // Full name from database (if available)
+                    resources: organized,
+                    total: resources.length,
+                    hash: etag
+                }), {
+                    status: 200,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'ETag': etag,
+                        'Cache-Control': 'public, max-age=30',
+                        'Vary': 'If-None-Match'
+                    }
+                });
 
     } catch (error) {
         console.error('Error fetching subject resources:', error);
-        return new Response(JSON.stringify({ 
-            error: 'Failed to fetch subject resources',
-            details: error.message 
-        }), {
-            status: 500,
-            headers: { 'Content-Type': 'application/json' }
-        });
+                return new Response(JSON.stringify({ 
+                    error: 'Failed to fetch subject resources',
+                    details: error.message 
+                }), {
+                    status: 500,
+                    headers: { 'Content-Type': 'application/json' }
+                });
     }
 }
 
@@ -128,17 +161,12 @@ function organizeResources(resources, env) {
         const title = resource.link_title || resource.filename;
     const pdfViewerUrl = `/pdf-viewer?file=${filePath}&title=${encodeURIComponent(title)}`;
 
-        // Add resource to the appropriate array
+        // Add resource to the appropriate array (minimal metadata: id, title, filename)
+        // URL is built client-side to save storage space
         organized[unit][type].push({
             id: resource.id,
             title: resource.link_title,
-            filename: resource.filename,
-            semester: resource.semester,
-            subject: resource.subject,
-            unit: resource.unit,
-            url: pdfViewerUrl,
-            size: resource.size,
-            contentType: resource.content_type
+            filename: resource.filename
         });
     }
 

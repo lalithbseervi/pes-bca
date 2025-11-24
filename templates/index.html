@@ -143,18 +143,74 @@ import { API_BASE_URL } from '/js/utils.js?v={{ config.extra.sw_version }}';
 import { initHomeSearchSuggest } from '/js/init-search-suggest.js?v={{ config.extra.sw_version }}';
 
 let allResources = [];
+const RESOURCE_CACHE_KEY = 'all_resources_snapshot_v1';
+const RESOURCE_CACHE_HASH_KEY = 'all_resources_etag_v1';
 
-// Load resources from API
-async function loadResources() {
+function updateLastUpdated() {
+    // Show current time as last check time since we no longer have created_at timestamps
+    const now = new Date();
+    document.getElementById('last-updated').textContent = `Last Updated: ${now.toLocaleString('en-GB', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'})}`;
+}
+
+function loadCachedSnapshot() {
+    try {
+        const raw = localStorage.getItem(RESOURCE_CACHE_KEY);
+        if (!raw) return false;
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return false;
+        allResources = parsed;
+        const grouped = groupResources(allResources);
+        renderResourceTree(grouped);
+        document.getElementById('loading-resources').style.display = 'none';
+        document.getElementById('content-area').style.display = 'block';
+        updateLastUpdated();
+        try { const searchInput = document.getElementById('search-input'); initHomeSearchSuggest(searchInput, allResources, applyFilters); } catch (e) {}
+        return true;
+    } catch (e) { return false; }
+}
+
+// Conditional fetch with ETag; update localStorage cache if changed
+async function fetchAndMaybeUpdateResources() {
     try {
         const loadingEl = document.getElementById('loading-resources');
         const contentArea = document.getElementById('content-area');
+        const etag = localStorage.getItem(RESOURCE_CACHE_HASH_KEY);
+        const response = await fetch(`${API_BASE_URL}/api/resources`, { headers: etag ? { 'If-None-Match': etag } : {} });
         
-        const response = await fetch(`${API_BASE_URL}/api/resources`);
+        if (response.status === 304) {
+            // No change; snapshot already rendered if present
+            loadingEl.style.display = 'none';
+            contentArea.style.display = 'block';
+            return;
+        }
+        
         if (!response.ok) throw new Error('Failed to fetch resources');
-        
         const data = await response.json();
-        allResources = data.resources || [];
+        
+        // Handle delta updates
+        if (data.delta) {
+            console.log(`Delta update: ${data.count} changed/new resources`);
+            // Merge delta with existing cached data
+            const resourceMap = new Map(allResources.map(r => [r.id, r]));
+            
+            // Apply updates/additions
+            (data.resources || []).forEach(r => resourceMap.set(r.id, r));
+            
+            // Remove deleted resources
+            if (data.deleted && data.deleted.length > 0) {
+                data.deleted.forEach(id => resourceMap.delete(id));
+                console.log(`Removed ${data.deleted.length} deleted resources`);
+            }
+            
+            allResources = Array.from(resourceMap.values());
+        } else {
+            // Full update
+            allResources = data.resources || [];
+        }
+        try {
+            localStorage.setItem(RESOURCE_CACHE_KEY, JSON.stringify(allResources));
+            if (data.hash) localStorage.setItem(RESOURCE_CACHE_HASH_KEY, data.hash);
+        } catch (e) {}
         
         // Group resources by semester
         const grouped = groupResources(allResources);
@@ -166,27 +222,7 @@ async function loadResources() {
         loadingEl.style.display = 'none';
         contentArea.style.display = 'block';
         
-        // Update last updated timestamp with most recent resource
-        const mostRecentResource = allResources.reduce((latest, resource) => {
-            if (!resource.created_at) return latest;
-            const resourceDate = new Date(resource.created_at);
-            const latestDate = latest ? new Date(latest.created_at) : null;
-            return (!latestDate || resourceDate > latestDate) ? resource : latest;
-        }, null);
-        
-        const lastUpdatedDate = mostRecentResource?.created_at 
-            ? new Date(mostRecentResource.created_at)
-            : new Date();
-        
-        document.getElementById('last-updated').textContent = 
-            `Last Updated: ${lastUpdatedDate.toLocaleString('en-GB', { 
-                day: '2-digit', 
-                month: '2-digit', 
-                year: 'numeric', 
-                hour: '2-digit', 
-                minute: '2-digit', 
-                second: '2-digit' 
-            })}`;
+        updateLastUpdated();
         
                 // Setup details toggle behavior
         setupDetailsToggle();
@@ -201,8 +237,7 @@ async function loadResources() {
         
     } catch (error) {
         console.error('Failed to load resources:', error);
-        document.getElementById('loading-resources').innerHTML = 
-            '<p style="color: #ef4444;">Failed to load resources. Please refresh the page.</p>';
+        document.getElementById('loading-resources').innerHTML = '<p style="color: #ef4444;">Failed to load resources. Please refresh the page.</p>';
     }
 }
 
@@ -225,6 +260,24 @@ function groupResources(resources) {
     });
     
     return grouped;
+}
+
+// Build PDF viewer URL from resource metadata
+function buildResourceUrl(resource) {
+    const semNum = resource.semester?.match(/\d+/)?.[0] || '1';
+    const unit = resource.unit || 'General';
+    const type = resource.resource_type || 'Other';
+    const filename = encodeURIComponent(resource.filename);
+    const title = encodeURIComponent(resource.link_title || resource.filename);
+    
+    let filePath;
+    if (unit === 'all') {
+        filePath = `sem-${semNum}/${resource.subject}/${type}/unit-all/${filename}`;
+    } else {
+        filePath = `sem-${semNum}/${resource.subject}/unit-${unit}/${filename}`;
+    }
+    
+    return `/pdf-viewer?file=${encodeURIComponent(filePath)}&title=${title}`;
 }
 
 // Subject name mapping (kept for index page since it displays all subjects and would require many API calls)
@@ -352,18 +405,9 @@ function renderResourceTree(grouped) {
                         const resourceLi = document.createElement('li');
                         const link = document.createElement('a');
                         const title = resource.link_title || resource.filename;
-                        // Build semantic URL; special-case unit-all to include resource type
-                        const semesterNumber = semester.match(/\d+/)[0];
-                        const filename = resource.filename || '';
-                        let filePath;
-                        if (unit === 'all') {
-                            // Include type segment for all-units resources
-                            filePath = `sem-${semesterNumber}/${subject}/${type}/unit-all/${encodeURIComponent(filename)}`;
-                        } else {
-                            filePath = `sem-${semesterNumber}/${subject}/unit-${unit}/${encodeURIComponent(filename)}`;
-                        }
-                        // Encode the entire filePath when placing into query string to avoid breaking on & and spaces
-                        link.href = `/pdf-viewer?file=${encodeURIComponent(filePath)}&title=${encodeURIComponent(title)}`;
+                        
+                        // Build URL on demand
+                        link.href = buildResourceUrl(resource);
                         link.textContent = title;
                         link.setAttribute('data-filename', resource.filename);
                         link.setAttribute('data-title', resource.link_title || '');
@@ -526,8 +570,16 @@ function setupDetailsToggle() {
             });
         }
         
-        // Load resources when page loads
-        loadResources();
+        // Attempt instant render from cache, then background refresh
+        loadCachedSnapshot();
+        fetchAndMaybeUpdateResources().catch(()=>{});
+        
+        // Refresh when tab regains focus
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) {
+                fetchAndMaybeUpdateResources().catch(()=>{});
+            }
+        });
     });
 
     // Expose functions to global scope so inline handlers (onclick) work

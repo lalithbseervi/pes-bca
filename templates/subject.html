@@ -159,13 +159,14 @@
         </section>
     </article>
 </main>
-<script>
+<script type="module">
     // Get subject code and semester from page extra 
     const subjectCode = '{{ page.extra.subject_code }}';
     const semester = '{{ page.extra.semester | default(value="1") }}';
     // Use the same-origin API base when available so requests go through Pages Functions.
     // During local development, window.API_BASE_URL is set to 'http://localhost:8787'.
-    const WORKER_URL = (window && window.API_BASE_URL) ? window.API_BASE_URL : '';
+    import { API_BASE_URL } from '/js/utils.js?v={{ config.extra.sw_version }}';
+    const WORKER_URL = API_BASE_URL;
     
     // Shared utility: Get nesting level of a details element
     function getDetailsLevel(element) {
@@ -180,17 +181,167 @@
         return level;
     }
     
-    // Fetch and render subject resources
+    // Use shared resource cache instead of per-subject cache
+    const SHARED_CACHE_KEY = 'all_resources_snapshot_v1';
+    const SUBJECT_CACHE_HASH_KEY = `subject_etag_v1_${subjectCode}`;
+    
+    let cachedData = null;
+
+    function loadCachedSubject() {
+        try {
+            // Load from shared cache and filter for this subject
+            const raw = localStorage.getItem(SHARED_CACHE_KEY);
+            if (!raw) return false;
+            const allResources = JSON.parse(raw);
+            if (!Array.isArray(allResources)) return false;
+            
+            // Filter resources for this subject
+            const subjectResources = allResources.filter(r => r.subject === subjectCode);
+            if (subjectResources.length === 0) return false;
+            
+            // Organize into hierarchical structure
+            const organized = organizeResourcesClientSide(subjectResources);
+            cachedData = { subject: subjectCode, resources: organized };
+            
+            renderSubjectContent(cachedData);
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('content-area').style.display = 'block';
+            initializeDetailsToggle();
+            try { initSubjectSuggest(); } catch (e) {}
+            return true;
+        } catch (e) { 
+            console.warn('Failed to load cached subject:', e);
+            return false; 
+        }
+    }
+    
+    // Build PDF viewer URL from resource metadata
+    function buildResourceUrl(resource, unit) {
+        const semNum = resource.semester?.match(/\d+/)?.[0] || '1';
+        const actualUnit = unit || resource.unit || 'General';
+        const type = resource.resource_type || 'Other';
+        const filename = encodeURIComponent(resource.filename);
+        const title = encodeURIComponent(resource.link_title || resource.filename);
+        
+        let filePath;
+        if (actualUnit === 'all') {
+            filePath = `sem-${semNum}/${resource.subject}/${type}/unit-all/${filename}`;
+        } else {
+            filePath = `sem-${semNum}/${resource.subject}/unit-${actualUnit}/${filename}`;
+        }
+        
+        return `/pdf-viewer?file=${encodeURIComponent(filePath)}&title=${title}`;
+    }
+    
+    // Client-side organization function (mirrors server logic)
+    function organizeResourcesClientSide(resources) {
+        const organized = {};
+        
+        for (const resource of resources) {
+            const unit = resource.unit || 'General';
+            const type = resource.resource_type || 'Other';
+            
+            if (!organized[unit]) organized[unit] = {};
+            if (!organized[unit][type]) organized[unit][type] = [];
+            
+            organized[unit][type].push({
+                id: resource.id,
+                title: resource.link_title,
+                filename: resource.filename
+            });
+        }
+        
+        // Sort units (1, 2, 3, 4, then "all", then General)
+        const sortedUnits = {};
+        const unitKeys = Object.keys(organized).sort((a, b) => {
+            const numA = parseInt(a);
+            const numB = parseInt(b);
+            if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+            if (a === 'all') return isNaN(numB) && b !== 'General' ? 1 : -1;
+            if (b === 'all') return isNaN(numA) && a !== 'General' ? -1 : 1;
+            if (a === 'General') return 1;
+            if (b === 'General') return -1;
+            return a.localeCompare(b);
+        });
+        
+        for (const key of unitKeys) {
+            sortedUnits[key] = organized[key];
+        }
+        
+        return sortedUnits;
+    }
+
+    // Fetch and render subject resources with ETag conditional request
     async function loadSubjectResources() {
         try {
-            const response = await fetch(`${WORKER_URL}/api/subject/resources?subject=${encodeURIComponent(subjectCode)}`);
+            const etag = localStorage.getItem(SUBJECT_CACHE_HASH_KEY);
+            const url = `${WORKER_URL}/api/subject/resources?subject=${encodeURIComponent(subjectCode)}`;
+            console.log('Fetching subject resources from:', url);
+            const response = await fetch(url, { headers: etag ? { 'If-None-Match': etag } : {} });
+            
+            console.log('Response status:', response.status, 'OK:', response.ok);
+            
+            if (response.status === 304) {
+                // No change - ensure UI is visible
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('content-area').style.display = 'block';
+                return;
+            }
             
             if (!response.ok) {
-                throw new Error('Failed to fetch resources');
+                const errorText = await response.text();
+                console.error('Response error:', response.status, errorText);
+                throw new Error(`Failed to fetch resources: ${response.status} ${errorText.slice(0, 100)}`);
             }
             
             const data = await response.json();
-            renderSubjectContent(data);
+            
+            // Handle delta updates
+            if (data.delta && cachedData) {
+                console.log(`Delta update for subject ${subjectCode}`);
+                // Merge delta with cached organized structure
+                const merged = JSON.parse(JSON.stringify(cachedData.resources || {}));
+                
+                // Apply updates from delta
+                if (data.resources) {
+                    for (const [unit, types] of Object.entries(data.resources)) {
+                        if (!merged[unit]) merged[unit] = {};
+                        for (const [type, resources] of Object.entries(types)) {
+                            if (!merged[unit][type]) {
+                                merged[unit][type] = resources;
+                            } else {
+                                // Merge resources by ID
+                                const resourceMap = new Map(merged[unit][type].map(r => [r.id, r]));
+                                resources.forEach(r => resourceMap.set(r.id, r));
+                                merged[unit][type] = Array.from(resourceMap.values());
+                            }
+                        }
+                    }
+                }
+                
+                // Remove deleted resources
+                if (data.deleted && data.deleted.length > 0) {
+                    for (const [unit, types] of Object.entries(merged)) {
+                        for (const [type, resources] of Object.entries(types)) {
+                            merged[unit][type] = resources.filter(r => !data.deleted.includes(r.id));
+                        }
+                    }
+                }
+                
+                cachedData = { ...data, resources: merged };
+            } else {
+                // Full update
+                cachedData = data;
+            }
+            
+            renderSubjectContent(cachedData);
+            try {
+                // Update ETag for this subject
+                if (cachedData.hash) localStorage.setItem(SUBJECT_CACHE_HASH_KEY, cachedData.hash);
+                
+                // Note: Do NOT update shared cache here - organized structure lacks context fields
+                // The shared cache is only updated by the homepage resources API which has full metadata
+            } catch (e) {}
             
             document.getElementById('loading').style.display = 'none';
             document.getElementById('content-area').style.display = 'block';
@@ -277,9 +428,10 @@
                     return aNum - bNum;
                 });
                 
-                // Add individual resources (URL is already complete with semantic path)
+                // Add individual resources (build URL on demand)
                 for (const resource of sortedResources) {
-                    html += `<li><a href="${resource.url}">${resource.title}</a></li>\n`;
+                    const url = buildResourceUrl(resource, unit);
+                    html += `<li><a href="${url}">${resource.title}</a></li>\n`;
                 }
                 
                 html += `
@@ -423,8 +575,16 @@
             });
         }
         
-        // Load subject resources on page load
+        // Attempt cached render first then conditional refresh
+        loadCachedSubject();
         loadSubjectResources();
+        
+        // Refresh when tab regains focus
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) {
+                loadSubjectResources();
+            }
+        });
     });
 </script>
 {% endblock main_content %}

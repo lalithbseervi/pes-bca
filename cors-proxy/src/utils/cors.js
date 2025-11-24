@@ -12,6 +12,6 @@ export function getCorsHeaders(request) {
     'Cross-Origin-Opener-Policy': 'same-origin',
     'Cross-Origin-Resource-Policy': 'same-origin',
     // Expose streaming token & length to clients
-    'Access-Control-Expose-Headers': 'X-Stream-Token, Content-Length, Content-Type'
+    'Access-Control-Expose-Headers': 'X-Stream-Token, Content-Length, Content-Type, ETag'
   }
 }

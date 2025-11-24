@@ -29,7 +29,7 @@ async function handleRequest(request, env) {
       headers: {
         ...corsHeaders,
         'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Admin-Passphrase',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Admin-Passphrase, If-None-Match',
         'Access-Control-Max-Age': '86400',
       }
     })
