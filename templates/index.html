@@ -190,11 +190,20 @@ async function fetchAndMaybeUpdateResources() {
         // Handle delta updates
         if (data.delta) {
             console.log(`Delta update: ${data.count} changed/new resources`);
-            // Merge delta with existing cached data
+            // Merge delta with existing cached data, preserving all fields
             const resourceMap = new Map(allResources.map(r => [r.id, r]));
             
-            // Apply updates/additions
-            (data.resources || []).forEach(r => resourceMap.set(r.id, r));
+            // Apply updates/additions - merge with existing to preserve any extra fields
+            (data.resources || []).forEach(newResource => {
+                const existing = resourceMap.get(newResource.id);
+                if (existing) {
+                    // Update: merge new fields with existing to preserve everything
+                    resourceMap.set(newResource.id, { ...existing, ...newResource });
+                } else {
+                    // New resource: add as-is
+                    resourceMap.set(newResource.id, newResource);
+                }
+            });
             
             // Remove deleted resources
             if (data.deleted && data.deleted.length > 0) {
