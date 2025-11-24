@@ -71,60 +71,67 @@ export async function loginHandler(request, env) {
     console.log(`Cache MISS for ${srn} - calling auth API`)
   
     const authApi = env.AUTH_API
-    if (!authApi) { return new Response(JSON.stringify({ success:false, message:'invalid config (no AUTH_API given)' }), { status:401, headers: JSON_HEADERS })      } else {
+    if (!authApi) {
+      return new Response(JSON.stringify({ success:false, message:'invalid config (no AUTH_API given)' }), { status:401, headers: JSON_HEADERS })
+    } else {
       try {
-      const authResp = await fetch(authApi, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: srn, password, profile: true, fields: ['branch','semester','name'] })
-      })
-      const authResult = await authResp.json()
-        
-      if (!authResp.ok || !authResult.profile) {
-        await invalidateCachedAuth(env, srn)
-        return new Response(JSON.stringify({ success:false, message: authResult.message || 'invalid credentials' }), { status:401, headers: JSON_HEADERS })
-      }
-        
-      profile = authResult.profile
-      
-      // Cache the successful authentication
-      await cacheAuthResult(env, srn, password, profile)
-      console.log(`Cached credentials for ${srn}`)
-      
+        const authResp = await fetch(authApi, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: srn, password, profile: true, fields: ['branch','semester','name'] })
+        })
+
+        const contentType = authResp.headers.get('content-type') || ''
+        const rawBody = await authResp.text()
+        let authResult = {}
+        if (contentType.includes('application/json')) {
+          try {
+            authResult = JSON.parse(rawBody)
+          } catch (parseErr) {
+            console.warn('Upstream auth JSON parse failed, raw body (trimmed):', rawBody.slice(0,120))
+            authResult = {}
+          }
+        } else {
+          console.warn('Upstream auth returned non-JSON body, status:', authResp.status, 'CT:', contentType, 'raw (trimmed):', rawBody.slice(0,120))
+        }
+
+        if (!authResp.ok) {
+          await invalidateCachedAuth(env, srn)
+          const reason = authResult.message || (authResp.status === 404 ? 'auth endpoint not found' : 'invalid credentials')
+          return new Response(JSON.stringify({ success:false, message: reason }), { status:401, headers: JSON_HEADERS })
+        }
+
+        if (!authResult.profile) {
+          await invalidateCachedAuth(env, srn)
+          return new Response(JSON.stringify({ success:false, message: authResult.message || 'missing profile in response' }), { status:401, headers: JSON_HEADERS })
+        }
+
+        profile = authResult.profile
+        await cacheAuthResult(env, srn, password, profile)
+        console.log(`Cached credentials for ${srn}`)
       } catch (e) {
-        console.error('Auth API error:', e)
-        
+        console.error('Auth API fetch error:', e)
         // Fallback: Enable dummy user when auth service is down
         if (env.SESSIONS) {
           try {
             const dummyUser = {
               password: 'guest',
               active: true,
-              profile: {
-                name: 'Guest User',
-                branch: 'Guest',
-                semester: '1',
-              },
+              profile: { name: 'Guest User', branch: 'Guest', semester: '1' },
               activated_at: new Date().toISOString(),
               reason: 'Auth service unavailable'
-            };
-            
-            await env.SESSIONS.put('dummy_user', JSON.stringify(dummyUser), {
-              expirationTtl: 3600 // Active for 1 hour
-            });
-            
-            console.log('Dummy user activated due to auth service failure. Credentials: guest/guest');
-            
+            }
+            await env.SESSIONS.put('dummy_user', JSON.stringify(dummyUser), { expirationTtl: 3600 })
+            console.log('Dummy user activated due to auth service failure. Credentials: guest/guest')
             return new Response(JSON.stringify({ 
-              success: false, 
+              success: false,
               message: 'Auth service temporarily unavailable. Please try: username="guest", password="guest"',
               guest_fallback_enabled: true
             }), { status: 503, headers: JSON_HEADERS })
           } catch (kvError) {
-            console.error('Failed to activate dummy user:', kvError);
+            console.error('Failed to activate dummy user:', kvError)
           }
         }
-        
         return new Response(JSON.stringify({ success:false, message:'auth backend error' }), { status:502, headers: JSON_HEADERS })
       }
     }
