@@ -45,61 +45,67 @@ async function isAuthenticated(request, env) {
     }
 }
 
+// Helper function to fetch status data
+async function fetchStatusData(env) {
+    const base = env.SUPABASE_URL.replace(/\/+$/, '');
+    const headers = {
+        Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+        apikey: env.SUPABASE_SERVICE_ROLE_KEY
+    };
+    
+    // Fetch service components with current status
+    const componentsUrl = `${base}/rest/v1/service_components?select=*&order=display_order.asc`;
+    const componentsResp = await fetch(componentsUrl, { headers });
+    const components = componentsResp.ok ? await componentsResp.json() : [];
+    
+    // Fetch active incidents (not resolved)
+    const activeIncidentsUrl = `${base}/rest/v1/incidents?select=*&status=not.eq.resolved&order=started_at.desc`;
+    const activeResp = await fetch(activeIncidentsUrl, { headers });
+    const activeIncidents = activeResp.ok ? await activeResp.json() : [];
+    
+    // Fetch recent incidents (last 30 days)
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const recentUrl = `${base}/rest/v1/incidents?select=*&started_at=gte.${thirtyDaysAgo}&order=started_at.desc&limit=20`;
+    const recentResp = await fetch(recentUrl, { headers });
+    const recentIncidents = recentResp.ok ? await recentResp.json() : [];
+    
+    // For each incident, fetch its updates
+    const incidentsWithUpdates = await Promise.all(
+        [...activeIncidents, ...recentIncidents].map(async (incident) => {
+            const updatesUrl = `${base}/rest/v1/incident_updates?select=*&incident_id=eq.${incident.id}&order=created_at.desc`;
+            const updatesResp = await fetch(updatesUrl, { headers });
+            const updates = updatesResp.ok ? await updatesResp.json() : [];
+            return { ...incident, updates };
+        })
+    );
+    
+    // Determine overall status
+    let overallStatus = 'operational';
+    if (components.some(c => c.status === 'major_outage')) {
+        overallStatus = 'major_outage';
+    } else if (components.some(c => c.status === 'partial_outage')) {
+        overallStatus = 'partial_outage';
+    } else if (components.some(c => c.status === 'degraded_performance')) {
+        overallStatus = 'degraded_performance';
+    } else if (components.some(c => c.status === 'under_maintenance')) {
+        overallStatus = 'under_maintenance';
+    }
+    
+    return {
+        overall_status: overallStatus,
+        components,
+        active_incidents: incidentsWithUpdates.filter(i => i.status !== 'resolved'),
+        recent_incidents: incidentsWithUpdates.filter(i => i.status === 'resolved')
+    };
+}
+
 // GET /api/status - Public endpoint for status page
 export async function getStatus(request, env) {
     const JSON_HEADERS = { 'Content-Type': 'application/json' };
     
     try {
-        const base = env.SUPABASE_URL.replace(/\/+$/, '');
-        const headers = {
-            Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
-            apikey: env.SUPABASE_SERVICE_ROLE_KEY
-        };
-        
-        // Fetch service components with current status
-        const componentsUrl = `${base}/rest/v1/service_components?select=*&order=display_order.asc`;
-        const componentsResp = await fetch(componentsUrl, { headers });
-        const components = componentsResp.ok ? await componentsResp.json() : [];
-        
-        // Fetch active incidents (not resolved)
-        const activeIncidentsUrl = `${base}/rest/v1/incidents?select=*&status=not.eq.resolved&order=started_at.desc`;
-        const activeResp = await fetch(activeIncidentsUrl, { headers });
-        const activeIncidents = activeResp.ok ? await activeResp.json() : [];
-        
-        // Fetch recent incidents (last 30 days)
-        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-        const recentUrl = `${base}/rest/v1/incidents?select=*&started_at=gte.${thirtyDaysAgo}&order=started_at.desc&limit=20`;
-        const recentResp = await fetch(recentUrl, { headers });
-        const recentIncidents = recentResp.ok ? await recentResp.json() : [];
-        
-        // For each incident, fetch its updates
-        const incidentsWithUpdates = await Promise.all(
-            [...activeIncidents, ...recentIncidents].map(async (incident) => {
-                const updatesUrl = `${base}/rest/v1/incident_updates?select=*&incident_id=eq.${incident.id}&order=created_at.desc`;
-                const updatesResp = await fetch(updatesUrl, { headers });
-                const updates = updatesResp.ok ? await updatesResp.json() : [];
-                return { ...incident, updates };
-            })
-        );
-        
-        // Determine overall status
-        let overallStatus = 'operational';
-        if (components.some(c => c.status === 'major_outage')) {
-            overallStatus = 'major_outage';
-        } else if (components.some(c => c.status === 'partial_outage')) {
-            overallStatus = 'partial_outage';
-        } else if (components.some(c => c.status === 'degraded_performance')) {
-            overallStatus = 'degraded_performance';
-        } else if (components.some(c => c.status === 'under_maintenance')) {
-            overallStatus = 'under_maintenance';
-        }
-        
-        return new Response(JSON.stringify({
-            overall_status: overallStatus,
-            components,
-            active_incidents: incidentsWithUpdates.filter(i => i.status !== 'resolved'),
-            recent_incidents: incidentsWithUpdates.filter(i => i.status === 'resolved')
-        }), {
+        const data = await fetchStatusData(env);
+        return new Response(JSON.stringify(data), {
             status: 200,
             headers: JSON_HEADERS
         });
@@ -110,6 +116,66 @@ export async function getStatus(request, env) {
             headers: JSON_HEADERS
         });
     }
+}
+
+// GET /api/status/stream - Server-Sent Events endpoint for real-time updates
+export async function streamStatus(request, env) {
+    const headers = {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+    };
+
+    const { readable, writable } = new TransformStream();
+    const writer = writable.getWriter();
+    const encoder = new TextEncoder();
+
+    // Fetch status and write it immediately
+    (async () => {
+        try {
+            const data = await fetchStatusData(env);
+            await writer.write(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+
+            let lastSentData = JSON.stringify(data);
+
+            // Only send updates when data actually changes
+            const intervalId = setInterval(async () => {
+                try {
+                    const updatedData = await fetchStatusData(env);
+                    const serializedData = JSON.stringify(updatedData);
+                    if (serializedData !== lastSentData) {
+                        await writer.write(encoder.encode(`data: ${serializedData}\n\n`));
+                        lastSentData = serializedData;
+                    }
+                } catch (e) {
+                    console.error('SSE update error', e);
+                }
+            }, 30000); // Check every 30 seconds
+
+            // Ping every 30 seconds to keep connection alive
+            const pingId = setInterval(async () => {
+                try {
+                    await writer.write(encoder.encode(`: ping\n\n`));
+                } catch (e) {
+                    clearInterval(pingId);
+                    clearInterval(intervalId);
+                    writer.close().catch(() => {});
+                }
+            }, 30000);
+
+            // Clean up on disconnect
+            request.signal?.addEventListener('abort', () => {
+                clearInterval(intervalId);
+                clearInterval(pingId);
+                writer.close().catch(() => {});
+            });
+        } catch (e) {
+            console.error('SSE stream error', e);
+            await writer.close().catch(() => {});
+        }
+    })();
+
+    return new Response(readable, { headers });
 }
 
 // POST /api/status/incidents - Create new incident (authenticated)

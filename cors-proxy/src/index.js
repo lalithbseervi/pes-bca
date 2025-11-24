@@ -8,7 +8,7 @@ import { handleFormReq } from "./api/contributeForm.js"
 import { handleCookielessEvent } from "./api/analytics.js"
 import { handleDebugCookies } from "./api/debug.js"
 import { uploadResourceToSupabase, resourceStreamFromSupabase, mintStreamToken } from "./api/rw-supabase.js"
-import { getStatus, createIncident, addIncidentUpdate, updateComponentStatus } from "./api/status.js"
+import { getStatus, streamStatus, createIncident, addIncidentUpdate, updateComponentStatus } from "./api/status.js"
 import { verifyAdminPassphrase, getResources as getAdminResources, updateResource, deleteResource, getFilters } from "./api/admin.js"
 import { getSubjectResources } from "./api/subject.js"
 import { getResources } from "./api/resources.js"
@@ -200,6 +200,12 @@ async function handleRequest(request, env) {
   // GET /api/status - Public status page data
   if (request.method === 'GET' && url.pathname === '/api/status') {
     response = await getStatus(request, env)
+    return addCorsHeaders(response)
+  }
+
+  // GET /api/status/stream - Server-Sent Events for real-time status updates
+  if (request.method === 'GET' && url.pathname === '/api/status/stream') {
+    response = await streamStatus(request, env)
     return addCorsHeaders(response)
   }
 

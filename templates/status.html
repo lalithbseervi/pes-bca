@@ -259,7 +259,7 @@
   .timeline-item::before {
     content: '';
     position: absolute;
-    left: 0.375rem;
+    left: 0.5rem;
     top: 0.5rem;
     bottom: -0.5rem;
     width: 2px;
@@ -297,6 +297,7 @@
   .timeline-status {
     font-weight: 600;
     font-size: 0.875rem;
+    color: var(--text-primary);
   }
 
   .timeline-date {
@@ -424,69 +425,7 @@ function getStatusText(status) {
   return statusMap[status] || status;
 }
 
-async function loadStatus() {
-  try {
-    const resp = await fetch(`${API_BASE_URL}/api/status`);
-    if (!resp.ok) throw new Error('Failed to fetch status');
-    
-    const data = await resp.json();
-    
-    // Update overall status
-    const overallEl = document.getElementById('overall-status');
-    overallEl.className = `overall-status ${data.overall_status}`;
-    overallEl.innerHTML = `
-      <span class="status-indicator ${data.overall_status}"></span>
-      <span>${getStatusText(data.overall_status)}</span>
-    `;
-    
-    // Render components
-    const componentsEl = document.getElementById('components');
-    componentsEl.innerHTML = data.components.map(c => `
-      <div class="component-item">
-        <div class="component-info">
-          <h3>${c.name}</h3>
-          ${c.description ? `<p>${c.description}</p>` : ''}
-        </div>
-        <div class="component-status">
-          <span class="status-indicator ${c.status}"></span>
-          <span>${getStatusText(c.status)}</span>
-        </div>
-      </div>
-    `).join('');
-    
-    // Render active incidents
-    if (data.active_incidents && data.active_incidents.length > 0) {
-      document.getElementById('active-incidents-section').style.display = 'block';
-      document.getElementById('active-incidents').innerHTML = data.active_incidents.map(i => renderIncident(i)).join('');
-    }
-    
-    // Render recent incidents
-    if (data.recent_incidents && data.recent_incidents.length > 0) {
-      document.getElementById('recent-incidents-section').style.display = 'block';
-      document.getElementById('recent-incidents').innerHTML = data.recent_incidents.map(i => renderIncident(i)).join('');
-    }
-    
-    // Show no incidents message if no incidents at all
-    if ((!data.active_incidents || data.active_incidents.length === 0) && 
-        (!data.recent_incidents || data.recent_incidents.length === 0)) {
-      document.getElementById('no-incidents').style.display = 'block';
-    }
-    
-    // Show admin link if authenticated
-    try {
-      const sessionData = sessionStorage.getItem('user_session');
-      if (sessionData) {
-        document.getElementById('admin-link').style.display = 'block';
-      }
-    } catch (e) {}
-    
-    document.getElementById('loading').style.display = 'none';
-    document.getElementById('content').style.display = 'block';
-  } catch (e) {
-    console.error('Failed to load status', e);
-    document.getElementById('loading').innerHTML = '<p>Failed to load status. Please try again later.</p>';
-  }
-}
+
 
 function renderIncident(incident) {
   const updates = incident.updates || [];
@@ -525,10 +464,166 @@ function renderIncident(incident) {
   `;
 }
 
+// Server-Sent Events (SSE) for real-time updates with fallback polling
+let eventSource = null;
+let fallbackTimer = null;
+const FALLBACK_INTERVAL = 60000; // 1 minute fallback polling
+
+function renderStatusData(data) {
+  // Update overall status
+  const overallEl = document.getElementById('overall-status');
+  overallEl.className = `overall-status ${data.overall_status}`;
+  overallEl.innerHTML = `
+    <span class="status-indicator ${data.overall_status}"></span>
+    <span>${getStatusText(data.overall_status)}</span>
+  `;
+  
+  // Render components
+  const componentsEl = document.getElementById('components');
+  componentsEl.innerHTML = data.components.map(c => `
+    <div class="component-item">
+      <div class="component-info">
+        <h3>${c.name}</h3>
+        ${c.description ? `<p>${c.description}</p>` : ''}
+      </div>
+      <div class="component-status">
+        <span class="status-indicator ${c.status}"></span>
+        <span>${getStatusText(c.status)}</span>
+      </div>
+    </div>
+  `).join('');
+  
+  // Render active incidents
+  if (data.active_incidents && data.active_incidents.length > 0) {
+    document.getElementById('active-incidents-section').style.display = 'block';
+    document.getElementById('active-incidents').innerHTML = data.active_incidents.map(i => renderIncident(i)).join('');
+  } else {
+    document.getElementById('active-incidents-section').style.display = 'none';
+  }
+  
+  // Render recent incidents
+  if (data.recent_incidents && data.recent_incidents.length > 0) {
+    document.getElementById('recent-incidents-section').style.display = 'block';
+    document.getElementById('recent-incidents').innerHTML = data.recent_incidents.map(i => renderIncident(i)).join('');
+  } else {
+    document.getElementById('recent-incidents-section').style.display = 'none';
+  }
+  
+  // Show no incidents message if no incidents at all
+  if ((!data.active_incidents || data.active_incidents.length === 0) && 
+      (!data.recent_incidents || data.recent_incidents.length === 0)) {
+    document.getElementById('no-incidents').style.display = 'block';
+  } else {
+    document.getElementById('no-incidents').style.display = 'none';
+  }
+  
+  // Show admin link if authenticated
+  try {
+    const sessionData = sessionStorage.getItem('user_session');
+    if (sessionData) {
+      document.getElementById('admin-link').style.display = 'block';
+    }
+  } catch (e) {}
+  
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('content').style.display = 'block';
+}
+
+async function loadStatus() {
+  try {
+    const resp = await fetch(`${API_BASE_URL}/api/status`);
+    if (!resp.ok) throw new Error('Failed to fetch status');
+    const data = await resp.json();
+    renderStatusData(data);
+  } catch (e) {
+    console.error('Failed to load status', e);
+    document.getElementById('loading').innerHTML = '<p>Failed to load status. Please try again later.</p>';
+  }
+}
+
+function setupSSE() {
+  // Close existing connection
+  if (eventSource) {
+    eventSource.close();
+  }
+  
+  try {
+    // Try to establish SSE connection for real-time updates
+    eventSource = new EventSource(`${API_BASE_URL}/api/status/stream`);
+    
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        renderStatusData(data);
+        console.log('[Status] Real-time update received');
+      } catch (e) {
+        console.error('[Status] Failed to parse SSE data', e);
+      }
+    };
+    
+    eventSource.onerror = (error) => {
+      console.warn('[Status] SSE connection error, falling back to polling', error);
+      eventSource.close();
+      eventSource = null;
+      startFallbackPolling();
+    };
+    
+    eventSource.onopen = () => {
+      console.log('[Status] Real-time connection established');
+      // Stop fallback polling since SSE is working
+      if (fallbackTimer) {
+        clearInterval(fallbackTimer);
+        fallbackTimer = null;
+      }
+    };
+  } catch (e) {
+    console.warn('[Status] SSE not supported, using polling', e);
+    startFallbackPolling();
+  }
+}
+
+function startFallbackPolling() {
+  if (fallbackTimer) return; // Already polling
+  console.log('[Status] Starting fallback polling');
+  fallbackTimer = setInterval(loadStatus, FALLBACK_INTERVAL);
+}
+
+// Handle visibility changes
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    // Close SSE when tab is hidden to save resources
+    if (eventSource) {
+      eventSource.close();
+      eventSource = null;
+    }
+    if (fallbackTimer) {
+      clearInterval(fallbackTimer);
+      fallbackTimer = null;
+    }
+  } else {
+    // Reconnect when tab becomes visible
+    loadStatus();
+    setupSSE();
+  }
+});
+
+// Refresh when window regains focus
+window.addEventListener('focus', () => {
+  if (!document.hidden && !eventSource) {
+    loadStatus();
+    setupSSE();
+  }
+});
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', () => {
+  if (eventSource) eventSource.close();
+  if (fallbackTimer) clearInterval(fallbackTimer);
+});
+
 document.addEventListener('DOMContentLoaded', () => {
   loadStatus();
-  // Refresh every 30 seconds
-  setInterval(loadStatus, 30000);
+  setupSSE();
 });
 </script>
 {% endblock main_content %}
