@@ -181,7 +181,7 @@
           unit = unitMatch[1];
           filename = decodeURIComponent(pathParts[3]);
           if (!title) title = filename.replace(/^\d+_/, '').replace(/\.[^.]+$/, '').replace(/_/g, ' ');
-          pdfPath = `${API_BASE_URL}/api/resources/sem-${semester}/${subjectCode}/unit-${unit}/${encodeURIComponent(filename)}`;
+          pdfPath = `${API_BASE_URL}/api/resources/sem-${semester}/${subjectCode}/unit-${unit}/${(filename)}`;
         }
       }
 
@@ -197,7 +197,7 @@
           unit = 'all';
           filename = decodeURIComponent(pathParts[4]);
           if (!title) title = filename.replace(/^\d+_/, '').replace(/\.[^.]+$/, '').replace(/_/g, ' ');
-          pdfPath = `${API_BASE_URL}/api/resources/sem-${semester}/${subjectCode}/${resourceType}/unit-all/${encodeURIComponent(filename)}`;
+          pdfPath = `${API_BASE_URL}/api/resources/sem-${semester}/${subjectCode}/${resourceType}/unit-all/${(filename)}`;
         }
       }
     }
@@ -323,7 +323,7 @@
     // Fetch subject name from API if we have a subject code
     if (displaySubjectCode) {
       try {
-        const apiUrl = `${API_BASE_URL}/api/subject/resources?subject=${encodeURIComponent(displaySubjectCode)}`;
+        const apiUrl = `${API_BASE_URL}/api/subject/resources?subject=${(displaySubjectCode)}`;
         const resp = await fetch(apiUrl, { cache: 'no-store' });
         if (resp.ok) {
           const data = await resp.json();
@@ -546,10 +546,10 @@
         return;
       }
 
-      let pdfViewerUrl = `/pdfjs/web/viewer.html?file=${encodeURIComponent(fileToUse)}`;
+      let pdfViewerUrl = `/pdfjs/web/viewer.html?file=${(fileToUse)}`;
       try {
         const orig = (title && title.trim()) ? title.trim() : null;
-        if (orig) pdfViewerUrl += `&origFilename=${encodeURIComponent(orig)}`;
+        if (orig) pdfViewerUrl += `&origFilename=${(orig)}`;
       } catch (e) { }
       document.getElementById('pdf-container').innerHTML = `
       <div style="width: 100%; height: 90vh;">
@@ -631,7 +631,7 @@
 
         // Fetch all resources for this subject from the API
         // Add timestamp to bypass Chrome's aggressive caching
-        const apiUrl = `${API_BASE_URL}/api/subject/resources?subject=${encodeURIComponent(subjectCode)}&_t=${Date.now()}`;
+        const apiUrl = `${API_BASE_URL}/api/subject/resources?subject=${(subjectCode)}&_t=${Date.now()}`;
         const resp = await fetch(apiUrl, { cache: 'no-store' });
 
         if (!resp.ok) {
@@ -695,8 +695,8 @@
         if (prevBtn && idx > 0) {
           const prev = files[idx - 1];
           {
-            const prevPath = prev.url ? null : `sem-${semester}/${subjectCode}/unit-${prev.unit}/${encodeURIComponent(prev.filename || '')}`;
-            prevBtn.href = prev.url || `/pdf-viewer?file=${encodeURIComponent(prevPath)}&title=${encodeURIComponent((prev.title || prev.filename || '').toString())}`;
+            const prevPath = prev.url ? null : `sem-${semester}/${subjectCode}/unit-${prev.unit}/${(prev.filename || '')}`;
+            prevBtn.href = prev.url || `/pdf-viewer?file=${(prevPath)}&title=${((prev.title || prev.filename || '').toString())}`;
           }
           prevBtn.innerText = '← ' + (prev.title || prev.filename || 'Prev');
           prevBtn.title = (prev.title || prev.filename || 'Previous document');
@@ -706,8 +706,8 @@
         if (nextBtn && idx < files.length - 1) {
           const next = files[idx + 1];
           {
-            const nextPath = next.url ? null : `sem-${semester}/${subjectCode}/unit-${next.unit}/${encodeURIComponent(next.filename || '')}`;
-            nextBtn.href = next.url || `/pdf-viewer?file=${encodeURIComponent(nextPath)}&title=${encodeURIComponent((next.title || next.filename || '').toString())}`;
+            const nextPath = next.url ? null : `sem-${semester}/${subjectCode}/unit-${next.unit}/${(next.filename || '')}`;
+            nextBtn.href = next.url || `/pdf-viewer?file=${(nextPath)}&title=${((next.title || next.filename || '').toString())}`;
           }
           nextBtn.innerText = (next.title || next.filename || 'Next') + ' →';
           nextBtn.title = (next.title || next.filename || 'Next document');

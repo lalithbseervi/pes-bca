@@ -276,8 +276,8 @@ function buildResourceUrl(resource) {
     const semNum = resource.semester?.match(/\d+/)?.[0] || '1';
     const unit = resource.unit || 'General';
     const type = resource.resource_type || 'Other';
-    const filename = encodeURIComponent(resource.filename);
-    const title = encodeURIComponent(resource.link_title || resource.filename);
+    const filename = (resource.filename);
+    const title = (resource.link_title || resource.filename);
     
     let filePath;
     if (unit === 'all') {
@@ -286,7 +286,7 @@ function buildResourceUrl(resource) {
         filePath = `sem-${semNum}/${resource.subject}/unit-${unit}/${filename}`;
     }
     
-    return `/pdf-viewer?file=${encodeURIComponent(filePath)}&title=${title}`;
+    return `/pdf-viewer?file=${(filePath)}&title=${title}`;
 }
 
 // Subject name mapping (kept for index page since it displays all subjects and would require many API calls)

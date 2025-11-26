@@ -31,12 +31,12 @@ export function initHomeSearchSuggest(inputEl, allResources, applyFilters) {
           
           let filePath;
           if (unit === 'all') {
-            filePath = `sem-${semNum}/${subject}/${type}/unit-all/${encodeURIComponent(filename)}`;
+            filePath = `sem-${semNum}/${subject}/${type}/unit-all/${(filename)}`;
           } else {
-            filePath = `sem-${semNum}/${subject}/unit-${unit}/${encodeURIComponent(filename)}`;
+            filePath = `sem-${semNum}/${subject}/unit-${unit}/${(filename)}`;
           }
           
-          const url = `/pdf-viewer?file=${encodeURIComponent(filePath)}&title=${encodeURIComponent(title || filename)}`;
+          const url = `/pdf-viewer?file=${(filePath)}&title=${(title || filename)}`;
           const key = `${title}|${filename}`;
           
           if (seen.has(key)) return;

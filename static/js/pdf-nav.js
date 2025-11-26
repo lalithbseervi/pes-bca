@@ -124,12 +124,12 @@
 
       if (prevBtn && idx > 0) {
         const prevPath = candidates[idx-1];
-        prevBtn.href = `/pdf-viewer/?file=${encodeURIComponent(prevPath)}&title=${encodeURIComponent(prevPath.split('/').pop())}`;
+        prevBtn.href = `/pdf-viewer/?file=${(prevPath)}&title=${(prevPath.split('/').pop())}`;
         prevBtn.style.display = 'inline-block'; prevBtn.setAttribute('aria-hidden','false');
       }
       if (nextBtn && idx < candidates.length-1) {
         const nextPath = candidates[idx+1];
-        nextBtn.href = `/pdf-viewer/?file=${encodeURIComponent(nextPath)}&title=${encodeURIComponent(nextPath.split('/').pop())}`;
+        nextBtn.href = `/pdf-viewer/?file=${(nextPath)}&title=${(nextPath.split('/').pop())}`;
         nextBtn.style.display = 'inline-block'; nextBtn.setAttribute('aria-hidden','false');
       }
     } catch (err) { console.warn('pdf-nav build failed', err); }
