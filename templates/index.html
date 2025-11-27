@@ -460,138 +460,56 @@ function setupDetailsToggle() {
     });
 }
 
-// Search and filter functionality
-    function applyFilters() {
-        const searchTerm = document.getElementById('search-input').value.toLowerCase().trim();
-        const contentArea = document.getElementById('content-area');
-        const noResults = document.getElementById('no-results');
-        
-        if (!searchTerm) {
-            clearFilters();
-            return;
-        }
-        
-        let foundAny = false;
-        
-        // Search through all links
-        const allLinks = contentArea.querySelectorAll('a');
-        allLinks.forEach(link => {
-            const text = link.textContent.toLowerCase();
-            const href = link.getAttribute('href') ? link.getAttribute('href').toLowerCase() : '';
-            const matches = text.includes(searchTerm) || href.includes(searchTerm);
-            
-            // Find the closest parent li
-            let listItem = link.closest('li');
-            if (listItem) {
-                if (matches) {
-                    listItem.style.display = '';
-                    foundAny = true;
-                    
-                    // Show all parent details elements
-                    let parent = listItem.parentElement;
-                    while (parent) {
-                        if (parent.tagName === 'DETAILS') {
-                            parent.open = true;
-                            parent.style.display = '';
-                        }
-                        if (parent.tagName === 'LI') {
-                            parent.style.display = '';
-                        }
-                        parent = parent.parentElement;
-                    }
-                } else {
-                    // Only hide leaf items (items without nested details)
-                    const hasNestedDetails = listItem.querySelector('details');
-                    if (!hasNestedDetails) {
-                        listItem.style.display = 'none';
-                    }
-                }
-            }
-        });
-        
-        // Hide empty details sections
-        contentArea.querySelectorAll('details').forEach(details => {
-            const visibleItems = Array.from(details.querySelectorAll(':scope > ul > li')).filter(li => {
-                return li.style.display !== 'none';
-            });
-            
-            if (visibleItems.length === 0) {
-                details.style.display = 'none';
-            } else {
-                details.style.display = '';
-            }
-        });
-        
-        noResults.style.display = foundAny ? 'none' : 'block';
-    }
+// Import shared search utilities
+import { getDetailsLevel, applyFilters, clearFilters, initializeSearchOnEnter, initializeDetailsToggle } from '/js/resource-search.js?v={{ config.extra.sw_version }}';
+
+// Custom clearFilters for index page (opens only first semester)
+function customClearFilters() {
+    const contentArea = document.getElementById('content-area');
+    const noResults = document.getElementById('no-results');
+    document.getElementById('search-input').value = '';
     
-    function clearFilters() {
-        document.getElementById('search-input').value = '';
-        const contentArea = document.getElementById('content-area');
-        const noResults = document.getElementById('no-results');
-        
-        // Show all items
-        contentArea.querySelectorAll('li, details').forEach(el => {
-            el.style.display = '';
-        });
+    // Show all items
+    contentArea.querySelectorAll('li, details').forEach(el => {
+        el.style.display = '';
+    });
 
-        // Reset details to initial state: open first semester, close others
-        const semesterDetails = Array.from(contentArea.querySelectorAll(':scope > ul > li > details'));
-        semesterDetails.forEach((semDetails, idx) => {
-            semDetails.open = idx === 0; // open only first semester
+    // Reset details to initial state: open first semester, close others
+    const semesterDetails = Array.from(contentArea.querySelectorAll(':scope > ul > li > details'));
+    semesterDetails.forEach((semDetails, idx) => {
+        semDetails.open = idx === 0; // open only first semester
 
-            // Close subjects and units inside each semester for a clean reset
-            semDetails.querySelectorAll(':scope > ul > li > details').forEach(subjectDetails => {
-                subjectDetails.open = false;
-                // Also close deeper nested details
-                subjectDetails.querySelectorAll('details').forEach(d => d.open = false);
-            });
-        });
-
-
-
-        noResults.style.display = 'none';
-    }
-    
-    function getDetailsLevel(element) {
-        let level = 0;
-        let parent = element.parentElement;
-        while (parent) {
-            if (parent.tagName === 'DETAILS') {
-                level++;
-            }
-            parent = parent.parentElement;
-        }
-        return level;
-    }
-    
-    // Search on Enter key
-    document.addEventListener('DOMContentLoaded', function() {
-        const searchInput = document.getElementById('search-input');
-        if (searchInput) {
-            searchInput.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    applyFilters();
-                }
-            });
-        }
-        
-        // Attempt instant render from cache, then background refresh
-        loadCachedSnapshot();
-        fetchAndMaybeUpdateResources().catch(()=>{});
-        
-        // Refresh when tab regains focus
-        document.addEventListener('visibilitychange', function() {
-            if (!document.hidden) {
-                fetchAndMaybeUpdateResources().catch(()=>{});
-            }
+        // Close subjects and units inside each semester for a clean reset
+        semDetails.querySelectorAll(':scope > ul > li > details').forEach(subjectDetails => {
+            subjectDetails.open = false;
+            // Also close deeper nested details
+            subjectDetails.querySelectorAll('details').forEach(d => d.open = false);
         });
     });
 
-    // Expose functions to global scope so inline handlers (onclick) work
-    // The page uses inline onclick attributes for the search buttons.
-    window.applyFilters = applyFilters;
-    window.clearFilters = clearFilters;
+    noResults.style.display = 'none';
+}
+    
+// Expose functions to window scope for onclick handlers
+window.applyFilters = () => applyFilters('search-input', 'content-area', 'no-results');
+window.clearFilters = customClearFilters;
+
+// Initialize on DOM ready
+document.addEventListener('DOMContentLoaded', function() {
+    initializeSearchOnEnter('search-input');
+    initializeDetailsToggle('content-area', 1); // Open first semester only
+    
+    // Attempt instant render from cache, then background refresh
+    loadCachedSnapshot();
+    fetchAndMaybeUpdateResources().catch(()=>{});
+    
+    // Refresh when tab regains focus
+    document.addEventListener('visibilitychange', function() {
+        if (!document.hidden) {
+            fetchAndMaybeUpdateResources().catch(()=>{});
+        }
+    });
+});
 </script>
 {% endmacro home_page %}
 

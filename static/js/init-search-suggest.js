@@ -76,16 +76,18 @@ export function initSubjectSearchSuggest(inputEl, applyFilters) {
       
       const links = contentArea.querySelectorAll('a');
       links.forEach(a => {
-        const text = (a.textContent || '').trim();
+        const text = (a.getAttribute('data-title') || a.textContent || '').trim();
+        const filename = (a.getAttribute('data-filename') || '').trim();
         const href = (a.getAttribute('href') || '').trim();
-        if (!text && !href) return;
-        
-        const key = `${text}|${href}`;
+        if (!text && !filename && !href) return;
+
+        const key = `${text}|${filename}`;
         if (seen.has(key)) return;
-        
-        if ((text && text.toLowerCase().includes(q)) || (href && href.toLowerCase().includes(q))) {
+
+        // Match on title or filename (not href)
+        if ((text && text.toLowerCase().includes(q)) || (filename && filename.toLowerCase().includes(q))) {
           seen.add(key);
-          items.push({ text: text || href, meta: href, url: href });
+          items.push({ text: text || filename, meta: filename, url: href });
         }
       });
       

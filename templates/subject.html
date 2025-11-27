@@ -166,18 +166,13 @@
     import { API_BASE_URL } from '/js/utils.js?v={{ config.extra.sw_version }}';
     const WORKER_URL = API_BASE_URL;
     
-    // Shared utility: Get nesting level of a details element
-    function getDetailsLevel(element) {
-        let level = 0;
-        let parent = element.parentElement;
-        while (parent) {
-            if (parent.tagName === 'DETAILS') {
-                level++;
-            }
-            parent = parent.parentElement;
-        }
-        return level;
-    }
+    // Import shared search/filter utilities
+    import { 
+        applyFilters, 
+        clearFilters, 
+        initializeSearchOnEnter, 
+        initializeDetailsToggle 
+    } from '/js/resource-search.js?v={{ config.extra.sw_version }}';
     
     // Use shared resource cache instead of per-subject cache
     const SHARED_CACHE_KEY = 'all_resources_snapshot_v2';
@@ -434,7 +429,9 @@
                 // Add individual resources (build URL on demand)
                 for (const resource of sortedResources) {
                     const url = buildResourceUrl(resource, unit);
-                    html += `<li><a href="${url}">${resource.title}</a></li>\n`;
+                    const title = resource.title || resource.filename;
+                    const filename = resource.filename || '';
+                    html += `<li><a href="${url}" data-filename="${filename}" data-title="${resource.title || ''}">${title}</a></li>\n`;
                 }
                 
                 html += `
@@ -459,124 +456,14 @@
         container.innerHTML = html;
     }
     
-    // Initialize details toggle behavior
-    function initializeDetailsToggle() {
-        // Open first 2 levels
-        document.querySelectorAll('details').forEach(function (details) {
-            const level = getDetailsLevel(details);
-            if (level < 2) {
-                details.open = true;
-            }
-        });
-
-        // Close all child <details> when a parent <details> is closed
-        document.querySelectorAll('details').forEach(function (details) {
-            details.addEventListener('toggle', function () {
-                if (!details.open) {
-                    details.querySelectorAll('details').forEach(function (child) {
-                        child.open = false;
-                    });
-                }
-            });
-        });
-    }
+    // Expose functions to window scope for onclick handlers
+    window.applyFilters = () => applyFilters('search-input', 'content-area', 'no-results');
+    window.clearFilters = () => clearFilters('search-input', 'content-area', 'no-results');
     
-    // Search and filter functionality
-    function applyFilters() {
-        const searchTerm = document.getElementById('search-input').value.toLowerCase().trim();
-        const contentArea = document.getElementById('content-area');
-        const noResults = document.getElementById('no-results');
-        
-        if (!searchTerm) {
-            clearFilters();
-            return;
-        }
-        
-        let foundAny = false;
-        
-        // Search through all links
-        const allLinks = contentArea.querySelectorAll('a');
-        allLinks.forEach(link => {
-            const text = link.textContent.toLowerCase();
-            const href = link.getAttribute('href') ? link.getAttribute('href').toLowerCase() : '';
-            const matches = text.includes(searchTerm) || href.includes(searchTerm);
-            
-            // Find the closest parent li
-            let listItem = link.closest('li');
-            if (listItem) {
-                if (matches) {
-                    listItem.style.display = '';
-                    foundAny = true;
-                    
-                    // Show all parent details elements
-                    let parent = listItem.parentElement;
-                    while (parent) {
-                        if (parent.tagName === 'DETAILS') {
-                            parent.open = true;
-                            parent.style.display = '';
-                        }
-                        if (parent.tagName === 'LI') {
-                            parent.style.display = '';
-                        }
-                        parent = parent.parentElement;
-                    }
-                } else {
-                    // Only hide leaf items (items without nested details)
-                    const hasNestedDetails = listItem.querySelector('details');
-                    if (!hasNestedDetails) {
-                        listItem.style.display = 'none';
-                    }
-                }
-            }
-        });
-        
-        // Hide empty details sections
-        contentArea.querySelectorAll('details').forEach(details => {
-            const visibleItems = Array.from(details.querySelectorAll(':scope > ul > li')).filter(li => {
-                return li.style.display !== 'none';
-            });
-            
-            if (visibleItems.length === 0) {
-                details.style.display = 'none';
-            } else {
-                details.style.display = '';
-            }
-        });
-        
-        noResults.style.display = foundAny ? 'none' : 'block';
-        contentArea.style.display = foundAny ? 'block' : 'none';
-    }
-    
-    function clearFilters() {
-        document.getElementById('search-input').value = '';
-        const contentArea = document.getElementById('content-area');
-        const noResults = document.getElementById('no-results');
-        
-        // Show all items
-        contentArea.querySelectorAll('li, details').forEach(el => {
-            el.style.display = '';
-        });
-        
-        // Reset details to initial state (first 2 levels open)
-        contentArea.querySelectorAll('details').forEach(details => {
-            const level = getDetailsLevel(details);
-            details.open = level < 2;
-        });
-        
-        noResults.style.display = 'none';
-        contentArea.style.display = 'block';
-    }
-    
-    // Search on Enter key
+    // Initialize search functionality on DOM ready
     document.addEventListener('DOMContentLoaded', function() {
-        const searchInput = document.getElementById('search-input');
-        if (searchInput) {
-            searchInput.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    applyFilters();
-                }
-            });
-        }
+        initializeSearchOnEnter('search-input');
+        initializeDetailsToggle('content-area', 2);
         
         // Attempt cached render first then conditional refresh
         loadCachedSubject();
