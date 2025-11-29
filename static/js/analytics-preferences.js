@@ -104,7 +104,7 @@
             </div>
             <div style="margin-bottom: 16px; font-size: 0.9rem; line-height: 1.4; color: #b0b0b0;">
                 We use PostHog to improve your experience. No personal data is sold.
-                You can opt-out anytime (please don't).
+                You can opt-out anytime.
             </div>
             <div style="display: flex; gap: 10px; justify-content: flex-end;">
                 <button id="analytics-settings-btn" style="
