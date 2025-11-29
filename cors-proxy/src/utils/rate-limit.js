@@ -1,0 +1,167 @@
+// Exponential backoff rate limiting for file downloads
+
+const RATE_LIMIT_WINDOW = 60000; // 1 minute in milliseconds
+const MAX_REQUESTS_PER_WINDOW = 10; // 10 requests per minute per IP
+const PENALTY_BASE_DURATION = 120000; // 2 minutes base penalty
+const PENALTY_MULTIPLIER = 3; // 3x increase per offense (2min, 6min, 18min, 54min)
+const MAX_PENALTY_DURATION = 3600000; // Max 1 hour penalty
+
+// Store rate limit data: Map<ip, {requests: Array<timestamp>, violations: Array<timestamp>}>
+const rateLimitStore = new Map();
+
+// Clean up old entries periodically to prevent memory leak
+function cleanupExpiredEntries() {
+  const now = Date.now();
+  for (const [ip, data] of rateLimitStore.entries()) {
+    const validRequests = data.requests.filter(time => now - time < RATE_LIMIT_WINDOW);
+    const validViolations = data.violations.filter(time => now - time < MAX_PENALTY_DURATION);
+    
+    if (validRequests.length === 0 && validViolations.length === 0) {
+      rateLimitStore.delete(ip);
+    } else {
+      rateLimitStore.set(ip, { requests: validRequests, violations: validViolations });
+    }
+  }
+}
+
+// Calculate penalty duration based on number of violations
+function calculatePenalty(violations) {
+  if (violations.length === 0) return 0;
+  
+  // Exponential backoff: 2min * (3^violations)
+  // 1st: 2min, 2nd: 6min, 3rd: 18min, 4th: 54min, capped at 1hr
+  const penalty = PENALTY_BASE_DURATION * Math.pow(PENALTY_MULTIPLIER, violations.length);
+  return Math.min(penalty, MAX_PENALTY_DURATION);
+}
+
+// Check if IP is currently in penalty period
+function checkPenaltyPeriod(ip, now) {
+  const data = rateLimitStore.get(ip);
+  if (!data || data.violations.length === 0) return null;
+  
+  // Get recent violations (within max penalty window)
+  const recentViolations = data.violations.filter(time => now - time < MAX_PENALTY_DURATION);
+  if (recentViolations.length === 0) return null;
+  
+  // Calculate when the most recent violation's penalty expires
+  const lastViolation = recentViolations[recentViolations.length - 1];
+  const penaltyDuration = calculatePenalty(recentViolations);
+  const penaltyEndTime = lastViolation + penaltyDuration;
+  
+  if (now < penaltyEndTime) {
+    return {
+      inPenalty: true,
+      endsAt: penaltyEndTime,
+      violationCount: recentViolations.length,
+      remainingMs: penaltyEndTime - now
+    };
+  }
+  
+  return null;
+}
+
+// Check if request is within rate limit
+export function checkRateLimit(ip) {
+  const now = Date.now();
+  
+  // Check if IP is in penalty period from previous violations
+  const penalty = checkPenaltyPeriod(ip, now);
+  if (penalty) {
+    const resetAt = new Date(penalty.endsAt);
+    const remainingSeconds = Math.ceil(penalty.remainingMs / 1000);
+    
+    return {
+      allowed: false,
+      remaining: 0,
+      resetAt: resetAt.toISOString(),
+      limit: MAX_REQUESTS_PER_WINDOW,
+      penaltyActive: true,
+      violationCount: penalty.violationCount,
+      retryAfter: remainingSeconds
+    };
+  }
+  
+  // Get existing data for this IP
+  const data = rateLimitStore.get(ip) || { requests: [], violations: [] };
+  
+  // Filter out expired requests (older than window)
+  const validRequests = data.requests.filter(time => now - time < RATE_LIMIT_WINDOW);
+  const validViolations = data.violations.filter(time => now - time < MAX_PENALTY_DURATION);
+  
+  console.log(`[Rate Limit] IP: ${ip}, Current requests in window: ${validRequests.length}/${MAX_REQUESTS_PER_WINDOW}`);
+  
+  // Check if limit would be exceeded by this request
+  if (validRequests.length >= MAX_REQUESTS_PER_WINDOW) {
+    // Record violation
+    validViolations.push(now);
+    
+    const oldestRequest = validRequests[0];
+    const penaltyDuration = calculatePenalty(validViolations);
+    const penaltyEndTime = now + penaltyDuration;
+    
+    // Don't add this request to the count
+    rateLimitStore.set(ip, { requests: validRequests, violations: validViolations });
+    
+    console.log(`[Rate Limit] BLOCKED - Violation #${validViolations.length}, Penalty: ${Math.ceil(penaltyDuration/1000)}s`);
+    
+    return {
+      allowed: false,
+      remaining: 0,
+      resetAt: new Date(penaltyEndTime).toISOString(),
+      limit: MAX_REQUESTS_PER_WINDOW,
+      penaltyActive: true,
+      violationCount: validViolations.length,
+      retryAfter: Math.ceil(penaltyDuration / 1000)
+    };
+  }
+  
+  // Add current request timestamp
+  validRequests.push(now);
+  rateLimitStore.set(ip, { requests: validRequests, violations: validViolations });
+    
+  // Cleanup periodically (every 100 requests)
+  if (Math.random() < 0.01) {
+    cleanupExpiredEntries();
+  }
+  
+  return {
+    allowed: true,
+    remaining: MAX_REQUESTS_PER_WINDOW - validRequests.length,
+    resetAt: new Date(now + RATE_LIMIT_WINDOW).toISOString(),
+    limit: MAX_REQUESTS_PER_WINDOW,
+    penaltyActive: false,
+    violationCount: validViolations.length
+  };
+}
+
+// Create rate limit error response
+export function rateLimitResponse(limitInfo) {
+  const retryAfter = limitInfo.retryAfter || 60;
+  let message = 'Too many requests. Please try again later.';
+  
+  if (limitInfo.penaltyActive && limitInfo.violationCount > 1) {
+    const minutes = Math.ceil(retryAfter / 60);
+    message = `Multiple rate limit violations detected. Penalty timeout: ${minutes} minute${minutes !== 1 ? 's' : ''}. (Violation #${limitInfo.violationCount})`;
+  }
+  
+  return new Response(JSON.stringify({
+    error: 'Rate limit exceeded',
+    message: message,
+    limit: limitInfo.limit,
+    remaining: limitInfo.remaining,
+    resetAt: limitInfo.resetAt,
+    penaltyActive: limitInfo.penaltyActive,
+    violationCount: limitInfo.violationCount,
+    retryAfter: retryAfter
+  }), {
+    status: 429,
+    headers: {
+      'Content-Type': 'application/json',
+      'Retry-After': retryAfter.toString(),
+      'X-RateLimit-Limit': limitInfo.limit.toString(),
+      'X-RateLimit-Remaining': limitInfo.remaining.toString(),
+      'X-RateLimit-Reset': limitInfo.resetAt,
+      'X-RateLimit-Violation-Count': (limitInfo.violationCount || 0).toString()
+    }
+  });
+}

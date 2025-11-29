@@ -136,7 +136,7 @@ export async function getResources(request, env) {
         const resourcesToSend = isDelta ? deltaResources : resources;
         
         // Create slim metadata version for efficient caching (minimal: id, title, filename, context fields)
-        // URL is built client-side to save storage space
+        // Include storage_key for file downloads
         const slimResources = resourcesToSend.map(r => ({
             id: r.id,
             filename: r.filename,
@@ -144,7 +144,8 @@ export async function getResources(request, env) {
             semester: r.semester,
             subject: r.subject,
             unit: r.unit,
-            resource_type: r.resource_type
+            resource_type: r.resource_type,
+            storage_key: r.storage_key // Required for file downloads
         }));
 
                 const responseBody = {

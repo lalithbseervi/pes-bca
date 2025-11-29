@@ -10,6 +10,7 @@ import { handleDebugCookies } from "./api/debug.js"
 import { uploadResourceToSupabase, resourceStreamFromSupabase, mintStreamToken } from "./api/rw-supabase.js"
 import { getStatus, streamStatus, createIncident, addIncidentUpdate, updateComponentStatus } from "./api/status.js"
 import { verifyAdminPassphrase, getResources as getAdminResources, updateResource, deleteResource, getFilters, replaceFile } from "./api/admin.js"
+import { getFile } from "./api/file.js"
 import { getSubjectResources } from "./api/subject.js"
 import { getResources } from "./api/resources.js"
 // JWT utils are used inside route handlers
@@ -215,9 +216,38 @@ async function handleRequest(request, env) {
     return addCorsHeaders(response)
   }
 
-  // GET /api/subject/resources - Get subject resources organized hierarchically
+  // GET /api/subject/resources - Get resources for a specific subject
   if (request.method === 'GET' && url.pathname === '/api/subject/resources') {
     response = await getSubjectResources(request, env)
+    return addCorsHeaders(response)
+  }
+
+  // GET /api/file/:storageKey - Get file via signed URL redirect
+  const fileMatch = url.pathname.match(/^\/api\/file\/(.+)$/);
+  if (fileMatch && request.method === 'GET') {
+    const ctx = { params: { storageKey: fileMatch[1] } };
+    response = await getFile(request, env, ctx);
+    return addCorsHeaders(response)
+  }
+
+  // GET /api/rate-limit/status - Check current rate-limit status (does NOT consume a request)
+  if (request.method === 'GET' && url.pathname === '/api/rate-limit/status') {
+    // Reuse rate-limit module in a non-mutating way by importing here
+    const { checkRateLimit } = await import('./utils/rate-limit.js');
+    const ip = request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For') || 'unknown';
+    // Call checkRateLimit but do not persist this check as a real request
+    const info = checkRateLimit(ip);
+    // If allowed, don't mutate store; if blocked, the store is already tracking violations
+    const body = JSON.stringify({
+      allowed: info.allowed,
+      remaining: info.remaining,
+      resetAt: info.resetAt,
+      penaltyActive: info.penaltyActive,
+      violationCount: info.violationCount,
+      retryAfter: info.retryAfter || null,
+      limit: info.limit
+    });
+    response = new Response(body, { status: 200, headers: { 'Content-Type': 'application/json' } });
     return addCorsHeaders(response)
   }
 

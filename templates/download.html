@@ -1,0 +1,658 @@
+{% extends "base.html" %}
+
+{% block main_content %}
+<link rel="stylesheet" href="/css/forms.css?v={{ config.extra.sw_version }}">
+<style>
+  .download-page {
+    max-width: 800px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+  }
+
+  .download-form {
+    background: var(--bg-1);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+  }
+
+  .form-group {
+    margin-bottom: 1.5rem;
+  }
+
+  .form-group label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--text-0);
+  }
+
+  .form-group select {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-0);
+    color: var(--text-0);
+    font-size: 1rem;
+  }
+
+  .form-group select:focus {
+    outline: none;
+    border-color: #5598dc;
+  }
+
+  .download-btn {
+    background: #5598dc;
+    color: white;
+    border: none;
+    padding: 0.875rem 2rem;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+    transition: background 0.2s;
+  }
+
+  .download-btn:hover:not(:disabled) {
+    background: #4580c0;
+  }
+
+  .download-btn:disabled {
+    background: #9ca3af;
+    cursor: not-allowed;
+  }
+
+  .info-box {
+    background: #e0f2fe;
+    border: 1px solid #7dd3fc;
+    border-radius: 6px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    color: #0c4a6e;
+  }
+
+  .progress-section {
+    display: none;
+    background: var(--bg-1);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 2rem;
+  }
+
+  .progress-section.active {
+    display: block;
+  }
+
+  .progress-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .stat-card {
+    background: var(--bg-0);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 1rem;
+    text-align: center;
+  }
+
+  .stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-0);
+  }
+
+  .stat-label {
+    font-size: 0.875rem;
+    color: var(--text-1);
+    margin-top: 0.25rem;
+  }
+
+  .file-list {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-0);
+  }
+
+  .file-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .file-item:last-child {
+    border-bottom: none;
+  }
+
+  .file-status {
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+  }
+
+  .file-name {
+    flex: 1;
+    font-size: 0.95rem;
+    color: var(--text-0);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+
+
+  .status-pending { color: #9ca3af; }
+  .status-downloading { color: #3b82f6; }
+  .status-completed { color: #10b981; }
+  .status-failed { color: #ef4444; }
+
+  .cancel-btn {
+    background: #ef4444;
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 1rem;
+  }
+
+  .cancel-btn:hover {
+    background: #dc2626;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .info-box {
+      background: rgba(14, 116, 144, 0.1);
+      border-color: rgba(14, 116, 144, 0.3);
+      color: #a5f3fc;
+    }
+  }
+</style>
+
+<main class="download-page">
+  {% include 'components/login.html' %}
+  
+  <div class="body" style="display: none;">
+    <h1>Batch Download</h1>
+    <p>Download multiple files at once by selecting a subject and unit. Files will be downloaded one at a time to avoid overwhelming your connection.</p>
+
+    <div class="info-box">
+      <strong>Note:</strong> Downloads will be queued and processed 2-3 files at a time. Large files may take longer. You can cancel at any time.
+    </div>
+
+    <div class="download-form">
+      <div class="form-group">
+        <label for="semester-select">Semester *</label>
+        <select id="semester-select" required>
+          <option value="">Select Semester</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="subject-select">Subject *</label>
+        <select id="subject-select" required disabled>
+          <option value="">Select Semester First</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="unit-select">Unit *</label>
+        <select id="unit-select" required disabled>
+          <option value="">Select Subject First</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="type-select">Resource Type (Optional)</label>
+        <select id="type-select" disabled>
+          <option value="">All Types</option>
+        </select>
+      </div>
+
+      <button class="download-btn" id="start-download-btn" disabled>Start Download</button>
+    </div>
+
+    <div class="progress-section" id="progress-section">
+      <h2>Download Progress</h2>
+      
+      <div class="progress-stats">
+        <div class="stat-card">
+          <div class="stat-value" id="stat-total">0</div>
+          <div class="stat-label">Total Files</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value status-downloading" id="stat-downloading">0</div>
+          <div class="stat-label">Downloading</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value status-completed" id="stat-completed">0</div>
+          <div class="stat-label">Completed</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value status-failed" id="stat-failed">0</div>
+          <div class="stat-label">Failed</div>
+        </div>
+      </div>
+
+      <div class="file-list" id="file-list">
+        <!-- Files will be listed here -->
+      </div>
+
+      <button class="cancel-btn" id="cancel-btn">Cancel Downloads</button>
+    </div>
+  </div>
+</main>
+
+<script type="module">
+import { API_BASE_URL } from '/js/utils.js?v={{ config.extra.sw_version }}';
+
+const CACHE_KEY = 'all_resources_snapshot_v2';
+const CONCURRENT_DOWNLOADS = 2;
+const RETRY_ATTEMPTS = 2;
+const RETRY_DELAY = 1000;
+
+let allResources = [];
+let downloadQueue = [];
+let activeDownloads = 0;
+let cancelled = false;
+let stats = { total: 0, downloading: 0, completed: 0, failed: 0 };
+
+// Load cached resources
+function loadCachedResources() {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    console.error('Failed to load cached resources', e);
+    return [];
+  }
+}
+
+// Build download URL for a resource - use Worker API to get Supabase signed URL
+function buildDownloadUrl(resource) {
+  // Construct path from metadata matching upload storage path format
+  // Format: ${semester}/${subject}/${resource_type}/${unitSegment}/${filename}
+  const semester = resource.semester || 'sem-1';
+  const subject = resource.subject;
+  const type = resource.resource_type || 'Miscellaneous';
+  const filename = resource.filename;
+  const unit = resource.unit;
+
+  let unitSegment;
+  if (unit === 'all') {
+    unitSegment = 'unit-all';
+  } else if (unit !== null && !isNaN(Number(unit))) {
+    unitSegment = `unit-${Number(unit)}`;
+  } else {
+    unitSegment = 'unit-1';
+  }
+  
+  const path = `${semester}/${subject}/${type}/${unitSegment}/${filename}`;
+  
+  console.log('Constructed path:', path, 'for', resource.filename);
+  return `${API_BASE_URL}/api/file/${encodeURIComponent(path)}`;
+}
+
+// Populate semester dropdown
+function populateSemesters() {
+  const semesters = [...new Set(allResources.map(r => r.semester).filter(Boolean))].sort();
+  const select = document.getElementById('semester-select');
+  
+  select.innerHTML = '<option value="">Select Semester</option>' +
+    semesters.map(s => `<option value="${s}">${s}</option>`).join('');
+}
+
+// Populate subjects based on semester
+function populateSubjects(semester) {
+  const subjects = [...new Set(
+    allResources
+      .filter(r => r.semester === semester)
+      .map(r => r.subject)
+      .filter(Boolean)
+  )].sort();
+  
+  const select = document.getElementById('subject-select');
+  select.innerHTML = '<option value="">Select Subject</option>' +
+    subjects.map(s => `<option value="${s}">${s.toUpperCase()}</option>`).join('');
+  select.disabled = false;
+}
+
+// Populate units based on subject
+function populateUnits(semester, subject) {
+  const units = [...new Set(
+    allResources
+      .filter(r => r.semester === semester && r.subject === subject)
+      .map(r => r.unit)
+      .filter(u => u !== null && u !== undefined)
+  )].sort((a, b) => {
+    if (a === 'all') return 1;
+    if (b === 'all') return -1;
+    const numA = parseInt(a);
+    const numB = parseInt(b);
+    if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+    return String(a).localeCompare(String(b));
+  });
+  
+  const select = document.getElementById('unit-select');
+  select.innerHTML = '<option value="">Select Unit</option>' +
+    units.map(u => {
+      const label = u === 'all' ? 'All Units' : `Unit ${u}`;
+      return `<option value="${u}">${label}</option>`;
+    }).join('');
+  select.disabled = false;
+}
+
+// Populate resource types
+function populateTypes(semester, subject, unit) {
+  const types = [...new Set(
+    allResources
+      .filter(r => r.semester === semester && r.subject === subject && r.unit == unit)
+      .map(r => r.resource_type)
+      .filter(Boolean)
+  )].sort();
+  
+  const select = document.getElementById('type-select');
+  select.innerHTML = '<option value="">All Types</option>' +
+    types.map(t => `<option value="${t}">${t}</option>`).join('');
+  select.disabled = false;
+}
+
+// Get filtered resources
+function getFilteredResources() {
+  const semester = document.getElementById('semester-select').value;
+  const subject = document.getElementById('subject-select').value;
+  const unit = document.getElementById('unit-select').value;
+  const type = document.getElementById('type-select').value;
+
+  return allResources.filter(r => {
+    if (r.semester !== semester) return false;
+    if (r.subject !== subject) return false;
+    if (r.unit != unit) return false;
+    if (type && r.resource_type !== type) return false;
+    return true;
+  });
+}
+
+// Format bytes
+function formatBytes(bytes) {
+  if (!bytes) return 'Unknown';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+}
+
+// Update stats display
+function updateStats() {
+  document.getElementById('stat-total').textContent = stats.total;
+  document.getElementById('stat-downloading').textContent = stats.downloading;
+  document.getElementById('stat-completed').textContent = stats.completed;
+  document.getElementById('stat-failed').textContent = stats.failed;
+}
+
+// Download a single file
+async function downloadFile(item, retries = RETRY_ATTEMPTS) {
+  const { resource, element } = item;
+  
+  try {
+    const url = buildDownloadUrl(resource);
+    console.log('Downloading:', resource.filename, 'from', url);
+    
+    const statusIcon = element.querySelector('.file-status');
+    const fileName = element.querySelector('.file-name');
+    
+    statusIcon.textContent = '⬇️';
+    fileName.classList.remove('status-pending', 'status-failed');
+    fileName.classList.add('status-downloading');
+    stats.downloading++;
+    updateStats();
+    
+    const response = await fetch(url);
+    console.log('Response status:', response.status, 'for', resource.filename);
+    
+    if (!response.ok) {
+      // Handle rate limiting specifically
+      if (response.status === 429) {
+        const retryAfter = response.headers.get('Retry-After') || '60';
+        const violationCount = response.headers.get('X-RateLimit-Violation-Count') || '1';
+        const errorData = await response.json().catch(() => ({}));
+        const resetTime = errorData.resetAt ? new Date(errorData.resetAt).toLocaleTimeString() : 'soon';
+        
+        // Cancel remaining downloads and show clear message
+        cancelled = true;
+        downloadQueue = [];
+        
+        const minutes = Math.ceil(retryAfter / 60);
+        const timeStr = minutes >= 1 ? `${minutes} minute${minutes !== 1 ? 's' : ''}` : `${retryAfter} seconds`;
+        
+        let message = `⚠️ Rate Limit Exceeded\n\n${errorData.message || 'Too many download requests.'}\n\nPlease wait ${timeStr} before trying again.\nLimit resets at: ${resetTime}`;
+        
+        if (errorData.penaltyActive && errorData.violationCount > 1) {
+          message += `\n\n⚠️ Warning: Repeated violations increase timeout duration exponentially.\nThis is violation #${violationCount}.`;
+        } else {
+          message += `\n\nTip: The download page automatically limits concurrent downloads to stay within limits.`;
+        }
+        
+        alert(message);
+        
+        throw new Error(`Rate limit exceeded. Retry after ${timeStr}`);
+      }
+      
+      const errorText = await response.text().catch(() => 'No error details');
+      console.error('Download failed:', response.status, errorText);
+      throw new Error(`HTTP ${response.status}: ${errorText.substring(0, 100)}`);
+    }
+    
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = resource.filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    
+    // Clean up blob URL after a delay
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+    
+    statusIcon.textContent = '';
+    fileName.classList.remove('status-downloading');
+    fileName.classList.add('status-completed');
+    stats.downloading--;
+    stats.completed++;
+    updateStats();
+    
+    // Hide cancel button if all downloads are done
+    if (stats.completed + stats.failed === stats.total) {
+      document.getElementById('cancel-btn').style.display = 'none';
+      document.getElementById('start-download-btn').disabled = false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Download failed for', resource.filename, '- Error:', error.message);
+    
+    // Only retry if we have retries left and not cancelled
+    if (retries > 0 && !cancelled) {
+      console.log(`Retrying ${resource.filename} (${retries} attempts left)...`);
+      stats.downloading--;
+      updateStats();
+      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+      return downloadFile(item, retries - 1);
+    }
+    
+    // Mark as failed
+    const statusIcon = element.querySelector('.file-status');
+    const fileName = element.querySelector('.file-name');
+    statusIcon.textContent = '❌';
+    fileName.classList.remove('status-downloading', 'status-pending');
+    fileName.classList.add('status-failed');
+    
+    // Ensure downloading count is decremented
+    if (stats.downloading > 0) {
+      stats.downloading--;
+    }
+    stats.failed++;
+    updateStats();
+    
+    // Hide cancel button if all downloads are done
+    if (stats.completed + stats.failed === stats.total) {
+      document.getElementById('cancel-btn').style.display = 'none';
+      document.getElementById('start-download-btn').disabled = false;
+    }
+    
+    console.error(`Final failure for ${resource.filename} after all retries`);
+    return false;
+  }
+}
+
+// Process download queue
+async function processQueue() {
+  while (downloadQueue.length > 0 && !cancelled) {
+    if (activeDownloads < CONCURRENT_DOWNLOADS) {
+      const item = downloadQueue.shift();
+      activeDownloads++;
+      
+      downloadFile(item).finally(() => {
+        activeDownloads--;
+        processQueue();
+      });
+    } else {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  }
+}
+
+// Start downloads
+async function startDownload() {
+  const resources = getFilteredResources();
+  
+  if (resources.length === 0) {
+    alert('No files found for the selected criteria.');
+    return;
+  }
+
+  // Pre-check rate limit status before starting any downloads
+  try {
+    const rlRes = await fetch(`${API_BASE_URL}/api/rate-limit/status`);
+    if (rlRes.ok) {
+      const info = await rlRes.json();
+      if (!info.allowed) {
+        const minutes = info.retryAfter ? Math.ceil(info.retryAfter / 60) : null;
+        const timeStr = minutes && minutes >= 1 ? `${minutes} minute${minutes !== 1 ? 's' : ''}` : `${info.retryAfter || 60} seconds`;
+        const resetStr = info.resetAt ? new Date(info.resetAt).toLocaleTimeString() : 'soon';
+        
+        alert(`⚠️ Rate Limit Active\n\nDownloads are temporarily blocked due to recent activity.\nPlease wait ${timeStr} and try again.\nLimit resets at: ${resetStr}`);
+        return;
+      }
+    }
+  } catch (e) {
+    console.warn('Rate limit status check failed:', e);
+  }
+  
+  cancelled = false;
+  downloadQueue = [];
+  stats = { total: resources.length, downloading: 0, completed: 0, failed: 0 };
+  
+  const fileList = document.getElementById('file-list');
+  fileList.innerHTML = '';
+  
+  resources.forEach(resource => {
+    const element = document.createElement('div');
+    element.className = 'file-item';
+    element.innerHTML = `
+      <div class="file-status status-pending">⏳</div>
+      <div class="file-name status-pending">${resource.link_title || resource.filename}</div>
+    `;
+    fileList.appendChild(element);
+    
+    downloadQueue.push({ resource, element });
+  });
+  
+  updateStats();
+  document.getElementById('progress-section').classList.add('active');
+  document.getElementById('start-download-btn').disabled = true;
+  document.getElementById('cancel-btn').style.display = 'inline-block';
+  
+  processQueue();
+}
+
+// Cancel downloads
+function cancelDownloads() {
+  cancelled = true;
+  downloadQueue = [];
+  document.getElementById('start-download-btn').disabled = false;
+}
+
+// Event listeners
+document.getElementById('semester-select').addEventListener('change', (e) => {
+  const semester = e.target.value;
+  document.getElementById('subject-select').innerHTML = '<option value="">Select Semester First</option>';
+  document.getElementById('subject-select').disabled = true;
+  document.getElementById('unit-select').innerHTML = '<option value="">Select Subject First</option>';
+  document.getElementById('unit-select').disabled = true;
+  document.getElementById('type-select').innerHTML = '<option value="">All Types</option>';
+  document.getElementById('type-select').disabled = true;
+  document.getElementById('start-download-btn').disabled = true;
+  
+  if (semester) {
+    populateSubjects(semester);
+  }
+});
+
+document.getElementById('subject-select').addEventListener('change', (e) => {
+  const semester = document.getElementById('semester-select').value;
+  const subject = e.target.value;
+  document.getElementById('unit-select').innerHTML = '<option value="">Select Subject First</option>';
+  document.getElementById('unit-select').disabled = true;
+  document.getElementById('type-select').innerHTML = '<option value="">All Types</option>';
+  document.getElementById('type-select').disabled = true;
+  document.getElementById('start-download-btn').disabled = true;
+  
+  if (semester && subject) {
+    populateUnits(semester, subject);
+  }
+});
+
+document.getElementById('unit-select').addEventListener('change', (e) => {
+  const semester = document.getElementById('semester-select').value;
+  const subject = document.getElementById('subject-select').value;
+  const unit = e.target.value;
+  document.getElementById('start-download-btn').disabled = true;
+  
+  if (semester && subject && unit) {
+    populateTypes(semester, subject, unit);
+    document.getElementById('start-download-btn').disabled = false;
+  }
+});
+
+document.getElementById('start-download-btn').addEventListener('click', startDownload);
+document.getElementById('cancel-btn').addEventListener('click', cancelDownloads);
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+  allResources = loadCachedResources();
+  
+  if (allResources.length === 0) {
+    alert('No resources cached. Please visit the homepage first to load resources.');
+    return;
+  }
+  
+  populateSemesters();
+});
+</script>
+{% endblock main_content %}
