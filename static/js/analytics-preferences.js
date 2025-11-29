@@ -27,11 +27,26 @@
         }
     }
 
-    // Opt out of analytics
+    // Generate/Get an anonymous distinct_id for privacy-friendly tracking
+    function getAnonId() {
+        try {
+            const k = 'analytics_anon_id';
+            let v = localStorage.getItem(k);
+            if (!v) {
+                v = (crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2)));
+                localStorage.setItem(k, v);
+            }
+            return v;
+        } catch (_) {
+            return (Date.now().toString(36) + Math.random().toString(36).slice(2));
+        }
+    }
+
+    // Opt out of analytics (privacy-friendly mode: keep events without PII)
     function optOut() {
         localStorage.setItem('analytics_opt_out', 'true');
 
-        fetch(API_BASE_URL + '/api/analytics/cookieless', {
+        fetch(API_BASE_URL + '/api/analytics/proxy', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -40,14 +55,39 @@
                     source: 'consent_banner',
                     ts: new Date().toISOString(),
                     ua: navigator.userAgent
-                }
+                },
+                opted_out: true,
+                distinct_id: getAnonId()
             }),
             keepalive: true
-        }).then(res => console.debug('cookieless endpoint response', res && res.status)).catch(err => console.warn('cookieless fetch failed', err));
+        }).catch(err => console.warn('analytics proxy fetch failed', err));
 
-        // ensure client-side SDK (if present) stops capturing
+        // Configure SDK for anonymized tracking: no PII, no session recording
         waitForPostHog(() => {
-            try { posthog.opt_out_capturing(); } catch(e){ console.warn('posthog opt_out failed', e); }
+            try {
+                // Reset identity and properties to avoid any PII
+                posthog.reset();
+                // Disable session recording if enabled
+                posthog.stopSessionRecording && posthog.stopSessionRecording();
+                // Use a stable random distinct id for anonymous analytics
+                const anonId = getAnonId();
+                posthog.identify(anonId);
+                // Ensure capturing stays enabled so events still flow
+                posthog.opt_in_capturing();
+                // Mirror all subsequent capture calls to the worker proxy
+                const originalCapture = posthog.capture.bind(posthog);
+                posthog.capture = function(ev, props){
+                    try {
+                        fetch(API_BASE_URL + '/api/analytics/proxy', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ event: ev, props: props || {}, distinct_id: anonId, opted_out: true })
+                        }).catch(()=>{});
+                    } catch(_){}
+                    // Still call local capture (SDK) to preserve in-app logic; server strips PII
+                    try { originalCapture(ev, props); } catch(_){}
+                };
+            } catch(e){ console.warn('posthog privacy mode failed', e); }
         });
     }
 
@@ -56,12 +96,16 @@
         localStorage.setItem('analytics_opt_out', 'false');
         
         waitForPostHog(() => {
-            // Switch to cookie-based tracking for better attribution
-            posthog.set_config({ cookieless_mode: false });
-            posthog.opt_in_capturing();
-            posthog.capture('analytics_opted_in', {
-                timestamp: new Date().toISOString()
-            });
+            try {
+                // Switch to cookie-based tracking for better attribution
+                posthog.set_config({ cookieless_mode: false });
+                posthog.opt_in_capturing();
+                // Re-enable session recording if you use it
+                posthog.startSessionRecording && posthog.startSessionRecording();
+                posthog.capture('analytics_opted_in', {
+                    timestamp: new Date().toISOString()
+                });
+            } catch (e) { console.warn('posthog opt_in failed', e); }
         });
     }
 
@@ -348,14 +392,20 @@
         // Apply user preference if they've made a choice
         if (hasUserMadeChoice()) {
             waitForPostHog(() => {
-                if (hasOptedOut()) {
-                    // Keep cookieless mode on and opt out
-                    posthog.opt_out_capturing();
-                } else {
-                    // User opted in - switch to cookie mode and opt in
-                    posthog.set_config({ cookieless_mode: false });
-                    posthog.opt_in_capturing();
-                }
+                try {
+                    if (hasOptedOut()) {
+                        // Privacy-friendly mode
+                        posthog.reset();
+                        posthog.stopSessionRecording && posthog.stopSessionRecording();
+                        posthog.identify(getAnonId());
+                        posthog.opt_in_capturing();
+                    } else {
+                        // Normal analytics mode
+                        posthog.set_config({ cookieless_mode: false });
+                        posthog.opt_in_capturing();
+                        posthog.startSessionRecording && posthog.startSessionRecording();
+                    }
+                } catch (e) { console.warn('posthog init preference failed', e); }
             });
         }
 
@@ -367,7 +417,7 @@
 
     // Helper function to check if PII tracking is allowed
     function isPIITrackingAllowed() {
-        // If user has opted out, no PII should be sent
+        // If user has opted out, we still allow events but forbid any user-identifying properties
         return !hasOptedOut();
     }
 

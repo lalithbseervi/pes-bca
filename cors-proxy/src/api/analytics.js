@@ -1,62 +1,65 @@
-export async function handleCookielessEvent(request, env) {
-  console.log('handleCookielessEvent: incoming', request.method, request.url);
-  const JSON_HEADERS = { 'Content-Type': 'application/json' };
+// Analytics proxy: forwards events to PostHog while stripping PII
 
-  let body;
+function jsonResponse(obj, status = 200) {
+  return new Response(JSON.stringify(obj), {
+    status,
+    headers: { 'Content-Type': 'application/json' }
+  });
+}
+
+function sanitizeProps(props, opted_out) {
+  const p = { ...(props || {}) };
+  if (opted_out) {
+    delete p.email;
+    delete p.name;
+    delete p.user_id;
+    delete p.phone;
+    delete p.$set;
+    delete p.$ip;
+  }
+  p.$lib = 'worker-proxy';
+  p.$time = new Date().toISOString();
+  return p;
+}
+
+export async function proxyAnalytics(request, env) {
   try {
-    body = await request.json();
-    console.log('handleCookielessEvent: body', body);
-  } catch (e) {
-    return new Response(JSON.stringify({ success: false, error: 'invalid_json' }), { status: 400, headers: JSON_HEADERS });
-  }
-
-  // validate minimum
-  const eventName = typeof body.event === 'string' ? body.event : 'client_event';
-  const props = (body.props && typeof body.props === 'object') ? body.props : {};
-
-  // Use env var for write key and optional host
-  const WRITE_KEY = env.POSTHOG_WRITE_KEY;
-  const PH_HOST = env.POSTHOG_HOST || 'https://app.posthog.com';
-
-  if (!WRITE_KEY) {
-    return new Response(JSON.stringify({ success: false, error: 'no_write_key' }), { status: 500, headers: JSON_HEADERS });
-  }
-
-  // Build PostHog payload. Do NOT set a persistent distinct_id for privacy.
-  const payload = {
-    api_key: WRITE_KEY,
-    event: eventName,
-    properties: {
-      ...props,
-      _cookieless: true
+    const contentType = request.headers.get('Content-Type') || '';
+    if (!contentType.includes('application/json')) {
+      return jsonResponse({ error: 'Invalid content type' }, 400);
     }
-  };
 
-  const genId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : (`cookieless-${Date.now()}-${Math.random().toString(36).slice(2,10)}`);
-  if (!payload.properties) payload.properties = {};
-  if (!payload.properties.distinct_id) payload.properties.distinct_id = genId;
+    const body = await request.json();
+    const { event, props = {}, distinct_id, opted_out } = body;
 
-  try {
-    const resp = await fetch(`${PH_HOST}/capture`, {
+    if (!event) {
+      return jsonResponse({ error: 'Missing event name' }, 400);
+    }
+
+    const safeProps = sanitizeProps(props, opted_out);
+
+    const payload = {
+      api_key: env.POSTHOG_WRITE_KEY,
+      event,
+      properties: safeProps,
+      distinct_id: distinct_id || undefined,
+    };
+
+    const url = (env.PH_HOST || 'https://us.posthog.com') + '/capture/';
+
+    const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${WRITE_KEY}` },
-      body: JSON.stringify(payload)
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
     });
-    console.log('handleCookielessEvent: forwarded to PostHog, status', resp.status);
 
-    try {
-      const text = await resp.text();
-      console.log('handleCookielessEvent: posthog response body:', text);
-    } catch (e) {
-      console.log('handleCookielessEvent: failed to read posthog response body', e);
+    if (!res.ok) {
+      const txt = await res.text();
+      return jsonResponse({ error: 'Upstream error', status: res.status, details: txt }, 502);
     }
 
-    if (!resp.ok) {
-      return new Response(JSON.stringify({ success: false, forwarded: false }), { status: 502, headers: JSON_HEADERS });
-    }
-
-    return new Response(JSON.stringify({ success: true }), { status: 200, headers: JSON_HEADERS });
-  } catch (err) {
-    return new Response(JSON.stringify({ success: false, error: String(err) }), { status: 502, headers: JSON_HEADERS });
+    return jsonResponse({ ok: true }, 200);
+  } catch (e) {
+    return jsonResponse({ error: 'Internal error', message: e.message }, 500);
   }
 }

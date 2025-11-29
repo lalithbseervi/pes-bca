@@ -5,12 +5,12 @@ import { logoutHandler } from "./api/logout.js"
 import { invalidateCache } from "./api/invalidate-cache.js"
 import { getCacheStats } from "./api/cache-stats.js"
 import { handleFormReq } from "./api/contributeForm.js"
-import { handleCookielessEvent } from "./api/analytics.js"
 import { handleDebugCookies } from "./api/debug.js"
 import { uploadResourceToSupabase, resourceStreamFromSupabase, mintStreamToken } from "./api/rw-supabase.js"
 import { getStatus, streamStatus, createIncident, addIncidentUpdate, updateComponentStatus } from "./api/status.js"
 import { verifyAdminPassphrase, getResources as getAdminResources, updateResource, deleteResource, getFilters, replaceFile } from "./api/admin.js"
 import { getFile } from "./api/file.js"
+import { proxyAnalytics } from "./api/analytics.js"
 import { getSubjectResources } from "./api/subject.js"
 import { getResources } from "./api/resources.js"
 // JWT utils are used inside route handlers
@@ -227,6 +227,12 @@ async function handleRequest(request, env) {
   if (fileMatch && request.method === 'GET') {
     const ctx = { params: { storageKey: fileMatch[1] } };
     response = await getFile(request, env, ctx);
+    return addCorsHeaders(response)
+  }
+
+  // POST /api/analytics/proxy - Route analytics events via Worker (strip PII)
+  if (request.method === 'POST' && url.pathname === '/api/analytics/proxy') {
+    response = await proxyAnalytics(request, env);
     return addCorsHeaders(response)
   }
 
