@@ -35,18 +35,19 @@ export async function getFile(request, env, ctx) {
         // Get client IP for rate limiting
         const clientIP = request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For') || 'unknown';
         
-        // Check rate limit
-        const limitInfo = checkRateLimit(clientIP);
+        // Check rate limit (persistent, consume request)
+        const limitInfo = await checkRateLimit(clientIP, env, { consume: true });
         if (!limitInfo.allowed) {
             console.warn('Rate limit exceeded for IP:', clientIP);
             return rateLimitResponse(limitInfo);
         }
         
-        // Add rate limit headers to successful responses
+        // Rate limit headers for responses
         const rateLimitHeaders = {
             'X-RateLimit-Limit': limitInfo.limit.toString(),
             'X-RateLimit-Remaining': limitInfo.remaining.toString(),
-            'X-RateLimit-Reset': limitInfo.resetAt
+            'X-RateLimit-Reset': limitInfo.resetAt,
+            'X-RateLimit-Violation-Count': (limitInfo.violationCount || 0).toString()
         };
         
         const { storageKey } = ctx.params;

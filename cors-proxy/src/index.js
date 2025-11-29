@@ -232,12 +232,9 @@ async function handleRequest(request, env) {
 
   // GET /api/rate-limit/status - Check current rate-limit status (does NOT consume a request)
   if (request.method === 'GET' && url.pathname === '/api/rate-limit/status') {
-    // Reuse rate-limit module in a non-mutating way by importing here
     const { checkRateLimit } = await import('./utils/rate-limit.js');
     const ip = request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For') || 'unknown';
-    // Call checkRateLimit but do not persist this check as a real request
-    const info = checkRateLimit(ip);
-    // If allowed, don't mutate store; if blocked, the store is already tracking violations
+    const info = await checkRateLimit(ip, env, { consume: false });
     const body = JSON.stringify({
       allowed: info.allowed,
       remaining: info.remaining,

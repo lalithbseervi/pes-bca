@@ -6,8 +6,35 @@ const PENALTY_BASE_DURATION = 120000; // 2 minutes base penalty
 const PENALTY_MULTIPLIER = 3; // 3x increase per offense (2min, 6min, 18min, 54min)
 const MAX_PENALTY_DURATION = 3600000; // Max 1 hour penalty
 
-// Store rate limit data: Map<ip, {requests: Array<timestamp>, violations: Array<timestamp>}>
+// In-memory fallback store (used if KV unavailable)
 const rateLimitStore = new Map();
+
+// KV key prefix
+const KV_KEY_PREFIX = 'rl:'; // rl:<ip>
+
+async function kvGet(env, ip) {
+  if (!env.RATE_LIMIT_KV) return null;
+  try {
+    const raw = await env.RATE_LIMIT_KV.get(KV_KEY_PREFIX + ip, 'json');
+    return raw || null;
+  } catch (e) {
+    console.warn('[RateLimit] KV get failed', e);
+    return null;
+  }
+}
+
+async function kvPut(env, ip, data, ttlSeconds) {
+  if (!env.RATE_LIMIT_KV) return;
+  try {
+    await env.RATE_LIMIT_KV.put(
+      KV_KEY_PREFIX + ip,
+      JSON.stringify(data),
+      ttlSeconds ? { expirationTtl: ttlSeconds } : undefined
+    );
+  } catch (e) {
+    console.warn('[RateLimit] KV put failed', e);
+  }
+}
 
 // Clean up old entries periodically to prevent memory leak
 function cleanupExpiredEntries() {
@@ -61,7 +88,7 @@ function checkPenaltyPeriod(ip, now) {
 }
 
 // Check if request is within rate limit
-export function checkRateLimit(ip) {
+export async function checkRateLimit(ip, env, { consume = true } = {}) {
   const now = Date.now();
   
   // Check if IP is in penalty period from previous violations
@@ -82,7 +109,11 @@ export function checkRateLimit(ip) {
   }
   
   // Get existing data for this IP
-  const data = rateLimitStore.get(ip) || { requests: [], violations: [] };
+  // Load from KV if available, else memory
+  let data = await kvGet(env, ip);
+  if (!data) {
+    data = rateLimitStore.get(ip) || { requests: [], violations: [] };
+  }
   
   // Filter out expired requests (older than window)
   const validRequests = data.requests.filter(time => now - time < RATE_LIMIT_WINDOW);
@@ -100,7 +131,9 @@ export function checkRateLimit(ip) {
     const penaltyEndTime = now + penaltyDuration;
     
     // Don't add this request to the count
-    rateLimitStore.set(ip, { requests: validRequests, violations: validViolations });
+    const record = { requests: validRequests, violations: validViolations };
+    rateLimitStore.set(ip, record);
+    await kvPut(env, ip, record, Math.ceil(MAX_PENALTY_DURATION / 1000));
     
     console.log(`[Rate Limit] BLOCKED - Violation #${validViolations.length}, Penalty: ${Math.ceil(penaltyDuration/1000)}s`);
     
@@ -116,8 +149,12 @@ export function checkRateLimit(ip) {
   }
   
   // Add current request timestamp
-  validRequests.push(now);
-  rateLimitStore.set(ip, { requests: validRequests, violations: validViolations });
+  if (consume) {
+    validRequests.push(now);
+  }
+  const record = { requests: validRequests, violations: validViolations };
+  rateLimitStore.set(ip, record);
+  await kvPut(env, ip, record, Math.ceil(MAX_PENALTY_DURATION / 1000));
     
   // Cleanup periodically (every 100 requests)
   if (Math.random() < 0.01) {
