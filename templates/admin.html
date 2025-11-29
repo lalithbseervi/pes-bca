@@ -170,19 +170,58 @@
   </div>
 </div>
 
+<!-- Replace File Modal -->
+<div class="admin-modal" id="replace-modal">
+  <div class="admin-modal-content">
+    <div class="admin-modal-header">
+      <h2>Replace File</h2>
+      <button class="admin-modal-close" onclick="closeReplaceModal()">×</button>
+    </div>
+    <form id="replace-form">
+      <input type="hidden" id="replace-id">
+      
+      <div class="admin-form-group">
+        <label>Current File</label>
+        <input type="text" id="replace-current" disabled style="opacity: 0.6;">
+      </div>
+      
+      <div class="admin-form-group">
+        <label>New File *</label>
+        <input type="file" id="replace-file" required accept=".pdf,.jpg,.jpeg,.png,.gif,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,.rar">
+        <small style="color: var(--admin-text-secondary); font-size: 0.85rem;">
+          Upload a new file to replace the current one. All metadata will be preserved.
+        </small>
+      </div>
+      
+      <div id="replace-progress" style="display: none; margin-top: 1rem;">
+        <div style="background: var(--admin-bg); border-radius: 4px; overflow: hidden; height: 8px;">
+          <div id="replace-progress-bar" style="background: #10b981; height: 100%; width: 0%; transition: width 0.3s;"></div>
+        </div>
+        <small id="replace-progress-text" style="color: var(--admin-text-secondary); margin-top: 0.5rem; display: block;"></small>
+      </div>
+      
+      <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1.5rem;">
+        <button type="button" class="admin-btn admin-btn-secondary" onclick="closeReplaceModal()">Cancel</button>
+        <button type="submit" class="admin-btn admin-btn-primary" id="replace-file-btn">Replace File</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- Edit Modal -->
 <div class="admin-modal" id="edit-modal">
   <div class="admin-modal-content">
     <div class="admin-modal-header">
-      <h2>Edit Link Title</h2>
+      <h2>Edit Resource</h2>
       <button class="admin-modal-close" onclick="closeEditModal()">×</button>
     </div>
     <form id="edit-form">
       <input type="hidden" id="edit-id">
       
       <div class="admin-form-group">
-        <label>Current Filename</label>
-        <input type="text" id="edit-filename" disabled style="opacity: 0.6;">
+        <label>Filename *</label>
+        <input type="text" id="edit-filename" required placeholder="Enter filename (e.g., 01_intro.pdf)">
+        <small style="color: var(--admin-text-secondary); font-size: 0.85rem;">Changing this will update all references automatically</small>
       </div>
       
       <div class="admin-form-group">
@@ -297,6 +336,7 @@ function renderResources(resources) {
       <td>
         <div class="admin-actions">
           <button class="admin-btn-action admin-btn-action-edit" onclick="editResource('${r.id}')">Edit</button>
+          <button class="admin-btn-action" onclick="replaceFile('${r.id}', '${r.filename}')" style="background: #f59e0b; color: white;">Replace</button>
           <button class="admin-btn-action admin-btn-action-delete" onclick="deleteResource('${r.id}', '${r.filename}')">Delete</button>
         </div>
       </td>
@@ -327,9 +367,23 @@ function closeEditModal() {
   document.getElementById('edit-modal').classList.remove('active');
 }
 
+function replaceFile(id, filename) {
+  document.getElementById('replace-id').value = id;
+  document.getElementById('replace-current').value = filename;
+  document.getElementById('replace-file').value = '';
+  document.getElementById('replace-progress').style.display = 'none';
+  document.getElementById('replace-modal').classList.add('active');
+}
+
+function closeReplaceModal() {
+  document.getElementById('replace-modal').classList.remove('active');
+}
+
 // Make functions globally accessible for onclick handlers
 window.editResource = editResource;
 window.closeEditModal = closeEditModal;
+window.replaceFile = replaceFile;
+window.closeReplaceModal = closeReplaceModal;
 
 async function saveEdit(e) {
   e.preventDefault();
@@ -341,7 +395,8 @@ async function saveEdit(e) {
     const passphrase = getAdminPassphrase();
     
     const updates = {
-      link_title: document.getElementById('edit-link-title').value
+      filename: document.getElementById('edit-filename').value.trim(),
+      link_title: document.getElementById('edit-link-title').value.trim()
     };
     
     const resp = await fetch(`${API_BASE_URL}/api/admin/resources/${id}`, {
@@ -359,12 +414,74 @@ async function saveEdit(e) {
       throw new Error(error.error || 'Failed to update resource');
     }
     
-    showMessage('Link title updated successfully!');
+    showMessage('Resource updated successfully!');
     closeEditModal();
     await loadResources(currentPage);
   } catch (e) {
     console.error('Failed to update resource', e);
     showMessage('Failed to update resource: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function handleReplaceFile(e) {
+  e.preventDefault();
+  const btn = document.getElementById('replace-file-btn');
+  const progressDiv = document.getElementById('replace-progress');
+  const progressBar = document.getElementById('replace-progress-bar');
+  const progressText = document.getElementById('replace-progress-text');
+  
+  btn.disabled = true;
+  progressDiv.style.display = 'block';
+  progressBar.style.width = '0%';
+  progressText.textContent = 'Preparing upload...';
+  
+  try {
+    const id = document.getElementById('replace-id').value;
+    const fileInput = document.getElementById('replace-file');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+      throw new Error('Please select a file');
+    }
+    
+    const passphrase = getAdminPassphrase();
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    progressText.textContent = 'Uploading...';
+    progressBar.style.width = '50%';
+    
+    const resp = await fetch(`${API_BASE_URL}/api/admin/resources/${id}/file`, {
+      method: 'PUT',
+      headers: {
+        'X-Admin-Passphrase': passphrase
+      },
+      credentials: 'include',
+      body: formData
+    });
+    
+    progressBar.style.width = '90%';
+    
+    if (!resp.ok) {
+      const error = await resp.json();
+      throw new Error(error.error || 'Failed to replace file');
+    }
+    
+    progressBar.style.width = '100%';
+    progressText.textContent = 'Complete!';
+    
+    showMessage('File replaced successfully!');
+    
+    setTimeout(() => {
+      closeReplaceModal();
+      loadResources(currentPage);
+    }, 500);
+  } catch (e) {
+    console.error('Failed to replace file', e);
+    showMessage('Failed to replace file: ' + e.message, 'error');
+    progressDiv.style.display = 'none';
   } finally {
     btn.disabled = false;
   }
@@ -450,6 +567,9 @@ document.getElementById('next-page').addEventListener('click', () => {
 
 // Edit form
 document.getElementById('edit-form').addEventListener('submit', saveEdit);
+
+// Replace file form
+document.getElementById('replace-form').addEventListener('submit', handleReplaceFile);
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {

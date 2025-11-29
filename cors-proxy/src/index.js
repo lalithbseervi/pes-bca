@@ -9,7 +9,7 @@ import { handleCookielessEvent } from "./api/analytics.js"
 import { handleDebugCookies } from "./api/debug.js"
 import { uploadResourceToSupabase, resourceStreamFromSupabase, mintStreamToken } from "./api/rw-supabase.js"
 import { getStatus, streamStatus, createIncident, addIncidentUpdate, updateComponentStatus } from "./api/status.js"
-import { verifyAdminPassphrase, getResources as getAdminResources, updateResource, deleteResource, getFilters } from "./api/admin.js"
+import { verifyAdminPassphrase, getResources as getAdminResources, updateResource, deleteResource, getFilters, replaceFile } from "./api/admin.js"
 import { getSubjectResources } from "./api/subject.js"
 import { getResources } from "./api/resources.js"
 // JWT utils are used inside route handlers
@@ -236,6 +236,14 @@ async function handleRequest(request, env) {
   // GET /api/admin/filters - Get available filter values
   if (request.method === 'GET' && url.pathname === '/api/admin/filters') {
     response = await getFilters(request, env)
+    return addCorsHeaders(response)
+  }
+
+  // PUT /api/admin/resources/:id/file - Replace file
+  const replaceFileMatch = url.pathname.match(/^\/api\/admin\/resources\/([^/]+)\/file\/?$/);
+  if (replaceFileMatch && request.method === 'PUT') {
+    const ctx = { params: { id: replaceFileMatch[1] } };
+    response = await replaceFile(request, env, ctx);
     return addCorsHeaders(response)
   }
 

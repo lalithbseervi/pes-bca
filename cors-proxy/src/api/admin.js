@@ -175,6 +175,32 @@ export async function updateResource(request, env, ctx) {
         const { id } = ctx.params;
         const body = await request.json();
         
+        const base = env.SUPABASE_URL.replace(/\/+$/, '');
+        const headers = {
+            Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+            apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation'
+        };
+        
+        // Get current resource to check for filename changes
+        const getUrl = `${base}/rest/v1/fileStore?select=*&id=eq.${encodeURIComponent(id)}`;
+        const getResp = await fetch(getUrl, { headers });
+        
+        if (!getResp.ok) {
+            throw new Error('Resource not found');
+        }
+        
+        const resources = await getResp.json();
+        if (!resources || resources.length === 0) {
+            return new Response(JSON.stringify({ error: 'Resource not found' }), {
+                status: 404,
+                headers: JSON_HEADERS
+            });
+        }
+        
+        const currentResource = resources[0];
+        
         const allowedFields = ['link_title', 'filename', 'subject', 'semester', 'resource_type', 'unit'];
         const updates = {};
         
@@ -191,13 +217,48 @@ export async function updateResource(request, env, ctx) {
             });
         }
         
-        const base = env.SUPABASE_URL.replace(/\/+$/, '');
-        const headers = {
-            Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
-            apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=representation'
-        };
+        // If filename is being changed, rename the file in storage and update paths
+        if (updates.filename && updates.filename !== currentResource.filename) {
+            const oldStorageKey = currentResource.storage_key || '';
+            const pathParts = oldStorageKey.split('/');
+            
+            if (pathParts.length > 0 && oldStorageKey) {
+                // Replace the last part (filename) with the new filename
+                pathParts[pathParts.length - 1] = updates.filename;
+                const newStorageKey = pathParts.join('/');
+                
+                const BUCKET = 'fileStore';
+                
+                // Move/rename the file in Supabase storage
+                const moveUrl = `${base}/storage/v1/object/move`;
+                const moveResp = await fetch(moveUrl, {
+                    method: 'POST',
+                    headers: {
+                        ...headers,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        bucketId: BUCKET,
+                        sourceKey: oldStorageKey,
+                        destinationKey: newStorageKey
+                    })
+                });
+                
+                if (!moveResp.ok) {
+                    const error = await moveResp.text();
+                    throw new Error(`Failed to rename file in storage: ${error}`);
+                }
+                
+                updates.storage_key = newStorageKey;
+                
+                // Update storage_path if it exists
+                if (currentResource.storage_path) {
+                    const pathSegments = currentResource.storage_path.split('/');
+                    pathSegments[pathSegments.length - 1] = updates.filename;
+                    updates.storage_path = pathSegments.join('/');
+                }
+            }
+        }
         
         const updateUrl = `${base}/rest/v1/fileStore?id=eq.${encodeURIComponent(id)}`;
         const updateResp = await fetch(updateUrl, {
@@ -340,6 +401,149 @@ export async function deleteResource(request, env, ctx) {
         });
     } catch (e) {
         console.error('delete resource error', e);
+        return new Response(JSON.stringify({ error: e.message }), {
+            status: 500,
+            headers: JSON_HEADERS
+        });
+    }
+}
+
+// PUT /api/admin/resources/:id/file - Replace file while preserving metadata
+export async function replaceFile(request, env, ctx) {
+    
+    const user = await isAuthenticated(request, env);
+    if (!user) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+            status: 401,
+            headers: JSON_HEADERS
+        });
+    }
+    
+    try {
+        const { id } = ctx.params;
+        
+        const base = env.SUPABASE_URL.replace(/\/+$/, '');
+        const headers = {
+            Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+            apikey: env.SUPABASE_SERVICE_ROLE_KEY
+        };
+        
+        // Get current resource metadata
+        const getUrl = `${base}/rest/v1/fileStore?select=*&id=eq.${encodeURIComponent(id)}`;
+        const getResp = await fetch(getUrl, { headers });
+        
+        if (!getResp.ok) {
+            throw new Error('Resource not found');
+        }
+        
+        const resources = await getResp.json();
+        if (!resources || resources.length === 0) {
+            return new Response(JSON.stringify({ error: 'Resource not found' }), {
+                status: 404,
+                headers: JSON_HEADERS
+            });
+        }
+        
+        const resource = resources[0];
+        
+        // Parse the multipart form data
+        const formData = await request.formData();
+        const file = formData.get('file');
+        
+        if (!file) {
+            return new Response(JSON.stringify({ error: 'No file provided' }), {
+                status: 400,
+                headers: JSON_HEADERS
+            });
+        }
+        
+        // Delete old file from storage
+        if (resource.storage_key) {
+            const BUCKET = 'fileStore';
+            const deleteStorageUrl = `${base}/storage/v1/object/${encodeURIComponent(BUCKET)}/${encodeURIComponent(resource.storage_key)}`;
+            const deleteStorageResp = await fetch(deleteStorageUrl, {
+                method: 'DELETE',
+                headers
+            });
+            
+            if (!deleteStorageResp.ok) {
+                console.warn('Failed to delete old file from storage', await deleteStorageResp.text());
+            }
+        }
+        
+        // Upload new file to same storage location
+        const BUCKET = 'fileStore';
+        const storageKey = resource.storage_key || `${resource.subject || 'unknown'}/${resource.filename}`;
+        const uploadUrl = `${base}/storage/v1/object/${encodeURIComponent(BUCKET)}/${encodeURIComponent(storageKey)}`;
+        
+        const uploadResp = await fetch(uploadUrl, {
+            method: 'POST',
+            headers: {
+                ...headers,
+                'Content-Type': file.type || 'application/octet-stream',
+                'x-upsert': 'true'
+            },
+            body: await file.arrayBuffer()
+        });
+        
+        if (!uploadResp.ok) {
+            const error = await uploadResp.text();
+            throw new Error(`Storage upload failed: ${error}`);
+        }
+        
+        // Update file size and content_type in metadata
+        const updates = {
+            size: file.size,
+            content_type: file.type || 'application/octet-stream'
+        };
+        
+        const updateUrl = `${base}/rest/v1/fileStore?id=eq.${encodeURIComponent(id)}`;
+        const updateResp = await fetch(updateUrl, {
+            method: 'PATCH',
+            headers: {
+                ...headers,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=representation'
+            },
+            body: JSON.stringify(updates)
+        });
+        
+        if (!updateResp.ok) {
+            throw new Error('Failed to update metadata');
+        }
+        
+        const updated = await updateResp.json();
+        
+        // Log the replacement
+        try {
+            const logTable = env.FILE_CHANGE_LOG_TABLE || 'file_change_log';
+            const logUrl = `${base}/rest/v1/${logTable}`;
+            await fetch(logUrl, {
+                method: 'POST',
+                headers: {
+                    ...headers,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=minimal'
+                },
+                body: JSON.stringify([{
+                    action: 'replace_file',
+                    metadata_id: id,
+                    storage_key: storageKey,
+                    filename: resource.filename,
+                    performed_by: user.email || user.sub || 'admin',
+                    details: { old_size: resource.size, new_size: file.size }
+                }])
+            });
+        } catch (e) {
+            console.warn('Failed to log file replacement', e);
+        }
+        
+        return new Response(JSON.stringify({ success: true, resource: updated[0] }), {
+            status: 200,
+            headers: JSON_HEADERS
+        });
+    } catch (e) {
+        console.error('replace file error', e);
         return new Response(JSON.stringify({ error: e.message }), {
             status: 500,
             headers: JSON_HEADERS
