@@ -221,6 +221,7 @@
         // Use subjectCode from page context (resources from API don't have subject field)
         let filePath;
         if (actualUnit === 'all') {
+            // For unit-all resources, include the resource_type in the path
             filePath = `sem-${semNum}/${subjectCode}/${type}/unit-all/${filename}`;
         } else {
             filePath = `sem-${semNum}/${subjectCode}/unit-${actualUnit}/${filename}`;
@@ -240,12 +241,13 @@
             if (!organized[unit]) organized[unit] = {};
             if (!organized[unit][type]) organized[unit][type] = [];
             
-            // Keep unit and resource_type for buildNav sorting
+            // Keep unit and resource_type for buildNav sorting and URL building
             organized[unit][type].push({
                 id: resource.id,
                 title: resource.link_title, // canonical display title
                 link_title: resource.link_title, // keep original field name for consumers expecting it
                 filename: resource.filename,
+                semester: resource.semester, // preserve semester for URL building
                 unit: unit,
                 resource_type: type
             });
@@ -428,7 +430,9 @@
                 
                 // Add individual resources (build URL on demand)
                 for (const resource of sortedResources) {
-                    const url = buildResourceUrl(resource, unit);
+                    // Ensure resource_type is set (it should be from the organization, but explicitly set it here)
+                    const resourceWithType = { ...resource, resource_type: resource.resource_type || type };
+                    const url = buildResourceUrl(resourceWithType, unit);
                     const title = resource.title || resource.filename;
                     const filename = resource.filename || '';
                     html += `<li><a href="${url}" data-filename="${filename}" data-title="${resource.title || ''}">${title}</a></li>\n`;
