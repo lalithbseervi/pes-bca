@@ -695,7 +695,18 @@
         if (prevBtn && idx > 0) {
           const prev = files[idx - 1];
           {
-            const prevPath = prev.url ? null : `sem-${semester}/${subjectCode}/unit-${prev.unit}/${(prev.filename || '')}`;
+            // Build semantic path correctly. For unit-all include resource_type segment.
+            let prevPath;
+            if (!prev.url) {
+              if (String(prev.unit) === 'all') {
+                const typeSeg = prev.resource_type || prev.type || 'Other';
+                prevPath = `sem-${semester}/${subjectCode}/${typeSeg}/unit-all/${(prev.filename || '')}`;
+              } else {
+                prevPath = `sem-${semester}/${subjectCode}/unit-${prev.unit}/${(prev.filename || '')}`;
+              }
+            } else {
+              prevPath = null;
+            }
             prevBtn.href = prev.url || `/pdf-viewer?file=${(prevPath)}&title=${((prev.title || prev.filename || '').toString())}`;
           }
           prevBtn.innerText = '← ' + (prev.title || prev.filename || 'Prev');
@@ -706,7 +717,18 @@
         if (nextBtn && idx < files.length - 1) {
           const next = files[idx + 1];
           {
-            const nextPath = next.url ? null : `sem-${semester}/${subjectCode}/unit-${next.unit}/${(next.filename || '')}`;
+            // Build semantic path correctly. For unit-all include resource_type segment.
+            let nextPath;
+            if (!next.url) {
+              if (String(next.unit) === 'all') {
+                const typeSeg = next.resource_type || next.type || 'Other';
+                nextPath = `sem-${semester}/${subjectCode}/${typeSeg}/unit-all/${(next.filename || '')}`;
+              } else {
+                nextPath = `sem-${semester}/${subjectCode}/unit-${next.unit}/${(next.filename || '')}`;
+              }
+            } else {
+              nextPath = null;
+            }
             nextBtn.href = next.url || `/pdf-viewer?file=${(nextPath)}&title=${((next.title || next.filename || '').toString())}`;
           }
           nextBtn.innerText = (next.title || next.filename || 'Next') + ' →';
