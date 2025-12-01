@@ -10,7 +10,39 @@ const MAX_PENALTY_DURATION = 3600000; // Max 1 hour penalty
 const rateLimitStore = new Map();
 
 // KV key prefix
-const KV_KEY_PREFIX = 'rl:'; // rl:<ip>
+const KV_KEY_PREFIX = 'rl:'; // rl:<identity>
+
+// Utilities to derive a stable identity for rate-limiting
+import { parseCookies } from './cookies.js'
+import { verifyJWT } from './sign_jwt.js'
+
+function extractClientIP(request) {
+  // Prefer Cloudflare-provided header
+  let ip = request.headers.get('CF-Connecting-IP')
+  if (!ip) {
+    const xff = request.headers.get('X-Forwarded-For') || request.headers.get('x-forwarded-for')
+    if (xff) ip = xff.split(',')[0].trim()
+  }
+  return ip || 'unknown'
+}
+
+// Returns a string identity used as the KV key suffix: "usr:<srn>" for authenticated
+// users, else "ip:<address>". This avoids punishing multiple users behind one NAT.
+export async function deriveRateLimitIdentity(request, env) {
+  try {
+    const cookies = parseCookies(request.headers.get('cookie'))
+    const access = cookies['access_token']
+    if (access && env && env.JWT_SECRET) {
+      const v = await verifyJWT(access, env.JWT_SECRET)
+      if (v.valid && v.payload?.type === 'access' && v.payload?.sub) {
+        return `usr:${v.payload.sub}`
+      }
+    }
+  } catch (e) {
+    // fall back to IP
+  }
+  return `ip:${extractClientIP(request)}`
+}
 
 async function kvGet(env, ip) {
   if (!env.RATE_LIMIT_KV) return null;

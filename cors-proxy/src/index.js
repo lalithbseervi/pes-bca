@@ -238,9 +238,9 @@ async function handleRequest(request, env) {
 
   // GET /api/rate-limit/status - Check current rate-limit status (does NOT consume a request)
   if (request.method === 'GET' && url.pathname === '/api/rate-limit/status') {
-    const { checkRateLimit } = await import('./utils/rate-limit.js');
-    const ip = request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For') || 'unknown';
-    const info = await checkRateLimit(ip, env, { consume: false });
+    const { checkRateLimit, deriveRateLimitIdentity } = await import('./utils/rate-limit.js');
+    const identity = await deriveRateLimitIdentity(request, env);
+    const info = await checkRateLimit(identity, env, { consume: false });
     const body = JSON.stringify({
       allowed: info.allowed,
       remaining: info.remaining,
@@ -248,7 +248,8 @@ async function handleRequest(request, env) {
       penaltyActive: info.penaltyActive,
       violationCount: info.violationCount,
       retryAfter: info.retryAfter || null,
-      limit: info.limit
+      limit: info.limit,
+      identity
     });
     response = new Response(body, { status: 200, headers: { 'Content-Type': 'application/json' } });
     return addCorsHeaders(response)

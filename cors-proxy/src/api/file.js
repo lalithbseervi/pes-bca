@@ -1,5 +1,5 @@
 // API endpoint to serve files via Supabase signed URLs
-import { checkRateLimit, rateLimitResponse } from '../utils/rate-limit.js';
+import { checkRateLimit, rateLimitResponse, deriveRateLimitIdentity } from '../utils/rate-limit.js';
 
 const BUCKET = 'fileStore';
 
@@ -33,12 +33,13 @@ async function fetchFileFromStorage(env, bucket, storageKey) {
 export async function getFile(request, env, ctx) {
     try {
         // Get client IP for rate limiting
-        const clientIP = request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For') || 'unknown';
+            // Derive per-user (SRN) identity when logged-in; else fall back to IP
+            const rateLimitId = await deriveRateLimitIdentity(request, env);
         
         // Check rate limit (persistent, consume request)
-        const limitInfo = await checkRateLimit(clientIP, env, { consume: true });
+            const limitInfo = await checkRateLimit(rateLimitId, env, { consume: true });
         if (!limitInfo.allowed) {
-            console.warn('Rate limit exceeded for IP:', clientIP);
+                console.warn('Rate limit exceeded for identity:', rateLimitId);
             return rateLimitResponse(limitInfo);
         }
         
