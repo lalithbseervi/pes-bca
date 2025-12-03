@@ -87,7 +87,7 @@ async function handleRequest(request, env, ctx) {
 
   // POST /api/login
   if (request.method === 'POST' && url.pathname === '/api/login') {
-    response = await loginHandler(request, env)
+    response = await loginHandler(request, env, ctx)
     return addCorsHeaders(response)
   }
 
@@ -325,6 +325,6 @@ async function handleRequest(request, env, ctx) {
 // Export for module workers (preferred)
 export default {
   async fetch(request, env, ctx) {
-    return handleRequest(request, env)
+    return handleRequest(request, env, ctx)
   }
 }

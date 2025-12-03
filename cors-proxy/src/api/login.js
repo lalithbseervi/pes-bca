@@ -52,60 +52,78 @@ async function recordUserLogin(username, profile, env) {
       srn = null,
       name = null,
       prn = null,
+      email = null,
+      phone = null,
       branch = null,
       semester = null,
-      program = null
+      program = null,
     } = profile;
 
     // Identify username type
     const usernameInfo = identifyUsernameType(username);
     
-    // Prepare fields based on username type
-    let emailValue = null;
-    let phoneValue = null;
+    // Start with profile values
+    let emailValue = email;
+    let phoneValue = phone;
     let srnValue = srn;
     let prnValue = prn;
 
-    if (usernameInfo.type === 'email') {
+    // Override with username if it matches the login method (ensures the field is populated)
+    if (usernameInfo.type === 'email' && !emailValue) {
       emailValue = username;
-    } else if (usernameInfo.type === 'phone') {
+    } else if (usernameInfo.type === 'phone' && !phoneValue) {
       phoneValue = username;
-    } else if (usernameInfo.type === 'prn') {
+    } else if (usernameInfo.type === 'prn' && !prnValue) {
       prnValue = username;
-    } else if (usernameInfo.type === 'srn') {
+    } else if (usernameInfo.type === 'srn' && !srnValue) {
       srnValue = username;
     }
 
-    // Use SRN as primary key (from profile or username if it's an SRN)
-    const primarySrn = srnValue || username;
+    // Use SRN as primary key (from profile, required)
+    const primarySrn = srnValue;
+    
+    if (!primarySrn) {
+      console.warn(`No SRN in profile for user ${username}, cannot record login`);
+      return;
+    }
 
-    // Insert or update user record
-    await env.USER_DB.prepare(`
+    // Log what we're about to insert/update
+    console.log(`Recording login: SRN=${primarySrn}, name=${name}, prn=${prnValue}, email=${emailValue}, phone=${phoneValue}, branch=${branch}, semester=${semester}, program=${program}`);
+
+    // Insert or update user record - preserve first_login_at on updates
+    const result = await env.USER_DB.prepare(`
       INSERT INTO users (
         srn, name, prn, email, phone, branch, semester, program,
         first_login_at, last_login_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(srn) DO UPDATE SET
-        name = COALESCE(excluded.name, users.name),
-        prn = COALESCE(excluded.prn, users.prn),
-        email = COALESCE(excluded.email, users.email),
-        phone = COALESCE(excluded.phone, users.phone),
-        branch = COALESCE(excluded.branch, users.branch),
-        semester = COALESCE(excluded.semester, users.semester),
-        program = COALESCE(excluded.program, users.program),
+        name = excluded.name,
+        prn = excluded.prn,
+        email = excluded.email,
+        phone = excluded.phone,
+        branch = excluded.branch,
+        semester = excluded.semester,
+        program = excluded.program,
+        first_login_at = CASE 
+          WHEN users.first_login_at > excluded.last_login_at 
+          THEN excluded.last_login_at 
+          ELSE users.first_login_at 
+        END,
         last_login_at = excluded.last_login_at
     `).bind(
       primarySrn, name, prnValue, emailValue, phoneValue, branch, semester, program, now, now
     ).run();
 
-    console.log(`Recorded login for user ${primarySrn} (via ${usernameInfo.type}: ${username}) in user registry`);
+    console.log(`✓ Recorded login for user ${primarySrn} (via ${usernameInfo.type}: ${username}) - Result:`, JSON.stringify(result));
   } catch (error) {
     // Don't fail the login if user tracking fails
     console.error('Failed to record user login:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Error details:', JSON.stringify(error));
   }
 }
 
-export async function loginHandler(request, env) {
+export async function loginHandler(request, env, ctx) {
   const url = new URL(request.url)
   const JSON_HEADERS = { 'Content-Type': 'application/json' }
   let body;
@@ -183,7 +201,7 @@ export async function loginHandler(request, env) {
         const authResp = await fetch(authApi, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: srn, password, profile: true, fields: ['branch', 'semester', 'name', 'prn', 'srn', 'program', 'branch'] })
+          body: JSON.stringify({ username: srn, password, profile: true })
         })
 
         const contentType = authResp.headers.get('content-type') || ''
@@ -242,10 +260,23 @@ export async function loginHandler(request, env) {
     }
   }
 
-  // Record user login in permanent registry (non-blocking)
-  recordUserLogin(srn, profile, env).catch(err => 
-    console.error('User registry update failed:', err)
-  );
+  // Record user login in permanent registry (background task with ctx.waitUntil)  
+  if (ctx && ctx.waitUntil) {
+    console.log('Using ctx.waitUntil for background task');
+    ctx.waitUntil(
+      recordUserLogin(srn, profile, env).then(() => {
+      }).catch(err => {
+        console.error('Background task: User registry update failed:', err);
+        console.error('Background task: Error stack:', err.stack);
+      })
+    );
+  } else {
+    console.warn('ctx.waitUntil not available, using fallback');
+    // Await it to ensure it completes before response
+    await recordUserLogin(srn, profile, env).catch(err => {
+      console.error('User registry update failed (no waitUntil):', err);
+    });
+  }
 
   // Issue JWT cookies (no KV session storage)
   const accessTTL = 24 * 60 * 60 // 24 hours
