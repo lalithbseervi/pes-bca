@@ -19,7 +19,7 @@ addEventListener('fetch', event => {
   event.respondWith(handleRequest(event.request, event.env || globalThis))
 })
 
-async function handleRequest(request, env) {
+async function handleRequest(request, env, ctx) {
   const url = new URL(request.url)
   const corsHeaders = getCorsHeaders(request)
 

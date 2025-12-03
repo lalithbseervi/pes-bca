@@ -2,6 +2,109 @@ import { invalidateCachedAuth, verifyCachedCredentials, cacheAuthResult } from "
 import { makeCookie } from "../utils/cookies.js";
 import { signJWT } from "../utils/sign_jwt.js";
 
+/**
+ * Identify username type from login input
+ * @param {string} username - The username provided at login
+ * @returns {Object} { type: 'srn'|'prn'|'email'|'phone', field: string }
+ */
+function identifyUsernameType(username) {
+  // SRN: PES[1-2]UG[0-9]{2}[A-Z]{2}[0-9]{3}
+  const srnPattern = /^PES[1-2]UG\d{2}[A-Z]{2}\d{3}$/i;
+  if (srnPattern.test(username)) {
+    return { type: 'srn', field: 'srn' };
+  }
+
+  // PRN: PES[1-2][0-9]{4}[0-9]{5}
+  const prnPattern = /^PES[1-2]\d{9}$/i;
+  if (prnPattern.test(username)) {
+    return { type: 'prn', field: 'prn' };
+  }
+
+  // Email: contains @ symbol
+  if (username.includes('@')) {
+    return { type: 'email', field: 'email' };
+  }
+
+  // Phone: 10 digits
+  const phonePattern = /^\d{10}$/;
+  if (phonePattern.test(username)) {
+    return { type: 'phone', field: 'phone' };
+  }
+
+  // Default to SRN if pattern doesn't match
+  return { type: 'srn', field: 'srn' };
+}
+
+/**
+ * Record user login in D1 database for permanent tracking
+ * Inserts on first login, updates last_login_at on subsequent logins
+ * Identifies username type and updates corresponding field
+ */
+async function recordUserLogin(username, profile, env) {
+  if (!env.USER_DB) {
+    console.warn('USER_DB binding not available, skipping user registry');
+    return;
+  }
+
+  try {
+    const now = new Date().toISOString();
+    const {
+      srn = null,
+      name = null,
+      prn = null,
+      branch = null,
+      semester = null,
+      program = null
+    } = profile;
+
+    // Identify username type
+    const usernameInfo = identifyUsernameType(username);
+    
+    // Prepare fields based on username type
+    let emailValue = null;
+    let phoneValue = null;
+    let srnValue = srn;
+    let prnValue = prn;
+
+    if (usernameInfo.type === 'email') {
+      emailValue = username;
+    } else if (usernameInfo.type === 'phone') {
+      phoneValue = username;
+    } else if (usernameInfo.type === 'prn') {
+      prnValue = username;
+    } else if (usernameInfo.type === 'srn') {
+      srnValue = username;
+    }
+
+    // Use SRN as primary key (from profile or username if it's an SRN)
+    const primarySrn = srnValue || username;
+
+    // Insert or update user record
+    await env.USER_DB.prepare(`
+      INSERT INTO users (
+        srn, name, prn, email, phone, branch, semester, program,
+        first_login_at, last_login_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(srn) DO UPDATE SET
+        name = COALESCE(excluded.name, users.name),
+        prn = COALESCE(excluded.prn, users.prn),
+        email = COALESCE(excluded.email, users.email),
+        phone = COALESCE(excluded.phone, users.phone),
+        branch = COALESCE(excluded.branch, users.branch),
+        semester = COALESCE(excluded.semester, users.semester),
+        program = COALESCE(excluded.program, users.program),
+        last_login_at = excluded.last_login_at
+    `).bind(
+      primarySrn, name, prnValue, emailValue, phoneValue, branch, semester, program, now, now
+    ).run();
+
+    console.log(`Recorded login for user ${primarySrn} (via ${usernameInfo.type}: ${username}) in user registry`);
+  } catch (error) {
+    // Don't fail the login if user tracking fails
+    console.error('Failed to record user login:', error);
+  }
+}
+
 export async function loginHandler(request, env) {
   const url = new URL(request.url)
   const JSON_HEADERS = { 'Content-Type': 'application/json' }
@@ -33,6 +136,8 @@ export async function loginHandler(request, env) {
       
       console.log('Guest login successful (auth service fallback mode)');
       const profile = dummyUser.profile || { name: 'Guest User', branch: 'Guest', semester: '1' };
+      
+      // Skip user registry for guest logins
       
       const accessTTL = 24 * 60 * 60;
       const refreshTTL = 7 * 24 * 60 * 60;
@@ -78,7 +183,7 @@ export async function loginHandler(request, env) {
         const authResp = await fetch(authApi, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: srn, password, profile: true, fields: ['branch','semester','name'] })
+          body: JSON.stringify({ username: srn, password, profile: true, fields: ['branch', 'semester', 'name', 'prn', 'srn', 'program', 'branch'] })
         })
 
         const contentType = authResp.headers.get('content-type') || ''
@@ -136,6 +241,11 @@ export async function loginHandler(request, env) {
       }
     }
   }
+
+  // Record user login in permanent registry (non-blocking)
+  recordUserLogin(srn, profile, env).catch(err => 
+    console.error('User registry update failed:', err)
+  );
 
   // Issue JWT cookies (no KV session storage)
   const accessTTL = 24 * 60 * 60 // 24 hours
