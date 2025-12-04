@@ -167,7 +167,7 @@ function loadCachedSnapshot() {
 }
 
 // Conditional fetch with ETag; update localStorage cache if changed
-async function fetchAndMaybeUpdateResources() {
+async function fetchAndUpdateResources() {
     try {
         const loadingEl = document.getElementById('loading-resources');
         const contentArea = document.getElementById('content-area');
@@ -176,6 +176,7 @@ async function fetchAndMaybeUpdateResources() {
         
         if (response.status === 304) {
             // No change; snapshot already rendered if present
+            console.info(`[delta updates]: ${response.status} ${response.statusText}`);
             loadingEl.style.display = 'none';
             contentArea.style.display = 'block';
             return;
@@ -230,7 +231,7 @@ async function fetchAndMaybeUpdateResources() {
         
         updateLastUpdated();
         
-                // Setup details toggle behavior
+        // Setup details toggle behavior
         setupDetailsToggle();
 
         // Initialize search suggestions for homepage input
@@ -494,6 +495,12 @@ function customClearFilters() {
 window.applyFilters = () => applyFilters('search-input', 'content-area', 'no-results');
 window.clearFilters = customClearFilters;
 
+function handleVisibilityChangeEvent(e) {
+    if (!document.hidden) {
+        fetchAndUpdateResources().catch(()=>{});
+    }
+}
+
 // Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', function() {
     initializeSearchOnEnter('search-input');
@@ -501,14 +508,13 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Attempt instant render from cache, then background refresh
     loadCachedSnapshot();
-    fetchAndMaybeUpdateResources().catch(()=>{});
+    fetchAndUpdateResources().catch((err) => { 
+        console.error(`[delta updates]: failed due to unknown error\nerror: ${err}`); 
+    });
     
     // Refresh when tab regains focus
-    document.addEventListener('visibilitychange', function() {
-        if (!document.hidden) {
-            fetchAndMaybeUpdateResources().catch(()=>{});
-        }
-    });
+    document.addEventListener('focus', handleVisibilityChangeEvent);
+    document.addEventListener('visibilitychange', handleVisibilityChangeEvent);
 });
 </script>
 {% endmacro home_page %}
