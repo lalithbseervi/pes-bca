@@ -1,7 +1,7 @@
 // Exponential backoff rate limiting for file downloads
 
 const RATE_LIMIT_WINDOW = 600000; // 10 minutes in milliseconds
-const MAX_REQUESTS_PER_WINDOW = 10; // 10 requests per minute per IP
+const MAX_REQUESTS_PER_WINDOW = 10; // 10 requests per minute per user
 const PENALTY_BASE_DURATION = 120000; // 2 minutes base penalty
 const PENALTY_MULTIPLIER = 3; // 3x increase per offense (2min, 6min, 18min, 54min)
 const MAX_PENALTY_DURATION = 21600000; // Max 360 mins (6 hours) penalty
@@ -88,7 +88,7 @@ function calculatePenalty(violations) {
   if (violations.length === 0) return 0;
   
   // Exponential backoff: 2min * (3^violations)
-  // 1st: 2min, 2nd: 6min, 3rd: 18min, 4th: 54min, capped at 1hr
+  // 1st: 2min, 2nd: 6min, 3rd: 18min, 4th: 54min, capped at 6hr
   const penalty = PENALTY_BASE_DURATION * Math.pow(PENALTY_MULTIPLIER, violations.length);
   return Math.min(penalty, MAX_PENALTY_DURATION);
 }

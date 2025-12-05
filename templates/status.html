@@ -109,20 +109,19 @@
     border: 1px solid var(--border);
     border-radius: 12px;
     padding: 1.5rem;
-    margin-bottom: 2rem;
   }
 
   .components-section h2 {
     font-size: 1.25rem;
-    margin-bottom: 1rem;
     color: var(--text-primary);
+    margin: 0;
   }
 
   .component-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1rem 0;
+    padding: 0.75rem 0;
     border-bottom: 1px solid var(--border);
   }
 
@@ -161,6 +160,11 @@
     font-size: 1.5rem;
     margin-bottom: 1rem;
     color: var(--text-primary);
+  }
+  
+  /* Ensure Recent Incidents heading is visible in all themes */
+  #recent-incidents-section h2 {
+    color: #fff !important;
   }
 
   .incident-card {
