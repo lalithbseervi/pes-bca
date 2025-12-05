@@ -187,7 +187,7 @@ async function fetchAndUpdateResources() {
         
         // Handle delta updates
         if (data.delta) {
-            console.log(`Delta update: ${data.count} changed/new resources`);
+            console.info(`Delta update: ${data.count} changed/new resources`);
             // Merge delta with existing cached data, preserving all fields
             const resourceMap = new Map(allResources.map(r => [r.id, r]));
             
@@ -206,7 +206,7 @@ async function fetchAndUpdateResources() {
             // Remove deleted resources
             if (data.deleted && data.deleted.length > 0) {
                 data.deleted.forEach(id => resourceMap.delete(id));
-                console.log(`Removed ${data.deleted.length} deleted resources`);
+                console.info(`Removed ${data.deleted.length} deleted resources`);
             }
             
             allResources = Array.from(resourceMap.values());

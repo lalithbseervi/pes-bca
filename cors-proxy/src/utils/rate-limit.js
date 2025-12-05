@@ -1,10 +1,10 @@
 // Exponential backoff rate limiting for file downloads
 
-const RATE_LIMIT_WINDOW = 60000; // 1 minute in milliseconds
+const RATE_LIMIT_WINDOW = 600000; // 10 minutes in milliseconds
 const MAX_REQUESTS_PER_WINDOW = 10; // 10 requests per minute per IP
 const PENALTY_BASE_DURATION = 120000; // 2 minutes base penalty
 const PENALTY_MULTIPLIER = 3; // 3x increase per offense (2min, 6min, 18min, 54min)
-const MAX_PENALTY_DURATION = 3600000; // Max 1 hour penalty
+const MAX_PENALTY_DURATION = 21600000; // Max 360 mins (6 hours) penalty
 
 // In-memory fallback store (used if KV unavailable)
 const rateLimitStore = new Map();
