@@ -1,5 +1,5 @@
-// Import session sync module and utilities
-import sessionSync from './session-sync.js';
+// Import auth manager and utilities
+import auth from './auth.js';
 import { API_BASE_URL } from './utils.js';
 
 document.addEventListener('DOMContentLoaded', async function() {
@@ -13,46 +13,24 @@ document.addEventListener('DOMContentLoaded', async function() {
     const cancelButton = document.getElementById('cancel-login');
     const loadingOverlay = document.getElementById('loading-overlay');
 
-    // Listen for session changes from other tabs/PWA
-    sessionSync.addListener((event, data) => {
-        console.log('[Login] Session event:', event);
-        
-        switch (event) {
-            case 'login':
-            case 'refresh':
-                // Another tab logged in or refreshed, show content
-                if (loginModal) loginModal.style.display = 'none';
-                if (content) content.style.display = 'block';
-                if (typeof window.loadPdfViewer === 'function') window.loadPdfViewer();
-                
-                // Update PostHog if available (only if PII tracking is allowed)
-                if (window.posthog && data) {
-                    if (window.isPIITrackingAllowed && window.isPIITrackingAllowed()) {
-                        posthog.identify(data.srn, {
-                            srn: data.srn,
-                            name: data.profile?.name || 'Unknown',
-                            branch: data.profile?.branch,
-                            semester: data.profile?.semester,
-                            synced_from_tab: true
-                        });
-                    }
-                }
-                break;
-                
-            case 'logout':
-            case 'expired':
-                // Another tab logged out or session expired, show login
-                if (content) content.style.display = 'none';
-                if (loginModal) loginModal.style.display = 'block';
-                
-                // Track logout
-                if (window.posthog) {
-                    posthog.capture('user_logout', { reason: event });
-                    posthog.reset();
-                }
-                break;
-        }
-    });
+    // Listen for auth state changes
+    if (auth.on) {
+        auth.on('login', (sessionData) => {
+            if (loginModal) loginModal.style.display = 'none';
+            if (content) content.style.display = 'block';
+            if (typeof window.loadPdfViewer === 'function') window.loadPdfViewer();
+        });
+
+        auth.on('logout', () => {
+            if (content) content.style.display = 'none';
+            if (loginModal) loginModal.style.display = 'block';
+        });
+
+        auth.on('session-expired', () => {
+            if (content) content.style.display = 'none';
+            if (loginModal) loginModal.style.display = 'block';
+        });
+    }
 
     // Password visibility toggle
     passwordToggle.addEventListener('click', function() {        
@@ -76,40 +54,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         }, 5000);
     }
 
-    // Store session using sessionSync module
-    function storeSession(sessionData) {
-        sessionSync.storeSession(sessionData);
-    }
 
-    // Clear session using sessionSync module
-    function clearSession() {
-        sessionSync.clearSession();
-    }
 
-    function isSessionValid() {
-        return sessionSync.isLoggedIn();
-    }
 
-    async function tryServerSession() {
-        try {
-            const res = await fetch(API_BASE_URL + '/api/session', { 
-                method: 'GET',
-                credentials: 'include',
-                headers: {
-                    'Accept': 'application/json'
-                }
-            });
-            if (!res.ok) return false;
-            const j = await res.json();
-            if (j.success && j.session) {
-                storeSession(j.session);
-                return true;
-            }
-        } catch (e) { 
-            console.error('Session check failed:', e);
-        }
-        return false;
-    }
 
     async function handleLogin(event) {
         event.preventDefault();
@@ -149,7 +96,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             if (res.ok && data.success) {
                 const sessionData = data.session || { srn: srn, profile: data.profile || {}, expiresAt: data.expiresAt };
-                storeSession(sessionData); // This now broadcasts automatically via sessionSync
+                auth.storeSession(sessionData);
 
                 if (window.posthog) {
                     if (window.isPIITrackingAllowed && window.isPIITrackingAllowed()) {
@@ -218,56 +165,15 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     }
 
-    // On load: try server session first, then check with sessionSync
+    // Initialize session on load
     (async function initSessionOnLoad() {
-        // First check if we already have a valid session
-        if (sessionSync.isLoggedIn()) {
-            const sessionData = sessionSync.getSession();
-            if (window.posthog && sessionData) {
-                if (window.isPIITrackingAllowed && window.isPIITrackingAllowed()) {
-                    posthog.identify(sessionData.srn, {
-                        srn: sessionData.srn,
-                        name: sessionData.profile?.name || 'Unknown',
-                        branch: sessionData.profile?.branch,
-                        semester: sessionData.profile?.semester,
-                        session_restored: true,
-                    });
-                }
-            }
+        const authenticated = await auth.ensureAuthenticated();
+        if (authenticated) {
             if (content) content.style.display = 'block';
             if (typeof window.loadPdfViewer === 'function') window.loadPdfViewer();
-            return;
+        } else {
+            loginModal.style.display = 'block';
         }
-
-        // No session, try to get from server
-        const ok = await tryServerSession();
-        if (ok) {
-            const sessionData = sessionSync.getSession();
-            if (window.posthog && sessionData) {
-                if (window.isPIITrackingAllowed && window.isPIITrackingAllowed()) {
-                    posthog.identify(sessionData.srn, {
-                        srn: sessionData.srn,
-                        name: sessionData.profile?.name || 'Unknown',
-                        branch: sessionData.profile?.branch,
-                        semester: sessionData.profile?.semester,
-                        session_restored: true,
-                    });
-                }
-            }
-            if (content) content.style.display = 'block';
-            if (typeof window.loadPdfViewer === 'function') window.loadPdfViewer();
-            return;
-        }
-
-        // No server session, request from other tabs
-        sessionSync.requestSessionFromPeers();
-        
-        // Wait briefly for peer response
-        setTimeout(() => {
-            if (!sessionSync.isLoggedIn()) {
-                loginModal.style.display = 'block';
-            }
-        }, 500);
     })();
 
     // Event listeners

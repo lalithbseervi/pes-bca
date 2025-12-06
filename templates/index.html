@@ -137,7 +137,7 @@
 <p id="last-updated">Last Updated: Loading...</p>
 <script type="module">
 import { API_BASE_URL } from '/js/utils.js?v={{ config.extra.sw_version }}';
-import { initHomeSearchSuggest } from '/js/init-search-suggest.js?v={{ config.extra.sw_version }}';
+import { initHomeSearchSuggest } from '/js/init/search-suggest.js?v={{ config.extra.sw_version }}';
 
 let allResources = [];
 const RESOURCE_CACHE_KEY = 'all_resources_snapshot_v2';
@@ -462,7 +462,7 @@ function setupDetailsToggle() {
 }
 
 // Import shared search utilities
-import { getDetailsLevel, applyFilters, clearFilters, initializeSearchOnEnter, initializeDetailsToggle } from '/js/resource-search.js?v={{ config.extra.sw_version }}';
+import { getDetailsLevel, applyFilters, clearFilters, initializeSearchOnEnter, initializeDetailsToggle } from '/js/init/resource-search.js?v={{ config.extra.sw_version }}';
 
 // Custom clearFilters for index page (opens only first semester)
 function customClearFilters() {

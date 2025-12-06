@@ -4,7 +4,7 @@
  * Use this for templates that can't use ES6 modules
  */
 
-import * as utils from './utils.js';
+import * as utils from '../utils.js';
 
 // Expose all utilities as global window functions
 window.API_BASE_URL = utils.API_BASE_URL;

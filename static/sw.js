@@ -22,13 +22,13 @@ const VERSIONED_ASSETS = [
   '/css/forms.css',
   '/css/admin.css',
   '/css/list_counter.css',
-  // JavaScript files
+  // JavaScript files - core
   '/js/login.js',
   '/js/analytics-preferences.js',
   '/js/main.js',
   '/js/openLinkHandler.js',
   '/js/utils.js',
-  '/js/common-init.js',
+  '/js/auth.js',
   '/js/form.js',
   '/js/session-sync.js',
   '/js/themetoggle.js',
@@ -36,7 +36,19 @@ const VERSIONED_ASSETS = [
   '/js/codeblock.js',
   '/js/toc.js',
   '/js/note.js',
-  '/js/searchElasticlunr.min.js'
+  '/js/searchElasticlunr.min.js',
+  // Router files
+  '/js/router/index.js',
+  '/js/router/handlers.js',
+  '/js/router/init.js',
+  // Initialization files
+  '/js/init/common.js',
+  '/js/init/subject.js',
+  '/js/init/pdf-viewer.js',
+  '/js/init/download.js',
+  '/js/init/upload.js',
+  '/js/init/search-suggest.js',
+  '/js/init/resource-search.js'
 ];
 
 // Assets we intentionally leave unversioned (images, icons, PDF.js viewer, manifest, offline)

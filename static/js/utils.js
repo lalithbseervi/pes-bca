@@ -67,55 +67,60 @@ export function formatBytes(bytes, decimals = 2) {
 
 /**
  * Check if user is authenticated (has valid session)
- * Uses sessionSync module if available, otherwise fallback
+ * Uses local session cache for synchronous check
  * @returns {boolean} True if authenticated
  */
 export function isAuthenticated() {
-  // Use sessionSync if available
-  if (window.sessionSync && typeof window.sessionSync.isLoggedIn === 'function') {
-    return window.sessionSync.isLoggedIn();
+  // Use cached session if available
+  if (window.auth?.cachedSession) {
+    return true;
   }
   
-  // Fallback for backward compatibility
-  const sessionData = sessionStorage.getItem('user_session');
-  if (!sessionData) return false;
-  
+  // Check local session storage
   try {
-    const session = JSON.parse(sessionData);
-    if (!session || !session.srn) return false;
+    const sessionData = sessionStorage.getItem('user_session');
     
+    if (!sessionData) return false;
+    
+    const session = JSON.parse(sessionData);
+    
+    // Check if session is expired
     if (session.expiresAt) {
-      const expiresAt = new Date(session.expiresAt);
-      if (expiresAt < new Date()) {
-        sessionStorage.removeItem('user_session');
+      const expiresAt = new Date(session.expiresAt).getTime();
+      if (Date.now() >= expiresAt) {
         return false;
       }
     }
     
     return true;
   } catch (e) {
-    console.error('Error parsing session:', e);
+    console.error('Error checking session:', e);
     return false;
   }
 }
 
 /**
  * Get current user session data
- * Uses sessionSync module if available, otherwise fallback
- * @returns {object|null} Parsed session object or null
+ * Uses local session storage
+ * @returns {object|null} Session object or null
  */
 export function getSession() {
-  // Use sessionSync if available
-  if (window.sessionSync && typeof window.sessionSync.getSession === 'function') {
-    return window.sessionSync.getSession();
-  }
-  
-  // Fallback for backward compatibility
-  const sessionData = sessionStorage.getItem('user_session');
-  if (!sessionData) return null;
-  
   try {
-    return JSON.parse(sessionData);
+    const sessionData = sessionStorage.getItem('user_session');
+    if (!sessionData) return null;
+    
+    const session = JSON.parse(sessionData);
+    
+    // Check if session is expired
+    if (session.expiresAt) {
+      const expiresAt = new Date(session.expiresAt).getTime();
+      if (Date.now() >= expiresAt) {
+        sessionStorage.removeItem('user_session');
+        return null;
+      }
+    }
+    
+    return session;
   } catch (e) {
     console.error('Error parsing session:', e);
     return null;
@@ -123,24 +128,22 @@ export function getSession() {
 }
 
 /**
- * Redirect to login and save current page for post-login redirect
- * @param {string} redirectUrl - URL to redirect to after login (default: current page)
+ * Require authentication - check if authenticated
+ * @returns {boolean} True if authenticated
  */
-export function redirectToLogin(redirectUrl = window.location.href) {
-  window.location.href = '/';
-}
-
-/**
- * Require authentication - redirect to login if not authenticated
- * @param {string} redirectUrl - URL to redirect to after login
- * @returns {boolean} True if authenticated, false if redirected
- */
-export function requireAuth(redirectUrl = window.location.href) {
+export function requireAuth() {
   if (!isAuthenticated()) {
-    redirectToLogin(redirectUrl);
+    redirectToLogin();
     return false;
   }
   return true;
+}
+
+/**
+ * Redirect to login page
+ */
+export function redirectToLogin() {
+  window.location.href = '/';
 }
 
 /**
