@@ -35,10 +35,10 @@ generate_sitemap = true
 ignore = ["offline"]
 
 menu = [
-    { name = "/posts", url = "/posts", weight = 1 },
-    { name = "/download", url = "/download", weight = 2 },
-    { name = "/upload material", url = "/upload", weight = 3 },
-    { name = "/contribute or report issue", url = "/contribute", weight = 4 }
+    { name = "posts", url = "/posts", weight = 1 },
+    { name = "download", url = "/download", weight = 2 },
+    { name = "upload", url = "/upload", weight = 3 },
+    { name = "feedback", url = "/contribute", weight = 4 }
 ]
 
 socials = [
