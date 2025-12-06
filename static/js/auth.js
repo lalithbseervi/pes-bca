@@ -386,8 +386,20 @@ class AuthManager {
   }
 }
 
-// Export singleton instance
-const auth = new AuthManager();
+// Export singleton instance - create only if not already created
+let auth;
+
+const existingAuth = window.auth || window.__authManagerInstance;
+if (existingAuth && typeof existingAuth.isAuthenticatedSync === 'function') {
+  // Auth manager already exists (e.g., from CSR page reload), reuse it
+  auth = existingAuth;
+  console.log('[Auth] Reusing existing auth manager instance');
+} else {
+  // Create new auth manager
+  auth = new AuthManager();
+  window.__authManagerInstance = auth;
+  console.log('[Auth] Created new auth manager instance');
+}
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = auth;

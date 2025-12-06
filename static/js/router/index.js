@@ -101,17 +101,29 @@ class Router {
     if (!link) return;
 
     const href = link.getAttribute('href');
+    console.log('[Router] Link clicked:', href);
     
     // Ignore external links, mailto, tel, etc.
-    if (!href.startsWith('/') || href.startsWith('//')) return;
+    if (!href.startsWith('/') || href.startsWith('//')) {
+      console.log('[Router] Ignoring external/protocol link:', href);
+      return;
+    }
     
     // Ignore if user is holding modifier keys
-    if (e.ctrlKey || e.metaKey || e.shiftKey) return;
+    if (e.ctrlKey || e.metaKey || e.shiftKey) {
+      console.log('[Router] Ignoring link (modifier key held)');
+      return;
+    }
 
-    // Check if this path has a route
-    const route = this.matchRoute(href);
-    if (!route) return; // Let browser handle it (SSR fallback)
+    // Strip query params for route matching, but preserve full URL for navigation
+    const pathOnly = href.split('?')[0];
+    const route = this.matchRoute(pathOnly);
+    if (!route) {
+      console.log('[Router] No matching route, using browser navigation:', href);
+      return; // Let browser handle it (SSR fallback)
+    }
 
+    console.log('[Router] Route matched, intercepting navigation:', href);
     e.preventDefault();
     this.push(href);
   }

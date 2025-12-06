@@ -9,31 +9,22 @@ import { initPDFViewer } from '../init/pdf-viewer.js';
 
 /**
  * Subject page route handler (protected)
+ * Subject pages already have SSR routes in Zola, so we do full page navigation
  */
-export async function handleSubjectRoute(params) {
-  const { code } = params;
+export async function handleSubjectRoute(params, pathname) {
+  let code = params.code;
   
   if (!code) throw new Error('Subject code required');
+  
+  console.log('[Router] Subject route handler - code:', code, 'pathname:', pathname);
 
-  try {
-    // Initialize subject page (works for both SSR and CSR)
-    await initSubjectPage(code, '1', {
-      contentSelector: 'main, .main-content, .content',
-      loadingSelector: '#loading',
-      contentAreaSelector: '#content-area',
-      errorSelector: '#error',
-      subjectContentSelector: '#subject-content',
-      searchInputSelector: '#search-input',
-      noResultsSelector: '#no-results'
-    });
-
-    // Update page title
-    document.title = `${code.toUpperCase()} - PESU LMS`;
-
-  } catch (error) {
-    console.error('Subject route error:', error);
-    throw error;
-  }
+  // Since subject pages are SSR-rendered by Zola (content/sem-X/*.md files),
+  // we do a full page navigation instead of CSR. This ensures:
+  // 1. The subject.html template is properly loaded with correct subject_code
+  // 2. All inline scripts execute with the correct subject context
+  // 3. Proper page styling and structure are maintained
+  console.log('[Router] Navigating to subject page (SSR):', pathname);
+  window.location.href = pathname;
 }
 
 /**
@@ -56,12 +47,26 @@ export async function handlePDFViewerRoute(params, pathname) {
     });
 
     // Update page title
-    document.title = title ? `${title} | PESU LMS` : 'PDF Viewer | PESU LMS';
+    document.title = title ? `${title} | read-only dash` : 'read-only dash';
 
   } catch (error) {
     console.error('PDF viewer route error:', error);
     throw error;
   }
+}
+
+/**
+ * Generic page handler for SSR-rendered pages (download, upload, posts, etc.)
+ * Auth is checked by the router middleware before this is called
+ * For protected routes (download, upload), this only runs if user is authenticated
+ */
+export async function handleGenericPageRoute(params, pathname) {
+  // pathname is the full URL path being navigated to
+  // params contains route parameters (usually empty for these routes)
+  console.log('[Router] Generic page route - auth passed, redirecting to:', pathname);
+  // For SSR pages, do a full page reload to get the server-rendered content
+  // Auth has already been verified by router middleware at this point
+  window.location.href = pathname;
 }
 
 /**
@@ -71,7 +76,6 @@ export async function handlePDFViewerRoute(params, pathname) {
 export function shouldUseCSR(pathname) {
   // Routes that should use CSR
   const csrRoutes = [
-    /^\/subject\/.+/,        // /subject/:code
     /^\/pdf-viewer/,         // /pdf-viewer?file=...
   ];
 
@@ -90,10 +94,19 @@ export function setupRouter(Router, auth) {
   });
 
   // Protected routes - require authentication
-  router.on('/subject/:code', handleSubjectRoute, { requiresAuth: true });
+  router.on('/sem-:sem/:code', handleSubjectRoute, { requiresAuth: true });
+  router.on('/sem-:sem/:code/', handleSubjectRoute, { requiresAuth: true });
   router.on('/pdf-viewer', handlePDFViewerRoute, { requiresAuth: true });
-  router.on('/download', () => {}, { requiresAuth: true });
-  router.on('/upload', () => {}, { requiresAuth: true });
+  router.on('/download', handleGenericPageRoute, { requiresAuth: true });
+  router.on('/upload', handleGenericPageRoute, { requiresAuth: true });
+  
+  // Public/SSR routes - no auth required
+  router.on('/', handleGenericPageRoute, { requiresAuth: false });
+  router.on('/posts', handleGenericPageRoute, { requiresAuth: false });
+  router.on('/contribute', handleGenericPageRoute, { requiresAuth: false });
+  router.on('/status', handleGenericPageRoute, { requiresAuth: false });
+  router.on('/privacy-policy', handleGenericPageRoute, { requiresAuth: false });
+  router.on('/terms-of-service', handleGenericPageRoute, { requiresAuth: false });
 
   // Add middleware to prevent navigation during downloads
   router.use(async (pathname) => {

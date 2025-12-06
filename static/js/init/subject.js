@@ -17,7 +17,7 @@ async function loadResourceSearch() {
  * @param {string} semester - Semester number (default: '1')
  * @param {Object} options - Additional options
  */
-export async function initSubjectPage(subjectCode, semester = '1', options = {}) {
+export async function initSubjectPage(subjectCode, semester = '1', options = {}) {  
   const {
     contentSelector = 'main, #main, .main-content',
     loadingSelector = '#loading',
