@@ -56,20 +56,6 @@ export async function handlePDFViewerRoute(params, pathname) {
 }
 
 /**
- * Generic page handler for SSR-rendered pages (download, upload, posts, etc.)
- * Auth is checked by the router middleware before this is called
- * For protected routes (download, upload), this only runs if user is authenticated
- */
-export async function handleGenericPageRoute(params, pathname) {
-  // pathname is the full URL path being navigated to
-  // params contains route parameters (usually empty for these routes)
-  console.log('[Router] Generic page route - auth passed, redirecting to:', pathname);
-  // For SSR pages, do a full page reload to get the server-rendered content
-  // Auth has already been verified by router middleware at this point
-  window.location.href = pathname;
-}
-
-/**
  * Check if a route should use CSR
  * Returns true if the path should be handled by router
  */
@@ -97,16 +83,6 @@ export function setupRouter(Router, auth) {
   router.on('/sem-:sem/:code', handleSubjectRoute, { requiresAuth: true });
   router.on('/sem-:sem/:code/', handleSubjectRoute, { requiresAuth: true });
   router.on('/pdf-viewer', handlePDFViewerRoute, { requiresAuth: true });
-  router.on('/download', handleGenericPageRoute, { requiresAuth: true });
-  router.on('/upload', handleGenericPageRoute, { requiresAuth: true });
-  
-  // Public/SSR routes - no auth required
-  router.on('/', handleGenericPageRoute, { requiresAuth: false });
-  router.on('/posts', handleGenericPageRoute, { requiresAuth: false });
-  router.on('/contribute', handleGenericPageRoute, { requiresAuth: false });
-  router.on('/status', handleGenericPageRoute, { requiresAuth: false });
-  router.on('/privacy-policy', handleGenericPageRoute, { requiresAuth: false });
-  router.on('/terms-of-service', handleGenericPageRoute, { requiresAuth: false });
 
   // Add middleware to prevent navigation during downloads
   router.use(async (pathname) => {
