@@ -134,7 +134,7 @@
   }
 
   .file-status {
-    width: 24px;
+    width: max-content;
     height: 24px;
     flex-shrink: 0;
   }
@@ -146,6 +146,28 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .retry-btn {
+    background: #f59e0b;
+    color: white;
+    border: none;
+    padding: 0.375rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.813rem;
+    font-weight: 600;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.2s;
+  }
+
+  .retry-btn:hover {
+    background: #d97706;
+  }
+
+  .retry-btn:disabled {
+    background: #9ca3af;
+    cursor: not-allowed;
   }
 
 
@@ -257,7 +279,7 @@
 <script type="module">
 import { API_BASE_URL } from '/js/utils.js?v={{ config.extra.sw_version }}';
 
-const CACHE_KEY = 'all_resources_snapshot_v2';
+const CACHE_KEY = 'all_resources_snapshot_v2'; // should not be hardcoded in future
 const CONCURRENT_DOWNLOADS = 2;
 const RETRY_ATTEMPTS = 2;
 const RETRY_DELAY = 1000;
@@ -469,7 +491,7 @@ async function downloadFile(item, retries = RETRY_ATTEMPTS) {
     // Clean up blob URL after a delay
     setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
     
-    statusIcon.textContent = '';
+    statusIcon.textContent = '✅';
     fileName.classList.remove('status-downloading');
     fileName.classList.add('status-completed');
     stats.downloading--;
@@ -501,6 +523,15 @@ async function downloadFile(item, retries = RETRY_ATTEMPTS) {
     statusIcon.textContent = '❌';
     fileName.classList.remove('status-downloading', 'status-pending');
     fileName.classList.add('status-failed');
+    
+    // Add retry button if not already present
+    if (!element.querySelector('.retry-btn')) {
+      const retryBtn = document.createElement('button');
+      retryBtn.className = 'retry-btn';
+      retryBtn.textContent = '↻ Retry';
+      retryBtn.onclick = () => retryDownload(item);
+      element.appendChild(retryBtn);
+    }
     
     // Ensure downloading count is decremented
     if (stats.downloading > 0) {
@@ -589,6 +620,33 @@ async function startDownload() {
   document.getElementById('cancel-btn').style.display = 'inline-block';
   
   processQueue();
+}
+
+// Retry a failed download
+async function retryDownload(item) {
+  const { element } = item;
+  const retryBtn = element.querySelector('.retry-btn');
+  
+  if (retryBtn) {
+    retryBtn.disabled = true;
+    retryBtn.textContent = 'Retrying...';
+  }
+  
+  // Decrement failed count as we're retrying
+  stats.failed--;
+  updateStats();
+  
+  // Attempt download with full retry count
+  const success = await downloadFile(item, 0);
+  
+  // If successful, remove the retry button
+  if (success && retryBtn) {
+    retryBtn.remove();
+  } else if (retryBtn) {
+    // Re-enable retry button on failure
+    retryBtn.disabled = false;
+    retryBtn.textContent = '↻ Retry';
+  }
 }
 
 // Cancel downloads
