@@ -38,7 +38,8 @@ menu = [
     { name = "posts", url = "/posts", weight = 1 },
     { name = "download", url = "/download", weight = 2 },
     { name = "upload", url = "/upload", weight = 3 },
-    { name = "feedback", url = "/contribute", weight = 4 }
+    { name = "status", url = "/status", weight = 4 },
+    { name = "feedback", url = "/contribute", weight = 5 }
 ]
 
 socials = [
