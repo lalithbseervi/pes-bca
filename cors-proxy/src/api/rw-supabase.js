@@ -287,7 +287,6 @@ export async function resourceStreamFromSupabase(request, env, ctx) {
     const auth = await requireAccessToken(request, env);
     if (!auth.valid) return auth.response;
 
-
     let row = null;
     try {
         let metaUrl;
