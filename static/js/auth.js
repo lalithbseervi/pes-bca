@@ -24,7 +24,11 @@ class AuthManager {
     // When page becomes visible after being hidden, refresh auth status
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden) {
-        this.refreshAuthStatus();
+        let authActive = this.refreshAuthStatus();
+        if (!authActive) {
+          const loginModal = document.getElementById('login-modal');
+          loginModal.style.display = 'block';
+        }
       }
     });
   }
@@ -90,9 +94,6 @@ class AuthManager {
    * Called when tab becomes visible after being hidden
    */
   async refreshAuthStatus() {
-    this.lastAuthCheck = 0; // Reset cooldown
-    this.cachedSession = null; // Clear cache
-    
     console.log('[Auth] Refreshing auth status...');
     return await this.isAuthenticated();
   }
