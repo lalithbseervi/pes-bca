@@ -6,7 +6,7 @@ import { invalidateCache } from "./api/invalidate-cache.js"
 import { getCacheStats } from "./api/cache-stats.js"
 import { handleFormReq } from "./api/contributeForm.js"
 import { handleDebugCookies } from "./api/debug.js"
-import { uploadResourceToSupabase, resourceStreamFromSupabase, mintStreamToken } from "./api/rw-supabase.js"
+import { uploadResourceToSupabase, resourceStreamFromSupabase } from "./api/rw-supabase.js"
 import { getStatus, streamStatus, createIncident, addIncidentUpdate, updateComponentStatus } from "./api/status.js"
 import { verifyAdminPassphrase, getResources as getAdminResources, updateResource, deleteResource, getFilters, replaceFile } from "./api/admin.js"
 import { getFile } from "./api/file.js"
@@ -157,12 +157,6 @@ async function handleRequest(request, env, ctx) {
       const ctx = { params: { id: streamMatch[1] } };
       response = await resourceStreamFromSupabase(request, env, ctx);
       return addCorsHeaders(response)
-  }
-
-  // POST /api/mint-stream-token
-  if (request.method === 'POST' && url.pathname === '/api/mint-stream-token') {
-    response = await mintStreamToken(request, env);
-    return addCorsHeaders(response)
   }
 
   // POST /api/analytics/cookieless

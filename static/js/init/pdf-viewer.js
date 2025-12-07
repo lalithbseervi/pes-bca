@@ -1,6 +1,6 @@
 /**
  * PDF Viewer Initialization Module
- * Handles PDF loading, path parsing, token management, and navigation
+ * Handles PDF loading, path parsing, and navigation
  * Reusable for both SSR (initial load) and CSR (router navigation)
  */
 
@@ -50,41 +50,6 @@ export async function initPDFViewer(pdfPath, title, options = {}) {
   }
 
   /**
-   * Ensure we have a stream token in sessionStorage for the given resource id
-   */
-  async function ensureStreamToken(resourceId) {
-    if (!resourceId) return;
-    if (sessionStorage.getItem('stream_token')) return;
-    try {
-      const sessionStr = sessionStorage.getItem('user_session');
-      const headers = { 'Content-Type': 'application/json' };
-      if (sessionStr) {
-        try {
-          const sess = JSON.parse(sessionStr);
-          if (sess && (sess.access_token || sess.token)) {
-            headers['Authorization'] = 'Bearer ' + (sess.access_token || sess.token);
-          }
-        } catch (e) { /* ignore parse errors */ }
-      }
-
-      const resp = await fetch(`${API_BASE_URL}/api/mint-stream-token`, {
-        method: 'POST',
-        headers,
-        credentials: 'include',
-        body: JSON.stringify({ id: resourceId, ttl: 600 })
-      });
-      if (!resp.ok) {
-        console.warn('ensureStreamToken: mint endpoint failed', resp.status);
-        return;
-      }
-      const j = await resp.json().catch(() => null);
-      if (j && j.token) sessionStorage.setItem('stream_token', j.token);
-    } catch (e) {
-      console.warn('ensureStreamToken error', e);
-    }
-  }
-
-  /**
    * Show PDF error message in container
    */
   function showPdfError(message, details) {
@@ -117,8 +82,6 @@ export async function initPDFViewer(pdfPath, title, options = {}) {
       const absUrl = new URL(path, window.location.href).href;
       let r = await fetch(absUrl, { method: 'HEAD', cache: 'no-store' });
       if (r.ok) {
-        const newToken = r.headers.get('X-Stream-Token') || r.headers.get('x-stream-token');
-        if (newToken) try { sessionStorage.setItem('stream_token', newToken); } catch (e) { }
         return { ok: true, status: r.status, contentType: r.headers.get('content-type') };
       }
       r = await fetch(absUrl, {
@@ -128,8 +91,6 @@ export async function initPDFViewer(pdfPath, title, options = {}) {
         credentials: 'include'
       });
       if (r.ok || r.status === 206) {
-        const newToken = r.headers.get('X-Stream-Token') || r.headers.get('x-stream-token');
-        if (newToken) try { sessionStorage.setItem('stream_token', newToken); } catch (e) { }
         return { ok: true, status: r.status, contentType: r.headers.get('content-type') };
       }
       return { ok: false, status: r.status, statusText: r.statusText };
@@ -540,31 +501,6 @@ export async function initPDFViewer(pdfPath, title, options = {}) {
       });
     }
     return { pdfPath: null, title: displayTitle, loaded: false };
-  }
-
-  // Mint stream token and append to path
-  try {
-    const resourceId = extractResourceId(normalizedPdfPath || pdfPath);
-    await ensureStreamToken(resourceId);
-
-    const sessionToken = sessionStorage.getItem('stream_token');
-    if (sessionToken && normalizedPdfPath) {
-      try {
-        const u = new URL(normalizedPdfPath, window.location.href);
-        if (!u.searchParams.get('token') && u.pathname.startsWith('/api/resources/')) {
-          u.searchParams.set('token', sessionToken);
-          if (u.origin === window.location.origin) {
-            normalizedPdfPath = u.pathname + (u.search || '');
-          } else {
-            normalizedPdfPath = u.href;
-          }
-        }
-      } catch (e) {
-        // ignore URL parsing errors
-      }
-    }
-  } catch (e) {
-    // sessionStorage or network may be unavailable in some contexts
   }
 
   // Load PDF viewer if requested and session is valid
