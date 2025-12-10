@@ -1,6 +1,14 @@
-// Import auth manager and utilities
-import auth from './auth.js';
+// Import utilities (auth will be dynamically imported with version)
 import { API_BASE_URL } from './utils.js';
+
+// Get the version parameter from the script tag that loaded this module
+const currentScript = document.currentScript || document.querySelector('script[src*="/js/login.js"]');
+const scriptSrc = currentScript?.src || '';
+const versionMatch = scriptSrc.match(/[?&]v=([^&]+)/);
+const swVersion = versionMatch ? versionMatch[1] : '';
+
+// Dynamically import auth with the same version parameter
+const auth = await import(`./auth.js${swVersion ? `?v=${swVersion}` : ''}`).then(m => m.default);
 
 document.addEventListener('DOMContentLoaded', async function() {
     const content = document.getElementsByClassName('body')[0];
