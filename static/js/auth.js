@@ -14,6 +14,7 @@ class AuthManager {
     this.authCheckCooldown = 3600000; // Don't check more than every 1 hour
     this.cachedSession = null;
     this.listeners = new Map(); // For event listeners
+    this.authReadyPromise = null; // Promise that resolves when initial auth check completes
     
     this.init();
   }
@@ -22,14 +23,22 @@ class AuthManager {
     console.log('[Auth] Manager initialized');
     
     // Perform initial authentication check on page load
-    this.refreshAuthStatus().then(authenticated => {
+    // Store the promise so pages can await it before loading content
+    this.authReadyPromise = this.refreshAuthStatus().then(authenticated => {
       if (authenticated) {
         console.log('[Auth] Initial auth check: authenticated');
       } else {
         console.log('[Auth] Initial auth check: not authenticated');
+        // Show login modal if user is not authenticated
+        const loginModal = document.getElementById('login-modal');
+        if (loginModal) {
+          loginModal.style.display = 'block';
+        }
       }
+      return authenticated;
     }).catch(err => {
       console.error('[Auth] Initial auth check failed:', err);
+      return false;
     });
     
     // When page becomes visible after being hidden, refresh auth status
@@ -118,6 +127,18 @@ class AuthManager {
     }
     
     console.log('[Auth] Refreshing auth status (cooldown expired, hitting API)...');
+    return await this.isAuthenticated();
+  }
+
+  /**
+   * Wait for initial auth check to complete
+   * Pages should call this before loading authenticated content
+   */
+  async waitForAuthReady() {
+    if (this.authReadyPromise) {
+      return await this.authReadyPromise;
+    }
+    // If no promise exists, check immediately
     return await this.isAuthenticated();
   }
 

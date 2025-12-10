@@ -504,7 +504,12 @@ function handleVisibilityChangeEvent(e) {
 }
 
 // Initialize on DOM ready
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
+    // Wait for auth check to complete before loading resources
+    if (window.auth && typeof window.auth.waitForAuthReady === 'function') {
+        await window.auth.waitForAuthReady();
+    }
+    
     initializeSearchOnEnter('search-input');
     initializeDetailsToggle('content-area', 1); // Open first semester only
     

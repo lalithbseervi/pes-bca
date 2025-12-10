@@ -160,19 +160,25 @@
 <script type="module">
     // Subject page initialization - all logic moved to subject-init.js module
     import { initSubjectPage } from '/js/init/subject.js?v={{ config.extra.sw_version }}';
+    import auth from '/js/auth.js?v={{ config.extra.sw_version }}';
     
     const subjectCode = '{{ page.extra.subject_code }}';
     const semester = '{{ page.extra.semester | default(value="1") }}';
     
-    // Initialize subject page with all functionality
-    initSubjectPage(subjectCode, semester, {
-      contentSelector: 'main, #main, .main-content',
-      loadingSelector: '#loading',
-      contentAreaSelector: '#content-area',
-      errorSelector: '#error',
-      subjectContentSelector: '#subject-content',
-      searchInputSelector: '#search-input',
-      noResultsSelector: '#no-results'
-    }).catch(err => console.error('Subject page init failed:', err));
+    // Wait for auth check to complete before initializing subject page
+    (async () => {
+      await auth.waitForAuthReady();
+      
+      // Initialize subject page with all functionality
+      await initSubjectPage(subjectCode, semester, {
+        contentSelector: 'main, #main, .main-content',
+        loadingSelector: '#loading',
+        contentAreaSelector: '#content-area',
+        errorSelector: '#error',
+        subjectContentSelector: '#subject-content',
+        searchInputSelector: '#search-input',
+        noResultsSelector: '#no-results'
+      });
+    })().catch(err => console.error('Subject page init failed:', err));
 </script>
 {% endblock main_content %}
