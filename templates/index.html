@@ -497,6 +497,8 @@ window.clearFilters = customClearFilters;
 
 function handleVisibilityChangeEvent(e) {
     if (!document.hidden) {
+        // Tab regained focus: trigger analytics streaming and resource refresh
+        window.ensureAnalyticsStreaming && window.ensureAnalyticsStreaming();
         fetchAndUpdateResources().catch(()=>{});
     }
 }
@@ -512,7 +514,10 @@ document.addEventListener('DOMContentLoaded', function() {
         console.error(`[delta updates]: failed due to unknown error\nerror: ${err}`); 
     });
     
-    // Refresh when tab regains focus
+    // Refresh when tab regains focus or visibility changes
+    document.addEventListener('focus', () => {
+        window.ensureAnalyticsStreaming && window.ensureAnalyticsStreaming();
+    });
     document.addEventListener('focus', handleVisibilityChangeEvent);
     document.addEventListener('visibilitychange', handleVisibilityChangeEvent);
 });
