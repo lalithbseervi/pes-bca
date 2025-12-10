@@ -90,11 +90,20 @@ class AuthManager {
   }
 
   /**
-   * Refresh auth status without cooldown
+   * Refresh auth status with cooldown
    * Called when tab becomes visible after being hidden
+   * Only hits API if cooldown has expired
    */
   async refreshAuthStatus() {
-    console.log('[Auth] Refreshing auth status...');
+    const now = Date.now();
+    
+    // Check if we're still within the cooldown period
+    if (this.cachedSession && (now - this.lastAuthCheck) < this.authCheckCooldown) {
+      console.log('[Auth] Refreshing auth status (from cache, cooldown not expired)...');
+      return !!this.cachedSession;
+    }
+    
+    console.log('[Auth] Refreshing auth status (cooldown expired, hitting API)...');
     return await this.isAuthenticated();
   }
 
