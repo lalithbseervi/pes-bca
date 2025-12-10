@@ -21,14 +21,28 @@ class AuthManager {
   init() {
     console.log('[Auth] Manager initialized');
     
+    // Perform initial authentication check on page load
+    this.refreshAuthStatus().then(authenticated => {
+      if (authenticated) {
+        console.log('[Auth] Initial auth check: authenticated');
+      } else {
+        console.log('[Auth] Initial auth check: not authenticated');
+      }
+    }).catch(err => {
+      console.error('[Auth] Initial auth check failed:', err);
+    });
+    
     // When page becomes visible after being hidden, refresh auth status
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden) {
-        let authActive = this.refreshAuthStatus();
-        if (!authActive) {
-          const loginModal = document.getElementById('login-modal');
-          loginModal.style.display = 'block';
-        }
+        this.refreshAuthStatus().then(authenticated => {
+          if (!authenticated) {
+            const loginModal = document.getElementById('login-modal');
+            if (loginModal) {
+              loginModal.style.display = 'block';
+            }
+          }
+        });
       }
     });
   }
