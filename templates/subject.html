@@ -160,14 +160,18 @@
 <script type="module">
     // Subject page initialization - all logic moved to subject-init.js module
     import { initSubjectPage } from '/js/init/subject.js?v={{ config.extra.sw_version }}';
-    import auth from '/js/auth.js?v={{ config.extra.sw_version }}';
+    
+    // Use the global auth instance loaded by base.html
+    const auth = window.auth;
     
     const subjectCode = '{{ page.extra.subject_code }}';
     const semester = '{{ page.extra.semester | default(value="1") }}';
     
     // Wait for auth check to complete before initializing subject page
     (async () => {
-      await auth.waitForAuthReady();
+      if (auth && typeof auth.waitForAuthReady === 'function') {
+        await auth.waitForAuthReady();
+      }
       
       // Initialize subject page with all functionality
       await initSubjectPage(subjectCode, semester, {

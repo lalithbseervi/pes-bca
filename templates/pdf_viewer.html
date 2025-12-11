@@ -154,8 +154,10 @@
 </div><br>
 
 <script type="module">
-  import auth from '/js/auth.js?v={{ config.extra.sw_version }}';
   import { initPDFViewer } from '/js/init/pdf-viewer.js?v={{ config.extra.sw_version }}';
+  
+  // Use the global auth instance loaded by base.html
+  const auth = window.auth;
 
   document.addEventListener('DOMContentLoaded', async () => {
     const urlParams = new URLSearchParams(window.location.search);
