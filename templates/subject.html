@@ -5,6 +5,22 @@
 <link defer rel="stylesheet" href="/css/alerts.css?v={{ config.extra.sw_version }}">
 <script defer src="/js/openLinkHandler.js?v={{ config.extra.sw_version }}"></script>
 <style>
+    /* Desktop: Optimize for sidebar layout */
+    @media (min-width: 769px) {
+        main {
+            max-width: 100%;
+        }
+        
+        article {
+            max-width: 100%;
+        }
+        
+        .body {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+    }
+    
     .search-filters {
         background: rgba(31, 41, 55, 0.95);
         backdrop-filter: blur(10px);
@@ -119,7 +135,7 @@
                         All content is borrowed from PESU Academy unless explicitly stated.
                     </div>
                 </div>
-            </div><br>
+            </div>
             {{ page.content | safe }}
             
             <!-- Search and Filter Section -->
