@@ -47,6 +47,14 @@ async function recordUserLogin(username, profile, env) {
   }
 
   try {
+    // Normalize identifiers to uppercase for consistency
+    const normalizedUsername = (username || '').toString().trim().toUpperCase();
+    const normalizedProfile = {
+      ...profile,
+      srn: profile?.srn ? profile.srn.toString().trim().toUpperCase() : null,
+      prn: profile?.prn ? profile.prn.toString().trim().toUpperCase() : null,
+    };
+
     const now = new Date().toISOString();
     const {
       srn = null,
@@ -57,10 +65,10 @@ async function recordUserLogin(username, profile, env) {
       branch = null,
       semester = null,
       program = null,
-    } = profile;
+    } = normalizedProfile;
 
     // Identify username type
-    const usernameInfo = identifyUsernameType(username);
+    const usernameInfo = identifyUsernameType(normalizedUsername);
     
     // Start with profile values
     let emailValue = email;
@@ -70,13 +78,13 @@ async function recordUserLogin(username, profile, env) {
 
     // Override with username if it matches the login method (ensures the field is populated)
     if (usernameInfo.type === 'email' && !emailValue) {
-      emailValue = username;
+      emailValue = normalizedUsername;
     } else if (usernameInfo.type === 'phone' && !phoneValue) {
-      phoneValue = username;
+      phoneValue = normalizedUsername;
     } else if (usernameInfo.type === 'prn' && !prnValue) {
-      prnValue = username;
+      prnValue = normalizedUsername;
     } else if (usernameInfo.type === 'srn' && !srnValue) {
-      srnValue = username;
+      srnValue = normalizedUsername;
     }
 
     // Use SRN as primary key (from profile, required)
