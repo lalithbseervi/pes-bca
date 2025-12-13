@@ -15,17 +15,30 @@ export async function getSubjectMeta(request, env, subjectCode) {
             });
         }
 
-        const stmt = env.USER_DB.prepare(
-            `SELECT course_id, semester, subject_code, subject_name 
-             FROM subjects_config 
-             WHERE subject_code = ? 
-             LIMIT 1`
-        );
+        // Query Supabase for subject metadata
+        const base = env.SUPABASE_URL?.replace(/\/+$/, '') || '';
+        const key = env.SUPABASE_SERVICE_ROLE_KEY;
+        if (!base || !key) {
+            throw new Error('Supabase is not configured (SUPABASE_URL or SERVICE_ROLE_KEY missing)');
+        }
 
-        const result = await stmt.bind(subjectCode).first();
+        const headers = {
+            Authorization: `Bearer ${key}`,
+            apikey: key,
+            'Content-Type': 'application/json'
+        };
 
-        if (!result) {
-            log.warn('Subject not found', { subjectCode });
+        const query = `${base}/rest/v1/subjects_config?subject_code=eq.${encodeURIComponent(subjectCode)}&select=course_id,semester,subject_code,subject_name&limit=1`;
+        const resp = await fetch(query, { headers });
+
+        if (!resp.ok) {
+            const body = await resp.text();
+            throw new Error(`Supabase query failed: ${resp.status} ${resp.statusText} ${body}`);
+        }
+
+        const rows = await resp.json();
+        if (!Array.isArray(rows) || rows.length === 0) {
+            log.warn('Subject not found in Supabase', { subjectCode });
             return new Response(JSON.stringify({ 
                 error: 'subject_not_found',
                 message: 'Subject does not exist'
@@ -35,7 +48,7 @@ export async function getSubjectMeta(request, env, subjectCode) {
             });
         }
 
-        log.info('Subject metadata fetched', { subjectCode, name: result.subject_name });
+        const result = rows[0];
 
         return new Response(JSON.stringify({
             course: result.course_id,
@@ -51,7 +64,7 @@ export async function getSubjectMeta(request, env, subjectCode) {
         });
 
     } catch (error) {
-        log.error('Failed to fetch subject metadata', error);
+        log.error('Failed to fetch subject metadata', { error: String(error && error.message) });
         return new Response(JSON.stringify({ 
             error: 'server_error',
             message: 'Failed to fetch subject information'
