@@ -1,3 +1,7 @@
+import { createLogger } from '../utils/logger.js';
+
+const log = createLogger('ContributeForm');
+
 export async function handleFormReq(request, env) {
     const JSON_HEADERS = { 'Content-Type': 'application/json' }
 
@@ -16,7 +20,7 @@ export async function handleFormReq(request, env) {
         // Respond back with a success message
         return new Response(`Thank you, ${socialId}! We will contact you soon.`, { status: 200, headers: JSON_HEADERS });
     } catch (error) {
-        console.error('Error parsing request:', error);
+        log.error('Failed to process contribution form', error);
         return new Response('Error processing request', { status: 500, headers: JSON_HEADERS });
     }
 }

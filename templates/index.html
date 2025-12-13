@@ -176,7 +176,6 @@ async function fetchAndUpdateResources() {
         
         if (response.status === 304) {
             // No change; snapshot already rendered if present
-            console.info(`[delta updates]: ${response.status} ${response.statusText}`);
             loadingEl.style.display = 'none';
             contentArea.style.display = 'block';
             return;
@@ -187,7 +186,6 @@ async function fetchAndUpdateResources() {
         
         // Handle delta updates
         if (data.delta) {
-            console.info(`Delta update: ${data.count} changed/new resources`);
             // Merge delta with existing cached data, preserving all fields
             const resourceMap = new Map(allResources.map(r => [r.id, r]));
             
@@ -206,7 +204,6 @@ async function fetchAndUpdateResources() {
             // Remove deleted resources
             if (data.deleted && data.deleted.length > 0) {
                 data.deleted.forEach(id => resourceMap.delete(id));
-                console.info(`Removed ${data.deleted.length} deleted resources`);
             }
             
             allResources = Array.from(resourceMap.values());
@@ -239,7 +236,7 @@ async function fetchAndUpdateResources() {
             const searchInput = document.getElementById('search-input');
             initHomeSearchSuggest(searchInput, allResources, applyFilters);
         } catch (err) {
-            console.warn('Search suggest init failed', err);
+            // Search suggest initialization failed - non-critical
         }
         
     } catch (error) {
@@ -516,7 +513,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Attempt instant render from cache, then background refresh
     loadCachedSnapshot();
     fetchAndUpdateResources().catch((err) => { 
-        console.error(`[delta updates]: failed due to unknown error\nerror: ${err}`); 
+        // Resource loading failed - error already shown in UI
     });
     
     // Refresh when tab regains focus or visibility changes

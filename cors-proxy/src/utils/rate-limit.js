@@ -1,10 +1,29 @@
 // Exponential backoff rate limiting for file downloads
 
+import { createLogger } from './logger.js';
+
+const log = createLogger('RateLimit');
+
 const RATE_LIMIT_WINDOW = 600000; // 10 minutes in milliseconds
-const MAX_REQUESTS_PER_WINDOW = 10; // 10 requests per minute per user
+const DEFAULT_MAX_REQUESTS_PER_WINDOW = 10; // Default: 10 requests per 10 minutes per user
 const PENALTY_BASE_DURATION = 120000; // 2 minutes base penalty
 const PENALTY_MULTIPLIER = 3; // 3x increase per offense (2min, 6min, 18min, 54min)
 const MAX_PENALTY_DURATION = 21600000; // Max 360 mins (6 hours) penalty
+
+// Get configured rate limit from KV or return default
+async function getMaxRequestsPerWindow(env) {
+  if (!env.RATE_LIMIT_KV) return DEFAULT_MAX_REQUESTS_PER_WINDOW;
+  try {
+    const config = await env.RATE_LIMIT_KV.get('config:max_requests_per_window');
+    if (config) {
+      const value = parseInt(config);
+      if (value > 0 && value <= 1000) return value; // Sanity check: 1-1000
+    }
+  } catch (e) {
+    log.warn('Failed to get max requests config', e);
+  }
+  return DEFAULT_MAX_REQUESTS_PER_WINDOW;
+}
 
 // In-memory fallback store (used if KV unavailable)
 const rateLimitStore = new Map();
@@ -50,7 +69,7 @@ async function kvGet(env, ip) {
     const raw = await env.RATE_LIMIT_KV.get(KV_KEY_PREFIX + ip, 'json');
     return raw || null;
   } catch (e) {
-    console.warn('[RateLimit] KV get failed', e);
+    log.warn('KV get failed', e);
     return null;
   }
 }
@@ -64,7 +83,7 @@ async function kvPut(env, ip, data, ttlSeconds) {
       ttlSeconds ? { expirationTtl: ttlSeconds } : undefined
     );
   } catch (e) {
-    console.warn('[RateLimit] KV put failed', e);
+    log.warn('KV put failed', e);
   }
 }
 
@@ -122,6 +141,7 @@ function checkPenaltyPeriod(ip, now) {
 // Check if request is within rate limit
 export async function checkRateLimit(ip, env, { consume = true } = {}) {
   const now = Date.now();
+  const MAX_REQUESTS_PER_WINDOW = await getMaxRequestsPerWindow(env);
   
   // Check if IP is in penalty period from previous violations
   const penalty = checkPenaltyPeriod(ip, now);
@@ -151,7 +171,7 @@ export async function checkRateLimit(ip, env, { consume = true } = {}) {
   const validRequests = data.requests.filter(time => now - time < RATE_LIMIT_WINDOW);
   const validViolations = data.violations.filter(time => now - time < MAX_PENALTY_DURATION);
   
-  console.log(`[Rate Limit] IP: ${ip}, Current requests in window: ${validRequests.length}/${MAX_REQUESTS_PER_WINDOW}`);
+  // Request count logged internally, not to console
   
   // Check if limit would be exceeded by this request
   if (validRequests.length >= MAX_REQUESTS_PER_WINDOW) {
@@ -167,7 +187,7 @@ export async function checkRateLimit(ip, env, { consume = true } = {}) {
     rateLimitStore.set(ip, record);
     await kvPut(env, ip, record, Math.ceil(MAX_PENALTY_DURATION / 1000));
     
-    console.log(`[Rate Limit] BLOCKED - Violation #${validViolations.length}, Penalty: ${Math.ceil(penaltyDuration/1000)}s`);
+  // Rate limit blocking logged internally
     
     return {
       allowed: false,

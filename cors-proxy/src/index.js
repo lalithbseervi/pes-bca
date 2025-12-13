@@ -1,4 +1,5 @@
 import { getCorsHeaders } from "./utils/cors.js"
+import { createLogger } from "./utils/logger.js"
 import { loginHandler } from "./api/login.js"
 import { getSession } from "./api/session.js"
 import { logoutHandler } from "./api/logout.js"
@@ -8,12 +9,14 @@ import { handleFormReq } from "./api/contributeForm.js"
 import { handleDebugCookies } from "./api/debug.js"
 import { uploadResourceToSupabase, resourceStreamFromSupabase } from "./api/rw-supabase.js"
 import { getStatus, streamStatus, createIncident, addIncidentUpdate, updateComponentStatus } from "./api/status.js"
-import { verifyAdminPassphrase, getResources as getAdminResources, updateResource, deleteResource, getFilters, replaceFile } from "./api/admin.js"
+import { checkAdminAccess, verifyAdminPassphrase, getResources as getAdminResources, updateResource, deleteResource, getFilters, replaceFile, getSystemConfig, updateSystemConfig } from "./api/admin.js"
 import { getFile } from "./api/file.js"
 import { proxyAnalytics } from "./api/analytics.js"
 import { getSubjectResources } from "./api/subject.js"
 import { getResources } from "./api/resources.js"
-// JWT utils are used inside route handlers
+import { getPublicSystemStatus, reportError } from "./api/system-status.js"
+
+const log = createLogger('Router');
 
 addEventListener('fetch', event => {
   event.respondWith(handleRequest(event.request, event.env || globalThis))
@@ -29,16 +32,37 @@ async function handleRequest(request, env, ctx) {
       status: 204,
       headers: {
         ...corsHeaders,
-        'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
+        'Access-Control-Allow-Methods': 'GET, PUT, POST, PATCH, DELETE, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Admin-Passphrase, If-None-Match',
         'Access-Control-Max-Age': '86400',
       }
     })
   }
 
-  // Helper to add CORS headers to any response
-  // This centralizes CORS handling so individual handlers don't need to include it
-  const addCorsHeaders = (response) => {
+  // Helper to add CORS headers and auto-report 5XX errors
+  // Returns a Promise<Response> so callers can return it directly
+  const addCorsHeaders = async (response) => {
+    // Auto-report 5XX responses via report-error endpoint
+    try {
+      if (response && response.status >= 500 && response.status < 600 && url.pathname !== '/api/system/report-error') {
+        const payload = {
+          statusCode: response.status,
+          url: request.url,
+          error: response.statusText || 'Server error',
+          timestamp: Date.now(),
+          userAgent: request.headers.get('User-Agent') || 'unknown'
+        };
+        const autoReportRequest = new Request(url.origin + '/api/system/report-error', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        await reportError(autoReportRequest, env);
+      }
+    } catch (e) {
+      log.error('Auto error reporting failed', e);
+    }
+
     const newHeaders = new Headers(response.headers)
     Object.entries(corsHeaders).forEach(([key, value]) => {
       newHeaders.set(key, value)
@@ -103,6 +127,18 @@ async function handleRequest(request, env, ctx) {
     return addCorsHeaders(response)
   }
 
+  // GET /api/system/status - Public endpoint for maintenance mode and announcements
+  if (request.method === 'GET' && url.pathname === '/api/system/status') {
+    response = await getPublicSystemStatus(env)
+    return addCorsHeaders(response)
+  }
+
+  // POST /api/system/report-error - Report 5XX errors for monitoring
+  if (request.method === 'POST' && url.pathname === '/api/system/report-error') {
+    response = await reportError(request, env)
+    return addCorsHeaders(response)
+  }
+
   // POST /api/resources/upload
   if (request.method === 'POST' && url.pathname === '/api/resources/upload') {
     response = await uploadResourceToSupabase(request, env)
@@ -110,43 +146,28 @@ async function handleRequest(request, env, ctx) {
   }
 
 
-  // HEAD or GET /api/resources/sem-{N}/{subject}/{resource_type}/unit-all/{filename} - Semantic path for unit-all
-  const semanticAllUnitMatch = url.pathname.match(/^\/api\/resources\/sem-(\d+)\/([^/]+)\/([^/]+)\/unit-all\/([^/]+)\/?$/);
-  if (semanticAllUnitMatch && (request.method === 'GET' || request.method === 'HEAD')) {
-      const semester = semanticAllUnitMatch[1];
-      const subject = semanticAllUnitMatch[2];
-      const resource_type = semanticAllUnitMatch[3];
-      const filename = semanticAllUnitMatch[4];
-      const ctx = {
-        params: {
-          semester: `sem-${semester}`,
-          subject: subject,
-          resource_type: resource_type,
-          unit: 'all',
-          filename: filename
-        },
-        lookupBy: 'filename'
-      };
-      response = await resourceStreamFromSupabase(request, env, ctx);
-      return addCorsHeaders(response)
-  }
+  // HEAD or GET /api/resources/sem-{N}/{subject}/[resource_type/]{unit-{all|N}}/{filename}
+  // Supports both current semantic path (with resource_type) and the earlier form without it.
+  const semanticResourceMatch = url.pathname.match(/^\/api\/resources\/sem-(\d+)\/([^/]+)(?:\/([^/]+))?\/unit-(all|\d+)\/([^/]+)\/?$/);
+  if (semanticResourceMatch && (request.method === 'GET' || request.method === 'HEAD')) {
+      const semesterNumber = semanticResourceMatch[1];
+      const subject = semanticResourceMatch[2];
+      const maybeResourceType = semanticResourceMatch[3];
+      const unit = semanticResourceMatch[4];
+      const filename = semanticResourceMatch[5];
 
-  // HEAD or GET /api/resources/sem-{N}/{subject}/unit-{N}/{filename} - Semantic path for regular units
-  const semanticStreamMatch = url.pathname.match(/^\/api\/resources\/sem-(\d+)\/([^/]+)\/unit-(\d+)\/([^/]+)\/?$/);
-  if (semanticStreamMatch && (request.method === 'GET' || request.method === 'HEAD')) {
-      const semester = semanticStreamMatch[1];
-      const subject = semanticStreamMatch[2];
-      const unit = semanticStreamMatch[3];
-      const filename = semanticStreamMatch[4];
-      const ctx = { 
-        params: { 
-          semester: `sem-${semester}`,
-          subject: subject,
-          unit: unit,
-          filename: filename
-        },
-        lookupBy: 'filename'
+      const params = {
+        semester: `sem-${semesterNumber}`,
+        subject,
+        unit,
+        filename
       };
+
+      if (maybeResourceType) {
+        params.resource_type = maybeResourceType;
+      }
+
+      const ctx = { params, lookupBy: 'filename' };
       response = await resourceStreamFromSupabase(request, env, ctx);
       return addCorsHeaders(response)
   }
@@ -249,6 +270,12 @@ async function handleRequest(request, env, ctx) {
     return addCorsHeaders(response)
   }
 
+  // GET /api/admin/check-access - Check if user has admin access
+  if (request.method === 'GET' && url.pathname === '/api/admin/check-access') {
+    response = await checkAdminAccess(request, env)
+    return addCorsHeaders(response)
+  }
+
   // POST /api/admin/verify-passphrase - Verify admin passphrase
   if (request.method === 'POST' && url.pathname === '/api/admin/verify-passphrase') {
     response = await verifyAdminPassphrase(request, env)
@@ -267,28 +294,39 @@ async function handleRequest(request, env, ctx) {
     return addCorsHeaders(response)
   }
 
-  // PUT /api/admin/resources/:id/file - Replace file
-  const replaceFileMatch = url.pathname.match(/^\/api\/admin\/resources\/([^/]+)\/file\/?$/);
-  if (replaceFileMatch && request.method === 'PUT') {
-    const ctx = { params: { id: replaceFileMatch[1] } };
-    response = await replaceFile(request, env, ctx);
+  // GET /api/admin/config - Get system configuration
+  if (request.method === 'GET' && url.pathname === '/api/admin/config') {
+    response = await getSystemConfig(request, env)
     return addCorsHeaders(response)
   }
 
-  // PATCH /api/admin/resources/:id - Update resource metadata
-  const updateResourceMatch = url.pathname.match(/^\/api\/admin\/resources\/([^/]+)\/?$/);
-  if (updateResourceMatch && request.method === 'PATCH') {
-    const ctx = { params: { id: updateResourceMatch[1] } };
-    response = await updateResource(request, env, ctx);
+  // PUT /api/admin/config - Update system configuration
+  if (request.method === 'PUT' && url.pathname === '/api/admin/config') {
+    response = await updateSystemConfig(request, env)
     return addCorsHeaders(response)
   }
 
-  // DELETE /api/admin/resources/:id - Delete resource
-  const deleteResourceMatch = url.pathname.match(/^\/api\/admin\/resources\/([^/]+)\/?$/);
-  if (deleteResourceMatch && request.method === 'DELETE') {
-    const ctx = { params: { id: deleteResourceMatch[1] } };
-    response = await deleteResource(request, env, ctx);
-    return addCorsHeaders(response)
+  // Admin resource operations (file replace / metadata update / delete)
+  const adminResourceMatch = url.pathname.match(/^\/api\/admin\/resources\/([^/]+)(?:\/(file))?\/?$/);
+  if (adminResourceMatch) {
+    const id = adminResourceMatch[1];
+    const trailingSegment = adminResourceMatch[2];
+    const ctx = { params: { id } };
+
+    if (trailingSegment === 'file' && request.method === 'PUT') {
+      response = await replaceFile(request, env, ctx);
+      return addCorsHeaders(response)
+    }
+
+    if (!trailingSegment && request.method === 'PATCH') {
+      response = await updateResource(request, env, ctx);
+      return addCorsHeaders(response)
+    }
+
+    if (!trailingSegment && request.method === 'DELETE') {
+      response = await deleteResource(request, env, ctx);
+      return addCorsHeaders(response)
+    }
   }
 
   // POST /api/status/incidents - Create new incident (authenticated)

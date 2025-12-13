@@ -1,6 +1,9 @@
 import { verifyJWT } from '../utils/sign_jwt.js';
+import { checkRateLimit, rateLimitResponse, deriveRateLimitIdentity } from '../utils/rate-limit.js';
+import { createLogger } from '../utils/logger.js';
+import { getCourseCodeFromProfile } from '../utils/course.js';
 
-// Centralized CORS applied at the worker level; only specify content-type locally.
+const log = createLogger('Supabase');
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
 const BUCKET = 'fileStore';
@@ -46,13 +49,13 @@ async function insertFileChangeLog(env, supaHeaders, entry) {
         const resp = await fetch(url, { method: 'POST', headers: { ...supaHeaders, 'Content-Type': 'application/json', Prefer: 'return=representation' }, body: JSON.stringify(body) });
         if (!resp.ok) {
             const txt = await resp.text().catch(() => '<no body>');
-            console.error('insertFileChangeLog failed', resp.status, txt);
+            log.error(`File change log insert failed (${resp.status})`, new Error(txt));
             return null;
         }
         const j = await resp.json().catch(() => null);
         return j && j[0] ? j[0] : j;
     } catch (e) {
-        console.error('insertFileChangeLog error', e);
+        log.error('File change log insert error', e);
         return null;
     }
 }
@@ -63,8 +66,40 @@ export async function uploadResourceToSupabase(request, env) {
     const auth = await requireAccessToken(request, env);
     if (!auth.valid) return auth.response;
 
+    // --- Extract course from JWT (required, no default) ---
+    const authHeader = request.headers.get('authorization');
+    const cookieHeader = request.headers.get('cookie');
+    let accessToken = null;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        accessToken = authHeader.split(' ')[1];
+    } else if (cookieHeader) {
+        const parts = cookieHeader.split(';').map(s => s.trim());
+        for (const p of parts) {
+            if (p.startsWith('access_token=')) {
+                accessToken = p.slice('access_token='.length);
+                break;
+            }
+        }
+    }
+    
+    let course = null;
+    if (accessToken) {
+        try {
+            const decoded = await verifyJWT(accessToken, env.JWT_SECRET);
+            if (decoded && decoded.profile) {
+                course = getCourseCodeFromProfile(decoded.profile);
+            }
+        } catch (e) {
+            log.warn('Failed to extract course from JWT during upload', e);
+        }
+    }
+    
+    if (!course) {
+        return new Response(JSON.stringify({ success: false, error: 'missing_or_invalid_course' }), { status: 400, headers: JSON_HEADERS });
+    }
+
     if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
-        console.error('uploadResourceToSupabase: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not configured');
+        log.error('Missing Supabase configuration (URL or service role key)', null);
         return new Response(JSON.stringify({ success: false, error: 'server_misconfigured' }), { status: 500, headers: JSON_HEADERS });
     }
 
@@ -77,7 +112,7 @@ export async function uploadResourceToSupabase(request, env) {
     try {
         form = await request.formData();
     } catch (e) {
-        console.error('failed to parse formData', e);
+        log.error('Failed to parse form data', e);
         return new Response(JSON.stringify({ success: false, error: 'invalid_form' }), { status: 400, headers: JSON_HEADERS });
     }
 
@@ -136,7 +171,7 @@ export async function uploadResourceToSupabase(request, env) {
                 // Quick MIME hint check (may be empty or spoofed) - not authoritative
                 if (file.type && file.type !== 'application/pdf') {
                     // Log a warning but still validate by magic bytes below
-                    console.warn('upload: file.type is not application/pdf', file.type, file.name);
+                    log.warn(`Invalid MIME type for upload (${file.type}): ${file.name}`);
                 }
 
                 // Look for the ASCII signature "%PDF-" within the first 1KB
@@ -175,11 +210,11 @@ export async function uploadResourceToSupabase(request, env) {
                     }
                 } else {
                     const t = await checkResp.text().catch(() => '<no body>');
-                    console.error('supabase checksum lookup failed', checkResp.status, t);
+                    log.error(`Checksum lookup failed (${checkResp.status})`, new Error(t));
                     // continue to attempt upload
                 }
             } catch (e) {
-                console.error('supabase checksum lookup error', e);
+                log.error('Checksum lookup error', e);
                 // continue to attempt upload
             }
 
@@ -192,7 +227,7 @@ export async function uploadResourceToSupabase(request, env) {
             const filename = origName;
             // sanitize filename to avoid directory traversal and remove path chars
             const safeName = String(origName).replace(/[\\\/]+/g, '_').replace(/^[.\s]+/, '').slice(0, 240);
-            // include semester and unit prefix in storage path: e.g. sem-1/subject/resource_type/unit-1/safeName
+            // include semester and unit prefix in storage path: e.g. {course}/sem-1/subject/resource_type/unit-1/safeName
             // Support "all" units: store in "unit-all" folder
             let unitSegment;
             if (unit === 'all') {
@@ -202,7 +237,7 @@ export async function uploadResourceToSupabase(request, env) {
             } else {
                 unitSegment = 'unit-1';
             }
-            const objectPath = `${semester}/${subject}/${resource_type}/${unitSegment}/${safeName}`;
+            const objectPath = `${course}/${semester}/${subject}/${resource_type}/${unitSegment}/${safeName}`;
 
             // upload bytes
             const uploadUrl = `${env.SUPABASE_URL.replace(/\/+$/, '')}/storage/v1/object/${encodeURIComponent(BUCKET)}/${encodeURIComponent(objectPath)}`;
@@ -228,7 +263,7 @@ export async function uploadResourceToSupabase(request, env) {
             }
             if (!link_title) link_title = filename;
 
-            // insert metadata row
+            // insert metadata row (course is embedded in storage_key path)
             const supaUrl = `${env.SUPABASE_URL.replace(/\/+$/, '')}/rest/v1/fileStore`;
             const body = [{
                 id, semester, subject, resource_type, unit, filename,
@@ -262,12 +297,12 @@ export async function uploadResourceToSupabase(request, env) {
                     performed_by: performed_by || null,
                     details: { resource_type, subject, unit }
                 });
-            } catch (e) { console.warn('file change log insert error', e); }
+            } catch (e) { log.warn('File change log insert error', e); }
 
             result.id = id;
             results.push(result);
         } catch (err) {
-            console.error('file upload error', result.filename, err);
+            log.error(`File upload error: ${result.filename}`, err);
             result.error = String(err.message || err);
             results.push(result);
         }
@@ -286,6 +321,46 @@ export async function resourceStreamFromSupabase(request, env, ctx) {
     // --- Authenticate user using shared helper ---
     const auth = await requireAccessToken(request, env);
     if (!auth.valid) return auth.response;
+
+    // --- Extract course from JWT (required, no default) ---
+    const authHeader = request.headers.get('authorization');
+    const cookieHeader = request.headers.get('cookie');
+    let accessToken = null;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        accessToken = authHeader.split(' ')[1];
+    } else if (cookieHeader) {
+        const parts = cookieHeader.split(';').map(s => s.trim());
+        for (const p of parts) {
+            if (p.startsWith('access_token=')) {
+                accessToken = p.slice('access_token='.length);
+                break;
+            }
+        }
+    }
+    
+    // Note: Course validation not needed for resource streaming since storage_key encodes course
+    // Authentication is sufficient; the stored file path defines access boundaries
+
+    // --- Check rate limit before streaming ---
+    // Derive per-user (SRN) identity when logged-in; else fall back to IP
+    const rateLimitId = await deriveRateLimitIdentity(request, env);
+    
+    // HEAD requests should check but not consume the rate limit
+    const consume = request.method !== 'HEAD';
+    const limitInfo = await checkRateLimit(rateLimitId, env, { consume });
+    
+    if (!limitInfo.allowed) {
+        log.warn(`Rate limit exceeded for ${rateLimitId}`);
+        return rateLimitResponse(limitInfo);
+    }
+    
+    // Rate limit headers to include in all responses
+    const rateLimitHeaders = {
+        'X-RateLimit-Limit': limitInfo.limit.toString(),
+        'X-RateLimit-Remaining': limitInfo.remaining.toString(),
+        'X-RateLimit-Reset': limitInfo.resetAt,
+        'X-RateLimit-Violation-Count': (limitInfo.violationCount || 0).toString()
+    };
 
     let row = null;
     try {
@@ -319,13 +394,15 @@ export async function resourceStreamFromSupabase(request, env, ctx) {
             }
         } else {
             const t = await metaResp.text().catch(() => '<no body>');
-            console.error('supabase metadata fetch failed', metaResp.status, t);
+            log.error(`Metadata fetch failed (${metaResp.status})`, new Error(t));
         }
     } catch (e) {
-        console.error('supabase metadata request error', e);
+        log.error('Metadata request error', e);
     }
 
-    if (!row || !row.storage_key) return new Response('Not found', { status: 404 });
+    if (!row || !row.storage_key) {
+        return new Response('Not found', { status: 404, headers: rateLimitHeaders });
+    }
 
         if (request.method === 'HEAD') {
             try {
@@ -338,12 +415,12 @@ export async function resourceStreamFromSupabase(request, env, ctx) {
                 const headResp = await fetch(objectUrl, { method: 'HEAD', headers: supaHeaders });
                 if (!headResp.ok) {
                     const txt = await headResp.text().catch(() => '<no body>');
-                    console.error('upstream object HEAD failed', headResp.status, txt);
-                    return new Response(txt, { status: headResp.status });
+                    log.error(`HEAD request failed (${headResp.status})`, new Error(txt));
+                    return new Response(txt, { status: headResp.status, headers: rateLimitHeaders });
                 }
 
                 // Build response headers for HEAD: include content-type, length, and advertise range support
-                const respHeaders = {};
+                const respHeaders = { ...rateLimitHeaders };
                 const ct = headResp.headers.get('content-type') || row.content_type || 'application/octet-stream';
                 respHeaders['Content-Type'] = ct;
                 const len = headResp.headers.get('content-length');
@@ -353,8 +430,11 @@ export async function resourceStreamFromSupabase(request, env, ctx) {
 
                 return new Response(null, { status: 200, headers: respHeaders });
             } catch (e) {
-                console.error('error performing HEAD against storage object', e);
-                return new Response(JSON.stringify({ success: false, error: 'head_request_failed' }), { status: 502, headers: JSON_HEADERS });
+                log.error('HEAD request processing error', e);
+                return new Response(JSON.stringify({ success: false, error: 'head_request_failed' }), { 
+                    status: 502, 
+                    headers: { ...JSON_HEADERS, ...rateLimitHeaders } 
+                });
             }
         }
 
@@ -371,11 +451,14 @@ export async function resourceStreamFromSupabase(request, env, ctx) {
         const upstream = await fetch(objectUrl, { method: 'GET', headers: fetchHeaders });
         if (!upstream.ok && upstream.status !== 206) {
             const txt = await upstream.text().catch(() => '<no body>');
-            console.error('upstream object fetch failed', upstream.status, txt);
-            return new Response(txt, { status: upstream.status, headers: { 'Content-Type': 'text/plain' } });
+            log.error(`File fetch failed (${upstream.status})`, new Error(txt));
+            return new Response(txt, { 
+                status: upstream.status, 
+                headers: { 'Content-Type': 'text/plain', ...rateLimitHeaders } 
+            });
         }
 
-        const respHeaders = {};
+        const respHeaders = { ...rateLimitHeaders };
         const copyHeaders = ['content-type', 'content-length', 'content-disposition', 'accept-ranges', 'cache-control', 'last-modified', 'etag'];
         for (const h of copyHeaders) {
             const v = upstream.headers.get(h);
@@ -393,7 +476,10 @@ export async function resourceStreamFromSupabase(request, env, ctx) {
 
         return new Response(upstream.body, { status: upstream.status, headers: respHeaders });
     } catch (e) {
-        console.error('error obtaining signed url or proxying', e);
-        return new Response(JSON.stringify({ success: false, error: 'sign_or_proxy_error' }), { status: 502, headers: JSON_HEADERS });
+        log.error('File proxy error', e);
+        return new Response(JSON.stringify({ success: false, error: 'sign_or_proxy_error' }), { 
+            status: 502, 
+            headers: { ...JSON_HEADERS, ...rateLimitHeaders } 
+        });
     }
 }

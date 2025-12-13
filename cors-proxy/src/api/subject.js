@@ -2,6 +2,9 @@
  * API module for fetching subject resources
  * Returns resources organized by unit and resource_type in hierarchical structure
  */
+import { createLogger } from '../utils/logger.js';
+
+const log = createLogger('Subject');
 
 /**
  * Get subject resources organized hierarchically
@@ -43,7 +46,7 @@ export async function getSubjectResources(request, env) {
             }
         } catch (e) {
             // Subjects table might not exist yet, continue without it
-            console.log('Subjects table not available, using code as fallback');
+            // Subjects table not available, using code as fallback
         }
 
         // Fetch all resources for this subject from Supabase
@@ -110,7 +113,7 @@ export async function getSubjectResources(request, env) {
                 });
 
     } catch (error) {
-        console.error('Error fetching subject resources:', error);
+        log.error('Failed to fetch subject resources', error);
                 return new Response(JSON.stringify({ 
                     error: 'Failed to fetch subject resources',
                     details: error.message 

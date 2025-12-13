@@ -1,5 +1,8 @@
 // Status page API endpoints
 import { verifyJWT } from '../utils/sign_jwt.js';
+import { createLogger } from '../utils/logger.js';
+
+const log = createLogger('Status');
 
 // Helper to check passphrase
 function verifyPassphrase(request, env) {
@@ -40,7 +43,7 @@ async function isAuthenticated(request, env) {
         const res = await verifyJWT(token, env.JWT_SECRET);
         return (res && res.valid) ? res.payload : null;
     } catch (e) {
-        console.error('auth check error', e);
+        log.error('Authentication check error', e);
         return null;
     }
 }
@@ -110,7 +113,7 @@ export async function getStatus(request, env) {
             headers: JSON_HEADERS
         });
     } catch (e) {
-        console.error('getStatus error', e);
+        log.error('Failed to fetch status', e);
         return new Response(JSON.stringify({ error: 'failed_to_fetch_status' }), {
             status: 500,
             headers: JSON_HEADERS
@@ -148,7 +151,7 @@ export async function streamStatus(request, env) {
                         lastSentData = serializedData;
                     }
                 } catch (e) {
-                    console.error('SSE update error', e);
+                    log.error('SSE update error', e);
                 }
             }, 30000); // Check every 30 seconds
 
@@ -170,7 +173,7 @@ export async function streamStatus(request, env) {
                 writer.close().catch(() => {});
             });
         } catch (e) {
-            console.error('SSE stream error', e);
+            log.error('SSE stream error', e);
             await writer.close().catch(() => {});
         }
     })();
@@ -256,7 +259,7 @@ export async function createIncident(request, env) {
             headers: JSON_HEADERS
         });
     } catch (e) {
-        console.error('createIncident error', e);
+        log.error('Failed to create incident', e);
         return new Response(JSON.stringify({ error: 'failed_to_create_incident' }), {
             status: 500,
             headers: JSON_HEADERS
@@ -336,7 +339,7 @@ export async function addIncidentUpdate(request, env, ctx) {
             headers: JSON_HEADERS
         });
     } catch (e) {
-        console.error('addIncidentUpdate error', e);
+        log.error('Failed to add incident update', e);
         return new Response(JSON.stringify({ error: 'failed_to_add_update' }), {
             status: 500,
             headers: JSON_HEADERS
@@ -395,7 +398,7 @@ export async function updateComponentStatus(request, env, ctx) {
             headers: JSON_HEADERS
         });
     } catch (e) {
-        console.error('updateComponentStatus error', e);
+        log.error('Failed to update component status', e);
         return new Response(JSON.stringify({ error: 'failed_to_update_component' }), {
             status: 500,
             headers: JSON_HEADERS

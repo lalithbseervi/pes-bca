@@ -1,6 +1,8 @@
 // API endpoint to serve files via Supabase signed URLs
 import { checkRateLimit, rateLimitResponse, deriveRateLimitIdentity } from '../utils/rate-limit.js';
+import { createLogger } from '../utils/logger.js';
 
+const log = createLogger('File');
 const BUCKET = 'fileStore';
 
 // Helper to fetch file directly from Supabase Storage using authenticated request
@@ -20,11 +22,11 @@ async function fetchFileFromStorage(env, bucket, storageKey) {
             return response;
         } else {
             const errorText = await response.text();
-            console.error('Failed to fetch file from storage:', response.status, errorText);
+            log.error(`Failed to fetch from storage (${response.status})`, new Error(errorText));
             return null;
         }
     } catch (e) {
-        console.error('Failed to fetch file from storage:', e);
+        log.error('File storage fetch error', e);
         return null;
     }
 }
@@ -39,7 +41,7 @@ export async function getFile(request, env, ctx) {
         // Check rate limit (persistent, consume request)
             const limitInfo = await checkRateLimit(rateLimitId, env, { consume: true });
         if (!limitInfo.allowed) {
-                console.warn('Rate limit exceeded for identity:', rateLimitId);
+                log.warn(`Rate limit exceeded for ${rateLimitId}`);
             return rateLimitResponse(limitInfo);
         }
         
@@ -54,7 +56,7 @@ export async function getFile(request, env, ctx) {
         const { storageKey } = ctx.params;
         
         if (!storageKey) {
-            console.error('Missing storage key in request');
+            log.error('Missing storage key in request', null);
             return new Response(JSON.stringify({ error: 'Missing storage key' }), { 
                 status: 400,
                 headers: { 'Content-Type': 'application/json', ...rateLimitHeaders }
@@ -69,7 +71,7 @@ export async function getFile(request, env, ctx) {
         const fileResponse = await fetchFileFromStorage(env, BUCKET, decodedKey);
         
         if (!fileResponse) {
-            console.error('Failed to fetch file from storage for:', decodedKey);
+            log.error(`Failed to fetch file: ${decodedKey}`, null);
             return new Response(JSON.stringify({ 
                 error: 'Failed to fetch file from storage',
                 storageKey: decodedKey
@@ -90,7 +92,7 @@ export async function getFile(request, env, ctx) {
             }
         });
     } catch (e) {
-        console.error('Get file error for storage key:', ctx.params?.storageKey, 'Error:', e);
+        log.error(`File serving error for ${ctx.params?.storageKey}`, e);
         return new Response(JSON.stringify({ 
             error: 'Internal server error',
             message: e.message,

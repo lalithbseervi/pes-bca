@@ -1,6 +1,10 @@
 import { invalidateCachedAuth, verifyCachedCredentials, cacheAuthResult } from "../utils/auth-cache.js";
 import { makeCookie } from "../utils/cookies.js";
 import { signJWT } from "../utils/sign_jwt.js";
+import { createLogger } from "../utils/logger.js";
+import { getCourseCodeFromProfile } from "../utils/course.js";
+
+const log = createLogger('Login');
 
 /**
  * Identify username type from login input
@@ -42,7 +46,7 @@ function identifyUsernameType(username) {
  */
 async function recordUserLogin(username, profile, env) {
   if (!env.USER_DB) {
-    console.warn('USER_DB binding not available, skipping user registry');
+    log.warn('USER_DB binding not configured, skipping user registry');
     return;
   }
 
@@ -91,12 +95,9 @@ async function recordUserLogin(username, profile, env) {
     const primarySrn = srnValue;
     
     if (!primarySrn) {
-      console.warn(`No SRN in profile for user ${username}, cannot record login`);
+      log.warn(`Cannot record login: no SRN in profile for ${username}`);
       return;
     }
-
-    // Log what we're about to insert/update
-    console.log(`Recording login: SRN=${primarySrn}, name=${name}, prn=${prnValue}, email=${emailValue}, phone=${phoneValue}, branch=${branch}, semester=${semester}, program=${program}`);
 
     // Insert or update user record - preserve first_login_at on updates
     const result = await env.USER_DB.prepare(`
@@ -121,13 +122,8 @@ async function recordUserLogin(username, profile, env) {
     `).bind(
       primarySrn, name, prnValue, emailValue, phoneValue, branch, semester, program, now, now
     ).run();
-
-    console.log(`✓ Recorded login for user ${primarySrn} (via ${usernameInfo.type}: ${username}) - Result:`, JSON.stringify(result));
   } catch (error) {
-    // Don't fail the login if user tracking fails
-    console.error('Failed to record user login:', error);
-    console.error('Error stack:', error.stack);
-    console.error('Error details:', JSON.stringify(error));
+    log.error('Failed to record user login', error);
   }
 }
 
@@ -160,8 +156,13 @@ export async function loginHandler(request, env, ctx) {
         }), { status: 401, headers: JSON_HEADERS });
       }
       
-      console.log('Guest login successful (auth service fallback mode)');
+      // Guest login successful (auth service fallback mode)
       const profile = dummyUser.profile || { name: 'Guest User', branch: 'Guest', semester: '1' };
+      const courseId = getCourseCodeFromProfile(profile);
+      if (!courseId) {
+        return new Response(JSON.stringify({ success: false, message: 'invalid_course: user course not recognized' }), { status: 401, headers: JSON_HEADERS });
+      }
+      profile.course = courseId;
       
       // Skip user registry for guest logins
       
@@ -182,7 +183,7 @@ export async function loginHandler(request, env, ctx) {
         guest_mode: true
       }), { status: 200, headers });
     } catch (e) {
-      console.error('Guest auth check failed:', e);
+      log.error('Guest authentication check failed', e);
       return new Response(JSON.stringify({ 
         success: false, 
         message: 'Guest auth not enabled' 
@@ -197,10 +198,7 @@ export async function loginHandler(request, env, ctx) {
   if (cachedAuth.success) {
     // Cache hit! Use cached profile
     profile = cachedAuth.profile
-    console.log(`Cache HIT for ${srn} - fast login`)
-  } else {
-    console.log(`Cache MISS for ${srn} - calling auth API`)
-  
+  } else {  
     const authApi = env.AUTH_API
     if (!authApi) {
       return new Response(JSON.stringify({ success:false, message:'invalid config (no AUTH_API given)' }), { status:401, headers: JSON_HEADERS })
@@ -219,11 +217,11 @@ export async function loginHandler(request, env, ctx) {
           try {
             authResult = JSON.parse(rawBody)
           } catch (parseErr) {
-            console.warn('Upstream auth JSON parse failed, raw body (trimmed):', rawBody.slice(0,120))
+            log.warn('Upstream auth response parse failed', new Error(rawBody.slice(0, 120)));
             authResult = {}
           }
         } else {
-          console.warn('Upstream auth returned non-JSON body, status:', authResp.status, 'CT:', contentType, 'raw (trimmed):', rawBody.slice(0,120))
+          log.warn(`Upstream auth returned non-JSON body (${authResp.status})`, new Error(rawBody.slice(0, 120)));
         }
 
         if (!authResp.ok) {
@@ -238,10 +236,15 @@ export async function loginHandler(request, env, ctx) {
         }
 
         profile = authResult.profile
+        // Enrich profile with course (throws if not found)
+        const courseId = getCourseCodeFromProfile(profile);
+        if (!courseId) {
+          return new Response(JSON.stringify({ success: false, message: 'invalid_course: user course not recognized' }), { status: 401, headers: JSON_HEADERS });
+        }
+        profile.course = courseId;
         await cacheAuthResult(env, srn, password, profile)
-        console.log(`Cached credentials for ${srn}`)
       } catch (e) {
-        console.error('Auth API fetch error:', e)
+        log.error('Auth API fetch failed', e);
         // Fallback: Enable dummy user when auth service is down
         if (env.SESSIONS) {
           try {
@@ -253,14 +256,14 @@ export async function loginHandler(request, env, ctx) {
               reason: 'Auth service unavailable'
             }
             await env.SESSIONS.put('dummy_user', JSON.stringify(dummyUser), { expirationTtl: 3600 })
-            console.log('Dummy user activated due to auth service failure. Credentials: guest/guest')
+            // Dummy user activated due to auth service failure. Credentials: guest/guest
             return new Response(JSON.stringify({ 
               success: false,
               message: 'Auth service temporarily unavailable. Please try: username="guest", password="guest"',
               guest_fallback_enabled: true
             }), { status: 503, headers: JSON_HEADERS })
           } catch (kvError) {
-            console.error('Failed to activate dummy user:', kvError)
+            log.error('Failed to activate dummy user', kvError);
           }
         }
         return new Response(JSON.stringify({ success:false, message:'auth backend error' }), { status:502, headers: JSON_HEADERS })
@@ -270,19 +273,17 @@ export async function loginHandler(request, env, ctx) {
 
   // Record user login in permanent registry (background task with ctx.waitUntil)  
   if (ctx && ctx.waitUntil) {
-    console.log('Using ctx.waitUntil for background task');
     ctx.waitUntil(
       recordUserLogin(srn, profile, env).then(() => {
       }).catch(err => {
-        console.error('Background task: User registry update failed:', err);
-        console.error('Background task: Error stack:', err.stack);
+        log.error('User registry update failed', err);
       })
     );
   } else {
-    console.warn('ctx.waitUntil not available, using fallback');
+    log.warn('ctx.waitUntil not available, using fallback');
     // Await it to ensure it completes before response
     await recordUserLogin(srn, profile, env).catch(err => {
-      console.error('User registry update failed (no waitUntil):', err);
+      log.error('User registry update failed (fallback)', err);
     });
   }
 

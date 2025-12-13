@@ -540,7 +540,6 @@ async function loadStatus() {
     const data = await resp.json();
     renderStatusData(data);
   } catch (e) {
-    console.error('Failed to load status', e);
     document.getElementById('loading').innerHTML = '<p>Failed to load status. Please try again later.</p>';
   }
 }
@@ -561,19 +560,17 @@ function setupSSE() {
         renderStatusData(data);
         console.log('[Status] Real-time update received');
       } catch (e) {
-        console.error('[Status] Failed to parse SSE data', e);
+        // Log parsing error and continue
       }
     };
     
     eventSource.onerror = (error) => {
-      console.warn('[Status] SSE connection error, falling back to polling', error);
       eventSource.close();
       eventSource = null;
       startFallbackPolling();
     };
     
     eventSource.onopen = () => {
-      console.log('[Status] Real-time connection established');
       // Stop fallback polling since SSE is working
       if (fallbackTimer) {
         clearInterval(fallbackTimer);
@@ -581,14 +578,12 @@ function setupSSE() {
       }
     };
   } catch (e) {
-    console.warn('[Status] SSE not supported, using polling', e);
     startFallbackPolling();
   }
 }
 
 function startFallbackPolling() {
   if (fallbackTimer) return; // Already polling
-  console.log('[Status] Starting fallback polling');
   fallbackTimer = setInterval(loadStatus, FALLBACK_INTERVAL);
 }
 

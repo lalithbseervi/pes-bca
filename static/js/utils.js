@@ -19,7 +19,6 @@ export const API_BASE_URL = (location.hostname === 'localhost' || location.hostn
 export function showMessage(text, type = 'success', targetId = 'message', duration = 5000) {
   const msgEl = document.getElementById(targetId);
   if (!msgEl) {
-    console.warn(`Message target element #${targetId} not found`);
     return;
   }
   msgEl.innerHTML = `<div class="message ${type}">${text}</div>`;
@@ -38,7 +37,6 @@ export function showMessage(text, type = 'success', targetId = 'message', durati
 export function showAlert(message, type = 'success', targetId = 'alert', duration = 6000) {
   const alertEl = document.getElementById(targetId);
   if (!alertEl) {
-    console.warn(`Alert target element #${targetId} not found`);
     return;
   }
   alertEl.innerHTML = message;
@@ -94,7 +92,7 @@ export function isAuthenticated() {
     
     return true;
   } catch (e) {
-    console.error('Error checking session:', e);
+    // Silently fail - session check error is non-critical
     return false;
   }
 }
@@ -147,10 +145,10 @@ export function redirectToLogin() {
 }
 
 /**
- * Check admin passphrase
- * @param {boolean} forcePrompt - Force prompt even if passphrase exists in session
+ * Check admin access (checks user admin status first, then falls back to passphrase)
+ * @param {boolean} forcePrompt - Force passphrase prompt even if user is admin
  * @param {boolean} requireUserAuth - Whether to require user authentication first (default: false)
- * @returns {Promise<string|null>} Passphrase or null if cancelled/failed
+ * @returns {Promise<string|null>} Passphrase or 'admin-user' if user is admin, or null if failed
  */
 export async function checkAdminAuth(forcePrompt = false, requireUserAuth = false) {
   // Optionally check if user is logged in first
@@ -163,13 +161,38 @@ export async function checkAdminAuth(forcePrompt = false, requireUserAuth = fals
   if (!forcePrompt) {
     const existingPassphrase = sessionStorage.getItem('admin_passphrase');
     if (existingPassphrase) return existingPassphrase;
+    
+    // Check if user is marked as admin
+    const adminUser = sessionStorage.getItem('is_admin_user');
+    if (adminUser === 'true') return 'admin-user';
   }
   
-  // Prompt for passphrase
-  const passphrase = prompt('Enter admin passphrase:');
+  // First check if logged-in user has admin access
+  try {
+    const accessResp = await fetch(`${API_BASE_URL}/api/admin/check-access`, {
+      method: 'GET',
+      credentials: 'include'
+    });
+    
+    if (accessResp.ok) {
+      const accessData = await accessResp.json();
+      
+      if (accessData.hasAccess) {
+        // User is admin, no passphrase needed
+        sessionStorage.setItem('is_admin_user', 'true');
+        console.log('Admin access granted via user account:', accessData.user);
+        return 'admin-user';
+      }
+    }
+  } catch (error) {
+    console.warn('Could not check admin access:', error);
+  }
+  
+  // User is not admin or not logged in, prompt for passphrase
+  const passphrase = prompt('Enter admin passphrase (or login with an admin account):');
   if (!passphrase) return null;
   
-  // Verify with API
+  // Verify passphrase with API
   try {
     const resp = await fetch(`${API_BASE_URL}/api/admin/verify-passphrase`, {
       method: 'POST',
@@ -196,10 +219,15 @@ export async function checkAdminAuth(forcePrompt = false, requireUserAuth = fals
 }
 
 /**
- * Get admin passphrase from session storage
- * @returns {string|null} Passphrase or null
+ * Get admin passphrase from session storage (or dummy value if admin user)
+ * @returns {string|null} Passphrase, 'admin-user', or null
  */
 export function getAdminPassphrase() {
+  // Check if user is admin first
+  const isAdminUser = sessionStorage.getItem('is_admin_user');
+  if (isAdminUser === 'true') {
+    return 'admin-user'; // Dummy value that backend will accept for admin users
+  }
   return sessionStorage.getItem('admin_passphrase');
 }
 

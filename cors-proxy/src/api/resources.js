@@ -1,15 +1,64 @@
 /**
  * GET /api/resources - Get all resources with optional filters
  * Query params:
+ *   - course: filter by course code (e.g., "CA") - if not provided, uses JWT profile course
  *   - semester: filter by semester (e.g., "sem-1")
  *   - subject: filter by subject (e.g., "cfp")
  *   - resource_type: filter by type (e.g., "Notes")
  *   - limit: max number of results (default: 1000)
  *   - offset: pagination offset (default: 0)
  */
+import { checkRateLimit, deriveRateLimitIdentity } from '../utils/rate-limit.js';
+import { createLogger } from '../utils/logger.js';
+import { getCourseCodeFromProfile } from '../utils/course.js';
+import { verifyJWT } from '../utils/sign_jwt.js';
+
+const log = createLogger('Resources');
+
+async function getCourseFromRequest(request, env) {
+    // Try to extract course from request query params first
+    const url = new URL(request.url);
+    let course = url.searchParams.get('course');
+    
+    if (course) return course;
+
+    // Fallback: extract from JWT in request
+    const authHeader = request.headers.get('authorization');
+    const cookieHeader = request.headers.get('cookie');
+    let accessToken = null;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        accessToken = authHeader.split(' ')[1];
+    } else if (cookieHeader) {
+        const parts = cookieHeader.split(';').map(s => s.trim());
+        for (const p of parts) {
+            if (p.startsWith('access_token=')) {
+                accessToken = p.slice('access_token='.length);
+                break;
+            }
+        }
+    }
+    
+    if (accessToken) {
+        try {
+            const decoded = await verifyJWT(accessToken, env.JWT_SECRET);
+            if (decoded && decoded.profile) {
+                course = getCourseCodeFromProfile(decoded.profile);
+            }
+        } catch (e) {
+            log.warn('Failed to extract course from JWT in resources.js', e);
+        }
+    }
+
+    return course || null;
+}
+
 export async function getResources(request, env) {
     try {
         const url = new URL(request.url);
+        const course = await getCourseFromRequest(request, env);
+        
+        // Course is optional for listing—storage_key encodes which course owns each file
+        // But we can filter by course if provided for optimization
         const semester = url.searchParams.get('semester');
         const subject = url.searchParams.get('subject');
         const resourceType = url.searchParams.get('resource_type');
@@ -23,8 +72,15 @@ export async function getResources(request, env) {
             'Content-Type': 'application/json'
         };
 
-        // Build query with filters
+        // Build query with optional course filter (if provided, use it; otherwise get all)
         let query = `${base}/rest/v1/fileStore?select=*&order=created_at.desc&limit=${limit}&offset=${offset}`;
+        
+        if (course) {
+            // Course is embedded in storage_key as first path segment
+            // Example: CA/sem-1/subject/type/unit/file.pdf
+            // Use LIKE pattern to filter by course
+            query += `&storage_key=like.${encodeURIComponent(course)}/%`;
+        }
         
         if (semester) {
             query += `&semester=eq.${encodeURIComponent(semester)}`;
@@ -109,11 +165,11 @@ export async function getResources(request, env) {
                                 
                                 if (deltaResources.length > 0 || deletedIds.length > 0) {
                                     isDelta = true;
-                                    console.log(`Delta update: ${deltaResources.length} changed/new, ${deletedIds.length} deleted`);
+                                    // Delta update computed successfully
                                 }
                             }
                         } catch (e) {
-                            console.warn('Delta computation failed:', e);
+                            log.warn('Delta computation failed', e);
                         }
                     }
                 }
@@ -128,7 +184,7 @@ export async function getResources(request, env) {
                         };
                         await env.SESSIONS.put(cacheKey, JSON.stringify(snapshot), { expirationTtl: 1800 });
                     } catch (e) {
-                        console.warn('Failed to cache ETag snapshot:', e);
+                        log.warn('Failed to cache ETag snapshot', e);
                     }
                 }
 
@@ -189,7 +245,7 @@ export async function getResources(request, env) {
                 });
 
     } catch (e) {
-        console.error('getResources error:', e);
+        log.error('Failed to fetch resources', e);
                 return new Response(JSON.stringify({
                     success: false,
                     error: 'internal_error',

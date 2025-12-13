@@ -199,6 +199,6 @@
         searchInputSelector: '#search-input',
         noResultsSelector: '#no-results'
       });
-    })().catch(err => console.error('Subject page init failed:', err));
+    })().catch(err => { /* Subject page init failed - error already shown in UI */ });
 </script>
 {% endblock main_content %}

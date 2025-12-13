@@ -89,6 +89,7 @@
     <div class="admin-tabs">
       <button class="admin-tab active" data-tab="resources">Resources</button>
       <button class="admin-tab" data-tab="status">Status Page</button>
+      <button class="admin-tab" data-tab="settings">Settings</button>
     </div>
 
     <!-- Resources Tab -->
@@ -166,6 +167,112 @@
     <!-- Status Page Tab -->
     <div class="tab-content" id="tab-status">
       <iframe src="/status-admin" id="status-frame"></iframe>
+    </div>
+
+    <!-- Settings Tab -->
+    <div class="tab-content" id="tab-settings">
+      <div id="settings-loading" class="loading" style="display: none;">
+        <p>Loading configuration...</p>
+      </div>
+
+      <div id="settings-error" class="empty-state" style="display: none; color: #dc2626;">
+        <p>Failed to load configuration.</p>
+      </div>
+
+      <div id="settings-content" style="display: none;">
+        <!-- Rate Limit Configuration -->
+        <div class="admin-section">
+          <h2>Rate Limit Configuration</h2>
+          <p style="color: var(--admin-text-secondary); margin-bottom: 1.5rem;">
+            Configure the maximum number of file download requests allowed per 10-minute window.
+          </p>
+
+          <div class="admin-filter-group" style="max-width: 400px;">
+            <label for="max-requests-input">Max Requests per Window</label>
+            <input 
+              type="number" 
+              id="max-requests-input" 
+              min="1" 
+              max="1000" 
+              step="1"
+              placeholder="10"
+              style="padding: 0.75rem; font-size: 1rem;"
+            >
+            <small style="color: var(--admin-text-secondary); display: block; margin-top: 0.5rem;">
+              Valid range: 1-1000 requests. Default is 10 requests per 10-minute window.
+            </small>
+          </div>
+        </div>
+
+        <!-- Service Worker Version -->
+        <div class="admin-section">
+          <h2>Service Worker Version</h2>
+          <p style="color: var(--admin-text-secondary); margin-bottom: 1.5rem;">
+            Update the service worker cache version to force clients to refresh cached assets.
+          </p>
+
+          <div class="admin-filter-group" style="max-width: 400px;">
+            <label for="sw-version-input">Cache Version</label>
+            <input 
+              type="text" 
+              id="sw-version-input" 
+              maxlength="50"
+              placeholder="e.g., 4b80282"
+              style="padding: 0.75rem; font-size: 1rem;"
+            >
+            <small style="color: var(--admin-text-secondary); display: block; margin-top: 0.5rem;">
+              Use a git commit hash or version number. Changing this will invalidate all client caches.
+            </small>
+          </div>
+        </div>
+
+        <!-- Maintenance Mode -->
+        <div class="admin-section">
+          <h2>Maintenance Mode</h2>
+          <p style="color: var(--admin-text-secondary); margin-bottom: 1.5rem;">
+            Enable maintenance mode to temporarily disable site access with a custom message.
+          </p>
+
+          <div class="admin-filter-group" style="max-width: 600px;">
+            <label style="display: flex; align-items: center; cursor: pointer;">
+              <input 
+                type="checkbox" 
+                id="maintenance-mode-checkbox"
+                style="width: 18px; height: 18px; margin-right: 0.75rem; cursor: pointer;"
+              >
+              <span>Enable Maintenance Mode</span>
+            </label>
+          </div>
+
+          <div class="admin-filter-group" style="max-width: 600px; margin-top: 1rem;">
+            <label for="maintenance-message-textarea">Maintenance Message</label>
+            <textarea 
+              id="maintenance-message-textarea"
+              rows="4"
+              maxlength="500"
+              placeholder="We're currently performing scheduled maintenance. Please check back soon."
+              style="padding: 0.75rem; font-size: 1rem; font-family: inherit; resize: vertical;"
+            ></textarea>
+            <small style="color: var(--admin-text-secondary); display: block; margin-top: 0.5rem;">
+              This message will be displayed to users when maintenance mode is active. Max 500 characters.
+            </small>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="admin-section">
+          <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+            <button class="admin-btn admin-btn-primary" id="save-all-settings" style="min-width: 140px;">
+              Save All Changes
+            </button>
+            <button class="admin-btn admin-btn-secondary" id="reset-all-settings">
+              Reset All to Defaults
+            </button>
+          </div>
+
+          <div id="settings-message" style="margin-top: 1rem;"></div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -571,6 +678,118 @@ document.getElementById('edit-form').addEventListener('submit', saveEdit);
 // Replace file form
 document.getElementById('replace-form').addEventListener('submit', handleReplaceFile);
 
+// System Configuration Functions
+async function loadSystemConfig() {
+  const passphrase = getAdminPassphrase();
+  const loadingEl = document.getElementById('settings-loading');
+  const errorEl = document.getElementById('settings-error');
+  const contentEl = document.getElementById('settings-content');
+  
+  loadingEl.style.display = 'block';
+  errorEl.style.display = 'none';
+  contentEl.style.display = 'none';
+  
+  try {
+    const resp = await fetch(`${API_BASE_URL}/api/admin/config`, {
+      headers: {
+        'X-Admin-Passphrase': passphrase
+      },
+      credentials: 'include'
+    });
+    
+    if (!resp.ok) {
+      throw new Error('Failed to load configuration');
+    }
+    
+    const data = await resp.json();
+    
+    // Populate form fields
+    document.getElementById('max-requests-input').value = data.max_requests_per_window;
+    document.getElementById('sw-version-input').value = data.sw_version || '';
+    document.getElementById('maintenance-mode-checkbox').checked = data.maintenance_mode;
+    document.getElementById('maintenance-message-textarea').value = data.maintenance_message || '';
+    
+    loadingEl.style.display = 'none';
+    contentEl.style.display = 'block';
+  } catch (e) {
+    console.error('Failed to load system config', e);
+    loadingEl.style.display = 'none';
+    errorEl.style.display = 'block';
+  }
+}
+
+async function saveAllSettings() {
+  const passphrase = getAdminPassphrase();
+  const messageEl = document.getElementById('settings-message');
+  const saveBtn = document.getElementById('save-all-settings');
+  
+  // Validate inputs
+  const maxRequests = parseInt(document.getElementById('max-requests-input').value);
+  if (isNaN(maxRequests) || maxRequests < 1 || maxRequests > 1000) {
+    messageEl.innerHTML = '<p style="color: #dc2626;">Max requests must be between 1 and 1000</p>';
+    return;
+  }
+  
+  const swVersion = document.getElementById('sw-version-input').value.trim();
+  if (swVersion.length > 50) {
+    messageEl.innerHTML = '<p style="color: #dc2626;">Service worker version must be 50 characters or less</p>';
+    return;
+  }
+  
+  const maintenanceMessage = document.getElementById('maintenance-message-textarea').value.trim();
+  if (maintenanceMessage.length > 500) {
+    messageEl.innerHTML = '<p style="color: #dc2626;">Maintenance message must be 500 characters or less</p>';
+    return;
+  }
+  
+  saveBtn.disabled = true;
+  messageEl.innerHTML = '<p style="color: var(--admin-text-secondary);">Saving configuration...</p>';
+  
+  try {
+    const config = {
+      max_requests_per_window: maxRequests,
+      sw_version: swVersion,
+      maintenance_mode: document.getElementById('maintenance-mode-checkbox').checked,
+      maintenance_message: maintenanceMessage
+    };
+    
+    const resp = await fetch(`${API_BASE_URL}/api/admin/config`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Admin-Passphrase': passphrase
+      },
+      credentials: 'include',
+      body: JSON.stringify(config)
+    });
+    
+    if (!resp.ok) {
+      const error = await resp.json();
+      throw new Error(error.error || 'Failed to save configuration');
+    }
+    
+    const data = await resp.json();
+    messageEl.innerHTML = `<p style="color: #059669;">✓ Configuration saved successfully! Updated: ${data.updates.join(', ')}</p>`;
+    
+    setTimeout(() => {
+      messageEl.innerHTML = '';
+    }, 5000);
+  } catch (e) {
+    console.error('Failed to save system config', e);
+    messageEl.innerHTML = `<p style="color: #dc2626;">Failed to save: ${e.message}</p>`;
+  } finally {
+    saveBtn.disabled = false;
+  }
+}
+
+function resetAllSettings() {
+  document.getElementById('max-requests-input').value = 10;
+  document.getElementById('sw-version-input').value = '';
+  document.getElementById('maintenance-mode-checkbox').checked = false;
+  document.getElementById('maintenance-message-textarea').value = 'We are currently performing scheduled maintenance. Please check back soon.';
+  document.getElementById('settings-message').innerHTML = '';
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('checking for session...')
@@ -583,6 +802,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('admin-content').style.display = 'block';
   await loadFilters();
   await loadResources(1);
+  
+  // Settings tab listeners
+  document.getElementById('save-all-settings').addEventListener('click', saveAllSettings);
+  document.getElementById('reset-all-settings').addEventListener('click', resetAllSettings);
+  
+  // Load settings when tab is clicked
+  document.querySelector('[data-tab="settings"]').addEventListener('click', () => {
+    loadSystemConfig();
+  });
 });
 </script>
 {% endblock main_content %}

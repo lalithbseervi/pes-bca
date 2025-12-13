@@ -1,5 +1,8 @@
 // Admin panel API endpoints for managing resources
 import { verifyJWT } from '../utils/sign_jwt.js';
+import { createLogger } from '../utils/logger.js';
+
+const log = createLogger('Admin');
 
 // Central CORS is applied in the main worker; only set content type locally.
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
@@ -13,14 +16,25 @@ function verifyPassphrase(request, env) {
     return true;
 }
 
-// Helper to check if user is authenticated AND has valid passphrase
+// Helper: Check if user is admin from database
+async function isUserAdmin(srn, env) {
+    if (!env.USER_DB || !srn) return false;
+    
+    try {
+        const result = await env.USER_DB.prepare(
+            'SELECT is_admin FROM users WHERE srn = ? LIMIT 1'
+        ).bind(srn).first();
+        
+        return result && result.is_admin === 1;
+    } catch (e) {
+        log.error('Failed to check admin status', e);
+        return false;
+    }
+}
+
+// Helper to check if user is authenticated (passphrase OR admin user)
 async function isAuthenticated(request, env) {
     try {
-        // First check passphrase
-        if (!verifyPassphrase(request, env)) {
-            return null;
-        }
-        
         const authHeader = request.headers.get('authorization');
         const cookieHeader = request.headers.get('cookie');
         let token = null;
@@ -38,13 +52,97 @@ async function isAuthenticated(request, env) {
             }
         }
         
-        if (!token) return null;
+        // If we have a token, check if user is admin
+        if (token) {
+            const res = await verifyJWT(token, env.JWT_SECRET);
+            if (res && res.valid && res.payload) {
+                const userSrn = res.payload.sub || res.payload.srn;
+                const isAdmin = await isUserAdmin(userSrn, env);
+                
+                if (isAdmin) {
+                    // Admin user, no passphrase needed
+                    return res.payload;
+                }
+            }
+        }
         
-        const res = await verifyJWT(token, env.JWT_SECRET);
-        return (res && res.valid) ? res.payload : null;
+        // Not an admin user, require passphrase
+        if (!verifyPassphrase(request, env)) {
+            return null;
+        }
+        
+        // Passphrase valid, return user if we have token
+        if (token) {
+            const res = await verifyJWT(token, env.JWT_SECRET);
+            return (res && res.valid) ? res.payload : { passphraseOnly: true };
+        }
+        
+        return { passphraseOnly: true };
     } catch (e) {
-        console.error('auth check error', e);
+        log.error('Authentication check error', e);
         return null;
+    }
+}
+
+// GET /api/admin/check-access - Check if user has admin access
+export async function checkAdminAccess(request, env) {
+    try {
+        const authHeader = request.headers.get('authorization');
+        const cookieHeader = request.headers.get('cookie');
+        let token = null;
+        
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            token = authHeader.split(' ')[1];
+        }
+        if (!token && cookieHeader) {
+            const parts = cookieHeader.split(';').map(s => s.trim());
+            for (const p of parts) {
+                if (p.startsWith('access_token=')) {
+                    token = p.slice('access_token='.length);
+                    break;
+                }
+            }
+        }
+        
+        if (token) {
+            const res = await verifyJWT(token, env.JWT_SECRET);
+            if (res && res.valid && res.payload) {
+                const userSrn = res.payload.sub || res.payload.srn;
+                const isAdmin = await isUserAdmin(userSrn, env);
+                
+                if (isAdmin) {
+                    return new Response(JSON.stringify({ 
+                        hasAccess: true, 
+                        method: 'user',
+                        user: { 
+                            srn: userSrn, 
+                            name: res.payload.name || res.payload.profile?.name 
+                        }
+                    }), {
+                        status: 200,
+                        headers: JSON_HEADERS
+                    });
+                }
+            }
+        }
+        
+        // Not an admin user
+        return new Response(JSON.stringify({ 
+            hasAccess: false, 
+            requiresPassphrase: true 
+        }), {
+            status: 200,
+            headers: JSON_HEADERS
+        });
+    } catch (e) {
+        log.error('Failed to check admin access', e);
+        return new Response(JSON.stringify({ 
+            hasAccess: false,
+            error: 'Failed to check access' 
+        }), {
+            status: 500,
+            headers: JSON_HEADERS
+        });
     }
 }
 
@@ -67,7 +165,7 @@ export async function verifyAdminPassphrase(request, env) {
             headers: JSON_HEADERS
         });
     } catch (e) {
-        console.error('verify passphrase error', e);
+        log.error('Failed to verify passphrase', e);
         return new Response(JSON.stringify({ error: 'Invalid request' }), {
             status: 400,
             headers: JSON_HEADERS
@@ -152,7 +250,7 @@ export async function getResources(request, env) {
             }
         }), { status: 200, headers: JSON_HEADERS });
     } catch (e) {
-        console.error('get resources error', e);
+        log.error('Failed to get admin resources', e);
         return new Response(JSON.stringify({ error: e.message }), {
             status: 500,
             headers: JSON_HEADERS
@@ -292,7 +390,7 @@ export async function updateResource(request, env, ctx) {
                 }])
             });
         } catch (e) {
-            console.warn('Failed to log update', e);
+            log.warn('Failed to log resource update', e);
         }
         
         return new Response(JSON.stringify({ success: true, resource: updated[0] }), {
@@ -300,7 +398,7 @@ export async function updateResource(request, env, ctx) {
             headers: JSON_HEADERS
         });
     } catch (e) {
-        console.error('update resource error', e);
+        log.error('Failed to update resource', e);
         return new Response(JSON.stringify({ error: e.message }), {
             status: 500,
             headers: JSON_HEADERS
@@ -356,7 +454,7 @@ export async function deleteResource(request, env, ctx) {
             });
             
             if (!deleteStorageResp.ok) {
-                console.warn('Failed to delete from storage', await deleteStorageResp.text());
+                log.warn(`Failed to delete from storage: ${await deleteStorageResp.text()}`);
             }
         }
         
@@ -392,7 +490,7 @@ export async function deleteResource(request, env, ctx) {
                 }])
             });
         } catch (e) {
-            console.warn('Failed to log deletion', e);
+            log.warn('Failed to log resource deletion', e);
         }
         
         return new Response(JSON.stringify({ success: true }), {
@@ -400,7 +498,7 @@ export async function deleteResource(request, env, ctx) {
             headers: JSON_HEADERS
         });
     } catch (e) {
-        console.error('delete resource error', e);
+        log.error('Failed to delete resource', e);
         return new Response(JSON.stringify({ error: e.message }), {
             status: 500,
             headers: JSON_HEADERS
@@ -467,7 +565,7 @@ export async function replaceFile(request, env, ctx) {
             });
             
             if (!deleteStorageResp.ok) {
-                console.warn('Failed to delete old file from storage', await deleteStorageResp.text());
+                log.warn(`Failed to delete old file from storage: ${await deleteStorageResp.text()}`);
             }
         }
         
@@ -535,7 +633,7 @@ export async function replaceFile(request, env, ctx) {
                 }])
             });
         } catch (e) {
-            console.warn('Failed to log file replacement', e);
+            log.warn('Failed to log file replacement', e);
         }
         
         return new Response(JSON.stringify({ success: true, resource: updated[0] }), {
@@ -543,7 +641,7 @@ export async function replaceFile(request, env, ctx) {
             headers: JSON_HEADERS
         });
     } catch (e) {
-        console.error('replace file error', e);
+        log.error('Failed to replace file', e);
         return new Response(JSON.stringify({ error: e.message }), {
             status: 500,
             headers: JSON_HEADERS
@@ -592,7 +690,138 @@ export async function getFilters(request, env) {
             headers: JSON_HEADERS
         });
     } catch (e) {
-        console.error('get filters error', e);
+        log.error('Failed to get filters', e);
+        return new Response(JSON.stringify({ error: e.message }), {
+            status: 500,
+            headers: JSON_HEADERS
+        });
+    }
+}
+
+// GET /api/admin/config - Get all system configurations
+export async function getSystemConfig(request, env) {
+    const user = await isAuthenticated(request, env);
+    if (!user) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+            status: 401,
+            headers: JSON_HEADERS
+        });
+    }
+    
+    try {
+        const config = {};
+        
+        if (env.RATE_LIMIT_KV) {
+            // Rate limit config
+            const maxRequests = await env.RATE_LIMIT_KV.get('config:max_requests_per_window');
+            config.max_requests_per_window = maxRequests ? parseInt(maxRequests) : 10;
+            
+            // Service worker version
+            const swVersion = await env.RATE_LIMIT_KV.get('config:sw_version');
+            config.sw_version = swVersion || '';
+            
+            // Maintenance mode
+            const maintenanceMode = await env.RATE_LIMIT_KV.get('config:maintenance_mode');
+            config.maintenance_mode = maintenanceMode === 'true';
+            
+            // Maintenance message
+            const maintenanceMsg = await env.RATE_LIMIT_KV.get('config:maintenance_message');
+            config.maintenance_message = maintenanceMsg || 'Site is currently under maintenance. Please check back later.';
+        }
+        
+        return new Response(JSON.stringify(config), {
+            status: 200,
+            headers: JSON_HEADERS
+        });
+    } catch (e) {
+        log.error('Failed to get system config', e);
+        return new Response(JSON.stringify({ error: e.message }), {
+            status: 500,
+            headers: JSON_HEADERS
+        });
+    }
+}
+
+// PUT /api/admin/config - Update system configurations
+export async function updateSystemConfig(request, env) {
+    const user = await isAuthenticated(request, env);
+    if (!user) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+            status: 401,
+            headers: JSON_HEADERS
+        });
+    }
+    
+    try {
+        const body = await request.json();
+        
+        if (!env.RATE_LIMIT_KV) {
+            return new Response(JSON.stringify({ error: 'Configuration storage not available' }), {
+                status: 500,
+                headers: JSON_HEADERS
+            });
+        }
+        
+        const updates = [];
+        
+        // Validate and update max_requests_per_window
+        if ('max_requests_per_window' in body) {
+            const value = parseInt(body.max_requests_per_window);
+            if (isNaN(value) || value < 1 || value > 1000) {
+                return new Response(JSON.stringify({ error: 'max_requests_per_window must be between 1 and 1000' }), {
+                    status: 400,
+                    headers: JSON_HEADERS
+                });
+            }
+            await env.RATE_LIMIT_KV.put('config:max_requests_per_window', value.toString());
+            updates.push(`max_requests_per_window=${value}`);
+        }
+        
+        // Update sw_version
+        if ('sw_version' in body) {
+            const value = body.sw_version.toString().trim();
+            if (value.length > 50) {
+                return new Response(JSON.stringify({ error: 'sw_version must be 50 characters or less' }), {
+                    status: 400,
+                    headers: JSON_HEADERS
+                });
+            }
+            await env.RATE_LIMIT_KV.put('config:sw_version', value);
+            updates.push(`sw_version=${value}`);
+        }
+        
+        // Update maintenance_mode
+        if ('maintenance_mode' in body) {
+            const value = body.maintenance_mode === true;
+            await env.RATE_LIMIT_KV.put('config:maintenance_mode', value.toString());
+            updates.push(`maintenance_mode=${value}`);
+        }
+        
+        // Update maintenance_message
+        if ('maintenance_message' in body) {
+            const value = body.maintenance_message.toString().trim();
+            if (value.length > 500) {
+                return new Response(JSON.stringify({ error: 'maintenance_message must be 500 characters or less' }), {
+                    status: 400,
+                    headers: JSON_HEADERS
+                });
+            }
+            await env.RATE_LIMIT_KV.put('config:maintenance_message', value);
+            updates.push(`maintenance_message updated`);
+        }
+        
+        // System config updated successfully
+        
+        return new Response(JSON.stringify({ 
+            success: true,
+            updates: updates,
+            updated_by: user.sub || user.email
+        }), {
+            status: 200,
+            headers: JSON_HEADERS
+        });
+    } catch (e) {
+        log.error('Failed to update system config', e);
         return new Response(JSON.stringify({ error: e.message }), {
             status: 500,
             headers: JSON_HEADERS

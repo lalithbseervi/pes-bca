@@ -20,16 +20,14 @@ class AuthManager {
   }
 
   init() {
-    console.log('[Auth] Manager initialized');
     
     // Perform initial authentication check on page load
     // Store the promise so pages can await it before loading content
     this.authReadyPromise = this.refreshAuthStatus().then(authenticated => {
       if (authenticated) {
-        console.log('[Auth] Initial auth check: authenticated');
+        // Authenticated
       } else {
-        console.log('[Auth] Initial auth check: not authenticated');
-        // Show login modal if user is not authenticated
+        // Not authenticated - show login modal
         const loginModal = document.getElementById('login-modal');
         if (loginModal) {
           loginModal.style.display = 'block';
@@ -37,7 +35,7 @@ class AuthManager {
       }
       return authenticated;
     }).catch(err => {
-      console.error('[Auth] Initial auth check failed:', err);
+      // Initial auth check failed
       return false;
     });
     
@@ -92,21 +90,17 @@ class AuthManager {
         if (data.success && data.session) {
           this.storeSession(data.session);
           this.cachedSession = data.session;
-          console.log('[Auth] Authenticated:', data.session.srn);
           return true;
         }
       } else if (res.status === 401) {
         // Unauthorized - tokens invalid or expired
         this.clearLocalSession();
         this.cachedSession = null;
-        console.log('[Auth] Authentication failed (401)');
         return false;
       }
       
       return false;
     } catch (e) {
-      console.error('[Auth] Session check failed:', e);
-      
       // Fallback: check if we have a recent local session
       return this.hasLocalSession();
     }
@@ -122,11 +116,9 @@ class AuthManager {
     
     // Check if we're still within the cooldown period
     if (this.cachedSession && (now - this.lastAuthCheck) < this.authCheckCooldown) {
-      console.log('[Auth] Refreshing auth status (from cache, cooldown not expired)...');
       return !!this.cachedSession;
     }
     
-    console.log('[Auth] Refreshing auth status (cooldown expired, hitting API)...');
     return await this.isAuthenticated();
   }
 
@@ -150,7 +142,7 @@ class AuthManager {
     const isAuth = await this.isAuthenticated();
     
     if (!isAuth) {
-      console.log('[Auth] Not authenticated, showing login modal');
+      // Show login modal
       const loginModal = document.getElementById('login-modal');
       if (loginModal) {
         loginModal.style.display = 'block';
@@ -170,15 +162,13 @@ class AuthManager {
     const isAuth = await this.isAuthenticated();
     
     if (!isAuth) {
-      console.log('[Auth] Navigation blocked - not authenticated');
-      
       // Show login modal if it exists
       const loginModal = document.getElementById('login-modal');
       if (loginModal) {
         loginModal.style.display = 'block';
       }
       
-      // Show main content hidden
+      // Hide main content
       const content = document.querySelector('.body, main, .main-content');
       if (content) {
         content.style.display = 'none';
@@ -199,9 +189,8 @@ class AuthManager {
     
     try {
       sessionStorage.setItem(this.SESSION_KEY, JSON.stringify(sessionData));
-      console.log('[Auth] Session stored locally');
     } catch (e) {
-      console.error('[Auth] Failed to store session:', e);
+      // Failed to store session
     }
   }
 
@@ -212,9 +201,8 @@ class AuthManager {
     try {
       sessionStorage.removeItem(this.SESSION_KEY);
       sessionStorage.removeItem('stream_token');
-      console.log('[Auth] Local session cleared');
     } catch (e) {
-      console.error('[Auth] Failed to clear session:', e);
+      // Failed to clear session
     }
   }
 
@@ -241,7 +229,7 @@ class AuthManager {
       
       return true;
     } catch (e) {
-      console.error('[Auth] Error checking local session:', e);
+      // Error checking session
       return false;
     }
   }
@@ -268,7 +256,7 @@ class AuthManager {
       
       return session;
     } catch (e) {
-      console.error('[Auth] Error getting session:', e);
+      // Error getting session
       return null;
     }
   }
@@ -303,7 +291,6 @@ class AuthManager {
         }
         this.lastAuthCheck = Date.now();
         
-        console.log('[Auth] Login successful');
         return { 
           success: true, 
           session: data.session,
@@ -312,14 +299,12 @@ class AuthManager {
         };
       } else {
         const message = data.error || data.message || 'Login failed';
-        console.log('[Auth] Login failed:', message);
         return { 
           success: false, 
           message 
         };
       }
     } catch (err) {
-      console.error('[Auth] Login error:', err);
       return { 
         success: false, 
         message: 'Network error' 
@@ -343,10 +328,9 @@ class AuthManager {
       this.cachedSession = null;
       this.lastAuthCheck = 0;
       
-      console.log('[Auth] Logout successful');
       return true;
     } catch (err) {
-      console.error('[Auth] Logout error:', err);
+      // Logout error
       return false;
     }
   }
@@ -356,7 +340,6 @@ class AuthManager {
    * Useful for page refreshes or returning users
    */
   async restoreSession() {
-    console.log('[Auth] Attempting to restore session...');
     const isAuth = await this.isAuthenticated();
     
     if (isAuth) {
@@ -424,7 +407,7 @@ class AuthManager {
         try {
           callback(data);
         } catch (e) {
-          console.error('[Auth] Listener error:', e);
+          // Listener callback error
         }
       });
     }
@@ -438,12 +421,10 @@ const existingAuth = window.auth || window.__authManagerInstance;
 if (existingAuth && typeof existingAuth.isAuthenticatedSync === 'function') {
   // Auth manager already exists (e.g., from CSR page reload), reuse it
   auth = existingAuth;
-  console.log('[Auth] Reusing existing auth manager instance');
 } else {
   // Create new auth manager
   auth = new AuthManager();
   window.__authManagerInstance = auth;
-  console.log('[Auth] Created new auth manager instance');
 }
 
 if (typeof module !== 'undefined' && module.exports) {

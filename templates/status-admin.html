@@ -207,7 +207,6 @@ async function loadData() {
     renderComponents();
     renderIncidents();
   } catch (e) {
-    console.error('Failed to load data', e);
     showMessage('Failed to load data: ' + e.message, 'error');
   }
 }
@@ -304,7 +303,6 @@ async function createIncident(e) {
     document.getElementById('create-incident-form').reset();
     await loadData();
   } catch (e) {
-    console.error('Failed to create incident', e);
     showMessage('Failed to create incident: ' + e.message, 'error');
   } finally {
     btn.disabled = false;
@@ -351,7 +349,6 @@ async function addUpdate(e) {
     selectedIncidentId = null;
     await loadData();
   } catch (e) {
-    console.error('Failed to add update', e);
     showMessage('Failed to add update: ' + e.message, 'error');
   } finally {
     btn.disabled = false;
@@ -384,7 +381,6 @@ async function updateComponentStatus(componentId, newStatus) {
     showMessage('Component status updated!');
     await loadData();
   } catch (e) {
-    console.error('Failed to update component', e);
     showMessage('Failed to update component: ' + e.message, 'error');
     await loadData(); // Reload to reset UI
   }
