@@ -1,7 +1,24 @@
 export async function onRequest(context) {
   const { request } = context;
   const url = new URL(request.url);
-  
+
+  const subjectMatch = url.pathname.match(/^\/sem-(\d+)\/([a-z0-9_-]+)\/?$/);
+  if (subjectMatch && request.method === 'GET') {
+    const semester = subjectMatch[1];
+    const subjectCode = subjectMatch[2];
+    // If a Worker base URL is configured, forward the request to the Worker
+    const workerBase = 'https://cors-proxy.devpages.workers.dev/';
+    if (workerBase) {
+      const target = new URL(url.pathname + url.search, workerBase);
+      // Preserve original headers (except host-specific ones)
+      const fwHeaders = new Headers(request.headers);
+      fwHeaders.delete('host');
+      const resp = await fetch(target.toString(), {
+        method: 'GET',
+        headers: fwHeaders
+    });
+    return resp;
+  }
   // PDF Protection Logic
   if (url.pathname.includes('.pdf')) {
       // Redirect /static/ URLs to PDF viewer
@@ -34,11 +51,6 @@ export async function onRequest(context) {
     }
   }
   
-  // Only use ASSETS if available (Cloudflare Pages integration)
-  if (context.env && context.env.ASSETS) {
-    return context.env.ASSETS.fetch(request);
-  }
-  
-  // Fallback: return 404 if no static assets available
-  return new Response('Not Found', { status: 404 });
+  return context.env.ASSETS.fetch(request);
+}
 }

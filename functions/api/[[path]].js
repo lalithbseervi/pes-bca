@@ -8,6 +8,27 @@ export async function onRequest(context) {
   const { request, env } = context;
   const url = new URL(request.url);
 
+  const subjectMatch = url.pathname.match(/^\/sem-(\d+)\/([a-z0-9_-]+)\/?$/);
+  if (subjectMatch && request.method === 'GET') {
+    const semester = subjectMatch[1];
+    const subjectCode = subjectMatch[2];
+    // If a Worker base URL is configured, forward the request to the Worker
+    const workerBase = 'https://cors-proxy.devpages.workers.dev/';
+    if (workerBase) {
+      const target = new URL(url.pathname + url.search, workerBase);
+      // Preserve original headers (except host-specific ones)
+      const fwHeaders = new Headers(request.headers);
+      fwHeaders.delete('host');
+      const resp = await fetch(target.toString(), {
+        method: 'GET',
+        headers: fwHeaders
+      });
+      return resp;
+    }
+
+    // If not forwarding, fall through to upstream proxy logic below
+  }
+
   // By default forward to the current Pages origin so the cors-proxy is called
   // directly (first-party). An explicit CORS_PROXY_BASE env var can override
   // this for testing or alternate deployments.

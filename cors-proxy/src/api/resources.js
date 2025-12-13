@@ -18,8 +18,15 @@ export async function getResources(request, env) {
         const url = new URL(request.url);        
         // Authenticate user and get their course
         const auth = await getAuthenticatedUser(request, env);
+        log.info('GET /api/resources', { valid: auth.valid, course: auth.course, error: auth.error });
         
         if (!auth.valid || !auth.course) {
+            log.warn('Resources request rejected - authentication failed', { 
+                error: auth.error, 
+                hasProfile: !!auth.profile,
+                program: auth.profile?.program,
+                branch: auth.profile?.branch
+            });
             return new Response(JSON.stringify({ 
                 error: 'authentication_required',
                 message: 'Please log in to view resources',
@@ -35,7 +42,8 @@ export async function getResources(request, env) {
             });
         }
         
-        const course = auth.course;        
+        const course = auth.course;
+        log.info('Resources request authenticated', { course });        
         const semester = url.searchParams.get('semester');
         const subject = url.searchParams.get('subject');
         const resourceType = url.searchParams.get('resource_type');
@@ -50,11 +58,17 @@ export async function getResources(request, env) {
         };
 
         // Build query with course filter - now mandatory
-        // Course is embedded in storage_key as first path segment
-        // Example: CA/sem-1/subject/type/unit/file.pdf
+        // Storage key structure varies by course:
+        // - CA/BCA courses: bca/sem-X/subject/type/unit/file.pdf
+        // - Other courses: {courseCode}/sem-X/subject/type/unit/file.pdf
         let query = `${base}/rest/v1/fileStore?select=*&order=created_at.desc&limit=${limit}&offset=${offset}`;
-        // PostgREST LIKE pattern: storage_key=like.{pattern} where * is wildcard
-        query += `&storage_key=like.${course}*`;
+        
+        // Determine storage key prefix based on course
+        const storageKeyPrefix = (course === 'CA' || course === 'BCA') ? 'bca' : course;
+        log.info('Using storage key prefix', { course, prefix: storageKeyPrefix });
+        
+        // PostgREST LIKE pattern: storage_key=like.{prefix}/*
+        query += `&storage_key=like.${storageKeyPrefix}*`;
         
         if (semester) {
             query += `&semester=eq.${encodeURIComponent(semester)}`;
@@ -66,15 +80,17 @@ export async function getResources(request, env) {
             query += `&resource_type=eq.${encodeURIComponent(resourceType)}`;
         }
 
+        log.info('Querying Supabase for resources', { query: query.substring(0, 250), course });
         const resp = await fetch(query, { headers });
 
         if (!resp.ok) {
             const errorText = await resp.text();
-            log.error('Supabase query failed', { status: resp.status, statusText: resp.statusText, error: errorText, query });
+            log.error('Supabase query failed', { status: resp.status, statusText: resp.statusText, error: errorText });
             throw new Error(`Supabase query failed: ${resp.status} - ${errorText}`);
         }
 
-                const resources = await resp.json();
+        const resources = await resp.json();
+        log.info('Supabase returned resources', { count: resources.length, course });
 
                 // Create resource fingerprint map for differential updates
                 const resourceMap = new Map();
