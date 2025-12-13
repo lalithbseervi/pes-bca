@@ -401,6 +401,79 @@ function generateSubjectHTML(semester, subjectCode, env) {
         init();
     </script>
 
+    <script>
+        // Privacy settings button handler
+        (function() {
+            const privacySettingsBtn = document.getElementById('privacy-settings-button');
+            if (privacySettingsBtn) {
+                privacySettingsBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    // Trigger PostHog opt-in/out banner or settings
+                    showAnalyticsSettings()
+                });
+            }
+        })();
+
+        // Mobile menu toggle
+        (function() {
+            const menuToggle = document.getElementById('menu-toggle');
+            const rightNav = document.getElementById('right-nav');
+            const nav = document.querySelector('nav');
+            
+            if (menuToggle && rightNav) {
+                menuToggle.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    menuToggle.classList.toggle('active');
+                    rightNav.classList.toggle('active');
+                    nav.classList.toggle('menu-open');
+                });
+
+                // Close menu when clicking outside
+                document.addEventListener('click', function(e) {
+                    if (!rightNav.contains(e.target) && !menuToggle.contains(e.target)) {
+                        menuToggle.classList.remove('active');
+                        rightNav.classList.remove('active');
+                        nav.classList.remove('menu-open');
+                    }
+                });
+
+                // Close menu when clicking a nav link
+                rightNav.querySelectorAll('.nav-link').forEach(link => {
+                    link.addEventListener('click', function() {
+                        menuToggle.classList.remove('active');
+                        rightNav.classList.remove('active');
+                        nav.classList.remove('menu-open');
+                    });
+                });
+
+                // Close menu on window resize to desktop size
+                window.addEventListener('resize', function() {
+                    if (window.innerWidth > 768) {
+                        menuToggle.classList.remove('active');
+                        rightNav.classList.remove('active');
+                        nav.classList.remove('menu-open');
+                    }
+                });
+            }
+        })();
+
+        // Highlight active navigation link based on current path
+        (function() {
+            const currentPath = window.location.pathname;
+            document.querySelectorAll('.nav-link').forEach((link) => {
+                const linkPath = link.getAttribute('data-path');
+                if (linkPath) {
+                    // Exact match for home page, startsWith for others
+                    if (linkPath === '/' && currentPath === '/') {
+                        link.classList.add('active');
+                    } else if (linkPath !== '/' && currentPath.startsWith(linkPath)) {
+                        link.classList.add('active');
+                    }
+                }
+            });
+        })();
+    </script>
+
     <script defer src="/js/openLinkHandler.js?v=${swVersion}"></script>
     <script type="module" src="/js/router/init.js?v=${swVersion}"></script>
 </body>
