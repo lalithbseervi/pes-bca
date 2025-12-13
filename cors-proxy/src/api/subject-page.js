@@ -51,7 +51,7 @@ function generateSubjectHTML(semester, subjectCode, env) {
     <meta name="apple-mobile-web-app-title" content="PESU BCA">
     <meta name="mobile-web-app-capable" content="yes">
 
-    <title>Loading... | PES-BCA</title>
+    <title>${subjectCode} | PES-BCA</title>
     
     <!-- Manifest & Icons -->
     <link rel="manifest" href="/manifest.json">
