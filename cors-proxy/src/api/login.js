@@ -2,7 +2,7 @@ import { invalidateCachedAuth, verifyCachedCredentials, cacheAuthResult } from "
 import { makeCookie } from "../utils/cookies.js";
 import { signJWT } from "../utils/sign_jwt.js";
 import { createLogger } from "../utils/logger.js";
-import { getCourseCodeFromProfile } from "../utils/course.js";
+import { resolveCourseFromProfile } from "../utils/auth-helpers.js";
 
 const log = createLogger('Login');
 
@@ -158,7 +158,8 @@ export async function loginHandler(request, env, ctx) {
       
       // Guest login successful (auth service fallback mode)
       const profile = dummyUser.profile || { name: 'Guest User', branch: 'Guest', semester: '1' };
-      const courseId = getCourseCodeFromProfile(profile);
+      let courseId = resolveCourseFromProfile(profile);
+      
       if (!courseId) {
         return new Response(JSON.stringify({ success: false, message: 'invalid_course: user course not recognized' }), { status: 401, headers: JSON_HEADERS });
       }
@@ -236,10 +237,11 @@ export async function loginHandler(request, env, ctx) {
         }
 
         profile = authResult.profile
-        // Enrich profile with course (throws if not found)
-        const courseId = getCourseCodeFromProfile(profile);
+        // Enrich profile with course (try multiple strategies)
+        let courseId = resolveCourseFromProfile(profile);
+        
         if (!courseId) {
-          return new Response(JSON.stringify({ success: false, message: 'invalid_course: user course not recognized' }), { status: 401, headers: JSON_HEADERS });
+          return new Response(JSON.stringify({ success: false, message: 'invalid_course: user course not recognized', profile_program: profile?.program, profile_branch: profile?.branch }), { status: 401, headers: JSON_HEADERS });
         }
         profile.course = courseId;
         await cacheAuthResult(env, srn, password, profile)

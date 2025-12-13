@@ -34,5 +34,11 @@ export async function onRequest(context) {
     }
   }
   
-  return context.env.ASSETS.fetch(request);
+  // Only use ASSETS if available (Cloudflare Pages integration)
+  if (context.env && context.env.ASSETS) {
+    return context.env.ASSETS.fetch(request);
+  }
+  
+  // Fallback: return 404 if no static assets available
+  return new Response('Not Found', { status: 404 });
 }

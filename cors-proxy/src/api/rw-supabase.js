@@ -1,7 +1,7 @@
 import { verifyJWT } from '../utils/sign_jwt.js';
 import { checkRateLimit, rateLimitResponse, deriveRateLimitIdentity } from '../utils/rate-limit.js';
 import { createLogger } from '../utils/logger.js';
-import { getCourseCodeFromProfile } from '../utils/course.js';
+import { resolveCourseFromProfile } from '../utils/auth-helpers.js';
 
 const log = createLogger('Supabase');
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
@@ -83,11 +83,16 @@ export async function uploadResourceToSupabase(request, env) {
     }
     
     let course = null;
+    let profile = null;
     if (accessToken) {
         try {
             const decoded = await verifyJWT(accessToken, env.JWT_SECRET);
-            if (decoded && decoded.profile) {
-                course = getCourseCodeFromProfile(decoded.profile);
+            if (decoded && decoded.valid && decoded.payload) {
+                profile = decoded.payload.profile;
+                if (profile) {
+                    // Resolve course from profile (tries profile.course, exact match, then fuzzy match)
+                    course = resolveCourseFromProfile(profile);
+                }
             }
         } catch (e) {
             log.warn('Failed to extract course from JWT during upload', e);
@@ -95,7 +100,7 @@ export async function uploadResourceToSupabase(request, env) {
     }
     
     if (!course) {
-        return new Response(JSON.stringify({ success: false, error: 'missing_or_invalid_course' }), { status: 400, headers: JSON_HEADERS });
+        return new Response(JSON.stringify({ success: false, error: 'missing_or_invalid_course', debug: { hasProfile: !!profile, program: profile?.program, branch: profile?.branch } }), { status: 400, headers: JSON_HEADERS });
     }
 
     if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {

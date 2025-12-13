@@ -6,6 +6,95 @@
 
 <style>
   /* Page-specific styles only */
+  /* Neutralize theme heading prefixes and ensure readable contrast for admin surface */
+  .admin-page h1::before,
+  .admin-page h2::before,
+  .admin-page h3::before,
+  .admin-page h4::before,
+  .admin-page h5::before,
+  .admin-page h6::before {
+    content: none !important;
+  }
+
+  .admin-page h1,
+  .admin-page h2,
+  .admin-page h3,
+  .admin-page h4,
+  .admin-page h5,
+  .admin-page h6 {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: #0f172a;
+    letter-spacing: -0.01em;
+  }
+
+  .admin-page {
+    background: #f5f7fb;
+    padding: 2rem 1.25rem;
+    border-radius: 12px;
+  }
+
+  .admin-section {
+    background: #ffffff;
+    border-color: #e5e7eb;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  }
+
+  .admin-section h2,
+  .admin-section h3,
+  .admin-section h4 {
+    color: #0f172a;
+  }
+
+  .admin-table th,
+  .admin-table td {
+    color: #111827;
+    background: #ffffff;
+  }
+
+  /* Subjects list readability */
+  #subjects-list table {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  #subjects-list thead th {
+    background: #e0f2fe;
+    color: #0f172a;
+    font-weight: 700;
+    border-bottom: 1px solid #cbd5e1;
+  }
+
+  #subjects-list tbody td {
+    color: #111827;
+    border-bottom: 1px solid #eef2ff;
+  }
+
+  #subjects-list tbody tr:nth-child(even) td {
+    background: #f8fafc;
+  }
+
+  #subjects-list tbody tr:hover td {
+    background: #e0f2fe;
+  }
+
+  #subjects-list h3,
+  #subjects-list h4 {
+    margin: 0;
+    color: #0f172a;
+  }
+
+  #subjects-list .admin-btn-action-delete {
+    background: #dc2626;
+    color: #fff;
+  }
+
+  #subjects-list h3,
+  #subjects-list h4 {
+    margin: 0;
+  }
+
   .auth-required {
     text-align: center;
     padding: 3rem 1rem;
@@ -88,6 +177,7 @@
 
     <div class="admin-tabs">
       <button class="admin-tab active" data-tab="resources">Resources</button>
+      <button class="admin-tab" data-tab="subjects">Subjects Config</button>
       <button class="admin-tab" data-tab="status">Status Page</button>
       <button class="admin-tab" data-tab="settings">Settings</button>
     </div>
@@ -161,6 +251,67 @@
           <span id="page-info"></span>
           <button class="admin-page-btn" id="next-page">Next</button>
         </div>
+      </div>
+    </div>
+
+    <!-- Subjects Config Tab -->
+    <div class="tab-content" id="tab-subjects">
+      <div class="admin-section">
+        <h2>Manage Subjects Configuration</h2>
+        <p style="color: var(--admin-text-secondary); margin-bottom: 1.5rem;">
+          Manage course subjects and semesters for upload form dropdowns.
+        </p>
+
+        <!-- Add New Subject Form -->
+        <div style="background: var(--admin-bg); padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem;">
+          <h3 style="margin-bottom: 1rem;">Add New Subject</h3>
+          
+          <form id="add-subject-form" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+            <div class="admin-form-group">
+              <label for="subject-course">Course *</label>
+              <input type="text" id="subject-course" placeholder="e.g., CA, CS, EC" required>
+            </div>
+            
+            <div class="admin-form-group">
+              <label for="subject-semester">Semester *</label>
+              <input type="text" id="subject-semester" placeholder="e.g., Semester-1" required>
+            </div>
+            
+            <div class="admin-form-group">
+              <label for="subject-code">Subject Code *</label>
+              <input type="text" id="subject-code" placeholder="e.g., cfp" required>
+            </div>
+            
+            <div class="admin-form-group">
+              <label for="subject-name">Subject Name *</label>
+              <input type="text" id="subject-name" placeholder="e.g., Computing Fundamentals" required>
+            </div>
+            
+            <div class="admin-form-group">
+              <label for="subject-order">Display Order</label>
+              <input type="number" id="subject-order" placeholder="0" value="0">
+            </div>
+
+            <div style="display: flex; align-items: flex-end;">
+              <button type="submit" class="admin-btn admin-btn-primary" style="width: 100%;">Add Subject</button>
+            </div>
+          </form>
+        </div>
+
+        <div id="subjects-loading" class="loading" style="display: none;">
+          <p>Loading subjects configuration...</p>
+        </div>
+
+        <div id="subjects-empty" class="empty-state" style="display: none;">
+          <p>No subjects configured yet.</p>
+        </div>
+
+        <!-- Subjects List by Course/Semester -->
+        <div id="subjects-content" style="display: none;">
+          <div id="subjects-list"></div>
+        </div>
+
+        <div id="subjects-message" style="margin-top: 1rem;"></div>
       </div>
     </div>
 
@@ -811,6 +962,260 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.querySelector('[data-tab="settings"]').addEventListener('click', () => {
     loadSystemConfig();
   });
+
+  // Subjects Config
+  async function loadSubjectsConfig() {
+    const loadingEl = document.getElementById('subjects-loading');
+    const contentEl = document.getElementById('subjects-content');
+    const emptyEl = document.getElementById('subjects-empty');
+    const messageEl = document.getElementById('subjects-message');
+    
+    loadingEl.style.display = 'block';
+    contentEl.style.display = 'none';
+    emptyEl.style.display = 'none';
+    messageEl.innerHTML = '';
+    
+    try {
+      const passphrase = getAdminPassphrase();
+      const resp = await fetch(`${API_BASE_URL}/api/admin/subjects`, {
+        headers: {
+          'X-Admin-Passphrase': passphrase
+        },
+        credentials: 'include'
+      });
+      
+      if (!resp.ok) {
+        throw new Error('Failed to load subjects configuration');
+      }
+      
+      const data = await resp.json();
+      
+      if (Object.keys(data).length === 0) {
+        loadingEl.style.display = 'none';
+        emptyEl.style.display = 'block';
+        return;
+      }
+      
+      renderSubjectsConfig(data);
+      loadingEl.style.display = 'none';
+      contentEl.style.display = 'block';
+    } catch (e) {
+      console.error('Failed to load subjects config', e);
+      loadingEl.style.display = 'none';
+      messageEl.innerHTML = `<p style="color: #dc2626;">Failed to load: ${e.message}</p>`;
+    }
+  }
+
+  function renderSubjectsConfig(data) {
+    const listEl = document.getElementById('subjects-list');
+    let html = '';
+    
+    for (const [courseId, semesters] of Object.entries(data).sort()) {
+      html += `<div style="margin-bottom: 2rem; border: 1px solid var(--admin-border); border-radius: 8px; overflow: hidden;">`;
+      html += `<div style="background: var(--admin-bg-secondary); padding: 1rem; border-bottom: 1px solid var(--admin-border);">`;
+      html += `<h3 style="margin: 0;">${courseId}</h3>`;
+      html += `</div>`;
+      
+      for (const [semester, subjects] of Object.entries(semesters).sort()) {
+        html += `<div style="padding: 1rem; border-bottom: 1px solid var(--admin-border);">`;
+        html += `<h4 style="margin: 0 0 0.75rem 0;">${semester}</h4>`;
+        html += `<table style="width: 100%; font-size: 0.9rem;">`;
+        html += `<thead>`;
+        html += `<tr style="background: rgba(0,0,0,0.05);">`;
+        html += `<th style="text-align: left; padding: 0.5rem;">Code</th>`;
+        html += `<th style="text-align: left; padding: 0.5rem;">Name</th>`;
+        html += `<th style="text-align: left; padding: 0.5rem;">Order</th>`;
+        html += `<th style="text-align: center; padding: 0.5rem;">Actions</th>`;
+        html += `</tr>`;
+        html += `</thead>`;
+        html += `<tbody>`;
+        
+        for (const subject of subjects) {
+          html += `<tr style="border-top: 1px solid var(--admin-border);">`;
+          html += `<td style="padding: 0.5rem;">${subject.v}</td>`;
+          html += `<td style="padding: 0.5rem;">${subject.t}</td>`;
+          html += `<td style="padding: 0.5rem;">${subject.display_order ?? 0}</td>`;
+          html += `<td style="padding: 0.5rem; text-align: center;">`;
+          html += `<button class="admin-btn-action admin-btn-action-edit" style="margin-right: 0.25rem;" onclick="editSubjectConfig('${subject.id}', '${courseId}', '${semester}', '${subject.v}', '${subject.t}', ${subject.display_order ?? 0})">Edit</button>`;
+          html += `<button class="admin-btn-action admin-btn-action-delete" onclick="deleteSubjectConfig('${subject.v}', '${courseId}', '${semester}')">Delete</button>`;
+          html += `</td>`;
+          html += `</tr>`;
+        }
+        
+        html += `</tbody>`;
+        html += `</table>`;
+        html += `</div>`;
+      }
+      
+      html += `</div>`;
+    }
+    
+    document.getElementById('subjects-list').innerHTML = html;
+  }
+
+  async function addSubject(e) {
+    e.preventDefault();
+    
+    const courseId = document.getElementById('subject-course').value.trim();
+    const semester = document.getElementById('subject-semester').value.trim();
+    const subjectCode = document.getElementById('subject-code').value.trim();
+    const subjectName = document.getElementById('subject-name').value.trim();
+    const displayOrder = parseInt(document.getElementById('subject-order').value) || 0;
+    
+    if (!courseId || !semester || !subjectCode || !subjectName) {
+      showMessage('All fields are required', 'error');
+      return;
+    }
+    
+    const messageEl = document.getElementById('subjects-message');
+    const submitBtn = document.querySelector('#add-subject-form button[type="submit"]');
+    if (submitBtn) submitBtn.disabled = true;
+    messageEl.innerHTML = '<p style="color: var(--admin-text-secondary);">Adding subject...</p>';
+    
+    try {
+      const passphrase = getAdminPassphrase();
+      const resp = await fetch(`${API_BASE_URL}/api/admin/subjects`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Passphrase': passphrase
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          course_id: courseId,
+          semester: semester,
+          subject_code: subjectCode,
+          subject_name: subjectName,
+          display_order: displayOrder
+        })
+      });
+      
+      if (!resp.ok) {
+        const error = await resp.json();
+        throw new Error(error.error || 'Failed to add subject');
+      }
+      
+      messageEl.innerHTML = '<p style="color: #059669;">✓ Subject added successfully!</p>';
+      document.getElementById('add-subject-form').reset();
+      
+      setTimeout(() => {
+        loadSubjectsConfig();
+      }, 1000);
+    } catch (e) {
+      console.error('Failed to add subject', e);
+      messageEl.innerHTML = `<p style="color: #dc2626;">Failed: ${e.message}</p>`;
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
+    }
+  }
+
+  async function editSubjectConfig(id, course, semester, code, name, order = 0) {
+    const passphrase = getAdminPassphrase();
+    const messageEl = document.getElementById('subjects-message');
+
+    const newCode = prompt('Subject code', code);
+    if (newCode === null) return;
+    const newName = prompt('Subject name', name);
+    if (newName === null) return;
+    const orderInput = prompt('Display order (number)', String(order ?? 0));
+    if (orderInput === null) return;
+    const newOrder = parseInt(orderInput, 10);
+
+    if (!newCode.trim() || !newName.trim() || Number.isNaN(newOrder)) {
+      showMessage('Invalid input for subject update', 'error');
+      return;
+    }
+
+    messageEl.innerHTML = '<p style="color: var(--admin-text-secondary);">Updating subject...</p>';
+
+    try {
+      const resp = await fetch(`${API_BASE_URL}/api/admin/subjects/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Passphrase': passphrase
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          subject_code: newCode.trim(),
+          subject_name: newName.trim(),
+          display_order: newOrder
+        })
+      });
+
+      if (!resp.ok) {
+        const error = await resp.json().catch(() => ({}));
+        throw new Error(error.error || 'Failed to update subject');
+      }
+
+      messageEl.innerHTML = '<p style="color: #059669;">✓ Subject updated!</p>';
+      await loadSubjectsConfig();
+    } catch (err) {
+      console.error('Failed to update subject', err);
+      messageEl.innerHTML = `<p style="color: #dc2626;">Failed to update: ${err.message}</p>`;
+    }
+  }
+
+  window.editSubjectConfig = editSubjectConfig;
+
+  async function deleteSubjectConfig(code, course, semester) {
+    if (!confirm(`Delete ${code} from ${course}/${semester}?`)) {
+      return;
+    }
+    
+    try {
+      const passphrase = getAdminPassphrase();
+      
+      // Get the subject ID first
+      const getResp = await fetch(`${API_BASE_URL}/api/admin/subjects`, {
+        headers: {
+          'X-Admin-Passphrase': passphrase
+        },
+        credentials: 'include'
+      });
+      
+      if (!getResp.ok) throw new Error('Failed to fetch subjects');
+      
+      const allSubjects = await getResp.json();
+      const subjects = allSubjects[course]?.[semester] || [];
+      const subject = subjects.find(s => s.v === code);
+      
+      if (!subject || !subject.id) {
+        // If no ID in the response, we need to implement a way to get it
+        showMessage('Subject not found or cannot be deleted', 'error');
+        return;
+      }
+      
+      const delResp = await fetch(`${API_BASE_URL}/api/admin/subjects/${subject.id}`, {
+        method: 'DELETE',
+        headers: {
+          'X-Admin-Passphrase': passphrase
+        },
+        credentials: 'include'
+      });
+      
+      if (!delResp.ok) {
+        const error = await delResp.json();
+        throw new Error(error.error || 'Failed to delete subject');
+      }
+      
+      showMessage('Subject deleted successfully!');
+      await loadSubjectsConfig();
+    } catch (e) {
+      console.error('Failed to delete subject', e);
+      showMessage('Failed to delete: ' + e.message, 'error');
+    }
+  }
+
+  window.deleteSubjectConfig = deleteSubjectConfig;
+
+  // Load subjects when tab is clicked
+  document.querySelector('[data-tab="subjects"]').addEventListener('click', () => {
+    loadSubjectsConfig();
+  });
+
+  // Add subject form listener
+  document.getElementById('add-subject-form').addEventListener('submit', addSubject);
 });
 </script>
 {% endblock main_content %}

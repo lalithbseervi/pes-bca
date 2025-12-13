@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block head %}
-<link rel="stylesheet" href="/css/forms.css?v=pesu-bca-v2.7.0">
+<link rel="stylesheet" href="/css/forms.css?v={{ config.extra.sw_version }}">
 {% endblock head %}
 
 {% block main_content %}
@@ -181,20 +181,15 @@
   <form id="upload-form" class="upload-grid" autocomplete="off">
     <div class="form-row">
       <label class="small" for="course">Course</label>
-      <select id="course" name="course" required>
-        <option value="BCA">BCA</option>
+      <select id="course" name="course" required disabled>
+        <option value="">Loading course…</option>
       </select>
     </div>
 
     <div class="form-row">
       <label class="small" for="semester">Semester</label>
-      <select id="semester" name="semester" required>
-        <option value="Semester-1">Semester 1</option>
-        <option value="Semester-2">Semester 2</option>
-        <option value="Semester-3">Semester 3</option>
-        <option value="Semester-4">Semester 4</option>
-        <option value="Semester-5">Semester 5</option>
-        <option value="Semester-6">Semester 6</option>
+      <select id="semester" name="semester" required disabled>
+        <option value="">Select semester</option>
       </select>
     </div>
 

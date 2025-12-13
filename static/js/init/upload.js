@@ -34,6 +34,36 @@ export async function initUploadManager(options = {}) {
 
   let selectedFiles = [];
   let originalSubmitHTML = submitBtn?.innerHTML || 'Upload';
+  let semesterSubjectsByCourse = {};
+  let currentCourseId = null;
+  let userSession = null;
+
+  function normalizeSemesterKey(raw) {
+    if (!raw) return '';
+    let s = String(raw).toLowerCase().trim();
+    s = s.replace(/\s+/g, '-');
+    s = s.replace(/^semester-?/, 'sem-');
+    if (/^\d+$/.test(s)) s = `sem-${s}`;
+    s = s.replace(/[^a-z0-9\-]+/g, '');
+    return s;
+  }
+
+  function formatSemesterLabel(key) {
+    const num = (key || '').match(/(\d+)/);
+    return num ? `Semester ${num[1]}` : key || 'Semester';
+  }
+
+  function getLocalSession() {
+    try {
+      if (window.auth && typeof window.auth.getSession === 'function') {
+        return window.auth.getSession();
+      }
+      const raw = sessionStorage.getItem('user_session');
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  }
 
   /**
    * Format default link title from filename
@@ -133,56 +163,65 @@ export async function initUploadManager(options = {}) {
     });
   }
 
-  // Semester -> Subjects mapping
-  const semesterSubjects = {
-    'Semester-1': [
-      { v: 'cfp', t: 'Computing Fundamentals with Python' },
-      { v: 'wd', t: 'Web Design' },
-      { v: 'mfca', t: 'Mathematical Foundation for Computer Applications' },
-      { v: 'mp', t: 'Macro Programming' },
-      { v: 'pce', t: 'Professional Communication and Ethics' },
-      { v: 'ciep', t: 'CIEP (Constitutional of India, Cyber Law, and Professional Ethics)' }
-    ],
-    'Semester-2': [
-      { v: 'c-programming', t: 'Programming with C' },
-      { v: 'dbms', t: 'Database Systems' },
-      { v: 'os', t: 'Platforms and Operating Systems' },
-      { v: 'computer-org', t: 'Computer Organization and Architecture' },
-      { v: 'pd', t: 'Personality Development' },
-      { v: 'evs', t: 'Environmental Studies' }
-    ],
-    'Semester-3': [
-      { v: 'dsa', t: 'Data Structures' },
-      { v: 'oop', t: 'Object Oriented Programming' },
-      { v: 'data-comm', t: 'Data Communication' },
-      { v: 'elec1', t: 'Elective I' },
-      { v: 'digital-marketing', t: 'Digital Marketing' }
-    ],
-    'Semester-4': [
-      { v: 'algorithms', t: 'Design of Algorithms' },
-      { v: 'web-app-design', t: 'Web Application Design' },
-      { v: 'software-engg', t: 'Software Engineering' },
-      { v: 'elec2', t: 'Elective II' },
-      { v: 'cyber-law', t: 'Cyber Law' },
-    ],
-    'Semester-5': [
-      { v: 'waf', t: 'Web Application Framework' },
-      { v: 'stats', t: 'Statistics and R Programming' },
-      { v: 'elec3', t: 'Elective III' },
-      { v: 'elec4', t: 'Elective IV' },
-      { v: 'entrepreneurship', t: 'Entrepreneurship' },
-    ],
-    'Semester-6': [
-      { v: 'cloud', t: 'Cloud Technologies' },
-      { v: 'intern', t: 'Internship/Swayam/MOOC*' },
-    ]
-  };
+  /**
+   * Load semester/subjects config from external source
+   */
+  async function loadSubjectsConfig() {
+    try {
+      // Fetch subjects from API with authentication via cookies
+      const res = await fetch(`${API_BASE_URL}/api/subjects`, { credentials: 'include' });
+      const data = await res.json().catch(() => null);
+      
+      // If 401, user not authenticated - let auth manager handle it
+      if (res.status === 401) {
+        return null;
+      }
+      
+      if (!res.ok || !data || !data.success) {
+        throw new Error((data && data.error) || `subjects_request_failed_${res.status}`);
+      }
+
+      semesterSubjectsByCourse = { [data.course]: data.subjects || {} };
+      currentCourseId = data.course;
+      userSession = getLocalSession();
+      return data;
+    } catch (e) {
+      console.error('Error loading subjects config:', e);
+      showAlert('Unable to load subjects list. Please refresh or re-login.', 'error');
+      return null;
+    }
+  }
+
+  function populateCourseSelect(courseId, courseName) {
+    if (!courseSelect || !courseId) return;
+    courseSelect.innerHTML = '';
+    const opt = document.createElement('option');
+    opt.value = courseId;
+    opt.textContent = courseName || courseId;
+    courseSelect.appendChild(opt);
+    courseSelect.disabled = true;
+  }
+
+  function populateSemesterSelect(semesters) {
+    if (!semesterSelect) return;
+    semesterSelect.innerHTML = '';
+    const optsList = Array.isArray(semesters) && semesters.length ? semesters : ['sem-1'];
+    for (const semKey of optsList) {
+      const opt = document.createElement('option');
+      opt.value = semKey;
+      opt.textContent = formatSemesterLabel(semKey);
+      semesterSelect.appendChild(opt);
+    }
+    semesterSelect.disabled = false;
+  }
 
   /**
-   * Populate subjects for selected semester
+   * Populate subjects for selected semester and course
    */
-  function populateSubjectsForSemester(sem) {
-    const list = semesterSubjects[sem] || [];
+  function populateSubjectsForSemester(sem, course) {
+    const courseKey = course || currentCourseId;
+    const courseSubjects = semesterSubjectsByCourse[courseKey] || {};
+    const list = courseSubjects[sem] || [];
     if (!subjectSelect) return;
     
     subjectSelect.innerHTML = '';
@@ -197,6 +236,8 @@ export async function initUploadManager(options = {}) {
       o.textContent = s.t;
       subjectSelect.appendChild(o);
     }
+
+    subjectSelect.disabled = list.length === 0;
   }
 
   // Elective mapping
@@ -262,14 +303,44 @@ export async function initUploadManager(options = {}) {
   /**
    * Setup event listeners
    */
-  function setupEventListeners() {
-    // Initialize subjects
+  async function setupEventListeners() {
+    const data = await loadSubjectsConfig();
+    if (data) {
+      const courseId = currentCourseId || data.course;
+      populateCourseSelect(courseId, data.course_name);
+
+      const semestersRaw = Array.isArray(data.semesters) && data.semesters.length
+        ? data.semesters
+        : Object.keys(semesterSubjectsByCourse[courseId] || {});
+      const semesters = semestersRaw.map(normalizeSemesterKey).filter(Boolean);
+      populateSemesterSelect(semesters);
+
+      const preferredSemester = normalizeSemesterKey(userSession?.profile?.semester);
+      const initialSemester = semesters.includes(preferredSemester) ? preferredSemester : (semesters[0] || '');
+      if (semesterSelect && initialSemester) {
+        semesterSelect.value = initialSemester;
+      }
+
+      populateSubjectsForSemester(initialSemester || (semesterSelect ? semesterSelect.value : ''), courseId);
+    } else {
+      if (semesterSelect) semesterSelect.disabled = true;
+      if (subjectSelect) subjectSelect.disabled = true;
+    }
+    
+    // Course change listener
+    if (courseSelect) {
+      courseSelect.addEventListener('change', (e) => {
+        const sem = semesterSelect ? semesterSelect.value : 'sem-1';
+        populateSubjectsForSemester(normalizeSemesterKey(sem), e.target.value);
+      });
+    }
+    
+    // Semester change listener
     if (semesterSelect) {
-      populateSubjectsForSemester(semesterSelect.value || 'Semester-1');
-      
       semesterSelect.addEventListener('change', (e) => {
+        const course = courseSelect ? courseSelect.value : 'CA';
         const prev = subjectSelect ? subjectSelect.value : '';
-        populateSubjectsForSemester(e.target.value);
+        populateSubjectsForSemester(normalizeSemesterKey(e.target.value), course);
         if (prev && subjectSelect) {
           const found = Array.from(subjectSelect.options).some(opt => opt.value === prev);
           if (found) subjectSelect.value = prev;
@@ -332,6 +403,11 @@ export async function initUploadManager(options = {}) {
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       if (alertBox) alertBox.innerHTML = '';
+
+      if (!Object.keys(semesterSubjectsByCourse || {}).length) {
+        showAlert('Subjects not loaded yet. Please refresh after logging in.', 'error');
+        return;
+      }
 
       const fd = new FormData();
       const subject = form.querySelector('[name=subject]')?.value;

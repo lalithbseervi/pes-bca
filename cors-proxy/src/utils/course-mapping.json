@@ -1,0 +1,107 @@
+{
+  "CA": {
+    "name": "Bachelor of Computer Applications",
+    "courseCodeId": "CA"
+  },
+  "CS": {
+    "name": "Computer Science and Engineering",
+    "courseCodeId": "CS"
+  },
+  "CS-AM": {
+    "name": "Computer Science and Engineering (AI&ML)",
+    "courseCodeId": "CS",
+    "courseCodeId2": "AM"
+  },
+  "EC": {
+    "name": "Electronics and Communication Engineering",
+    "courseCodeId": "EC"
+  },
+  "EE": {
+    "name": "Electrical and Electronics Engineering",
+    "courseCodeId": "EE"
+  },
+  "ME": {
+    "name": "Mechanical Engineering",
+    "courseCodeId": "ME"
+  },
+  "BT": {
+    "name": "Biotechnology",
+    "courseCodeId": "BT"
+  },
+  "CV": {
+    "name": "Civil Engineering",
+    "courseCodeId": "CV"
+  },
+  "AR": {
+    "name": "Bachelor of Architecture",
+    "courseCodeId": "AR"
+  },
+  "BB": {
+    "name": "Bachelor of Business Administration",
+    "courseCodeId": "BB"
+  },
+  "BD": {
+    "name": "Bachelor of Design",
+    "courseCodeId": "BD"
+  },
+  "BL": {
+    "name": "Bachelor of Business Administration and Bachelor of Laws",
+    "courseCodeId": "BL"
+  },
+  "BH": {
+    "name": "Bachelor of Business Administration - Hotel and Event Management",
+    "courseCodeId": "BH"
+  },
+  "AL": {
+    "name": "Bachelor of Arts and Bachelor of Laws",
+    "courseCodeId": "AL"
+  },
+  "BS": {
+    "name": "Bachelor of Business Administration - Sports Management",
+    "courseCodeId": "BS"
+  },
+  "BC": {
+    "name": "Bachelor of Commerce",
+    "courseCodeId": "BC"
+  },
+  "AC": {
+    "name": "Bachelor of Commerce (Honours) with ACCA",
+    "courseCodeId": "AC"
+  },
+  "PS": {
+    "name": "Bachelor of Science in Psychology",
+    "courseCodeId": "PS"
+  },
+  "SM": {
+    "name": "Bachelor of Sports Management",
+    "courseCodeId": "SM"
+  },
+  "PH": {
+    "name": "Bachelor of Pharmacy",
+    "courseCodeId": "PH"
+  },
+  "NU": {
+    "name": "Bachelor of Science in Nursing",
+    "courseCodeId": "NU"
+  },
+  "CN": {
+    "name": "Chartered Accountancy",
+    "courseCodeId": "CN"
+  },
+  "IA": {
+    "name": "Bachelor of International Accounting and Finance",
+    "courseCodeId": "IA"
+  },
+  "BN": {
+    "name": "Business Analytics",
+    "courseCodeId": "BN"
+  },
+  "MB": {
+    "name": "Master of Business Administration",
+    "courseCodeId": "MB"
+  },
+  "MD": {
+    "name": "Bachelor of Medicine and Bachelor of Surgery",
+    "courseCodeId": "MD"
+  }
+}

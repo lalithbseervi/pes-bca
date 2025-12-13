@@ -1,5 +1,8 @@
 import { getCorsHeaders } from "./utils/cors.js"
 import { createLogger } from "./utils/logger.js"
+import { verifyJWT } from "./utils/sign_jwt.js"
+import { getCourseCodeFromProfile, getCourseName } from "./utils/course.js"
+import { resolveCourseFromProfile } from "./utils/auth-helpers.js"
 import { loginHandler } from "./api/login.js"
 import { getSession } from "./api/session.js"
 import { logoutHandler } from "./api/logout.js"
@@ -9,14 +12,49 @@ import { handleFormReq } from "./api/contributeForm.js"
 import { handleDebugCookies } from "./api/debug.js"
 import { uploadResourceToSupabase, resourceStreamFromSupabase } from "./api/rw-supabase.js"
 import { getStatus, streamStatus, createIncident, addIncidentUpdate, updateComponentStatus } from "./api/status.js"
-import { checkAdminAccess, verifyAdminPassphrase, getResources as getAdminResources, updateResource, deleteResource, getFilters, replaceFile, getSystemConfig, updateSystemConfig } from "./api/admin.js"
+import { checkAdminAccess, getResources as getAdminResources, updateResource, deleteResource, getFilters, replaceFile, getSystemConfig, updateSystemConfig } from "./api/admin.js"
+import { getSubjectsConfig, createSubject, updateSubject, deleteSubject, getAllCourses, getAllSemesters } from "./api/subjects-config.js"
 import { getFile } from "./api/file.js"
 import { proxyAnalytics } from "./api/analytics.js"
 import { getSubjectResources } from "./api/subject.js"
+import { getSubjectMeta } from "./api/subject-meta.js"
+import { serveSubjectPage } from "./api/subject-page.js"
 import { getResources } from "./api/resources.js"
 import { getPublicSystemStatus, reportError } from "./api/system-status.js"
 
 const log = createLogger('Router');
+
+async function getAccessPayload(request, env) {
+  const authHeader = request.headers.get('authorization');
+  const cookieHeader = request.headers.get('cookie');
+  let accessToken = null;
+
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    accessToken = authHeader.split(' ')[1];
+  } else if (cookieHeader) {
+    const parts = cookieHeader.split(';').map(s => s.trim());
+    for (const p of parts) {
+      if (p.startsWith('access_token=')) {
+        accessToken = p.slice('access_token='.length);
+        break;
+      }
+    }
+  }
+
+  if (!accessToken) {
+    return { ok: false, status: 401, error: 'unauthenticated' };
+  }
+
+  try {
+    const v = await verifyJWT(accessToken, env.JWT_SECRET);
+    if (!v?.valid || v.payload?.type !== 'access') {
+      return { ok: false, status: 401, error: 'unauthenticated' };
+    }
+    return { ok: true, payload: v.payload };
+  } catch (e) {
+    return { ok: false, status: 502, error: 'auth_check_failed' };
+  }
+}
 
 addEventListener('fetch', event => {
   event.respondWith(handleRequest(event.request, event.env || globalThis))
@@ -107,6 +145,15 @@ async function handleRequest(request, env, ctx) {
     } catch (e) {
       return addCorsHeaders(new Response(JSON.stringify({ ok: false, error: e.message }), { status: 500, headers: { 'Content-Type': 'application/json' } }))
     }
+  }
+
+  // GET /sem-{semester}/{subject} - Dynamic subject pages (no markdown dependency)
+  const subjectPageMatch = url.pathname.match(/^\/sem-(\d+)\/([a-z0-9_-]+)\/?$/);
+  if (subjectPageMatch && request.method === 'GET') {
+    const semester = subjectPageMatch[1];
+    const subjectCode = subjectPageMatch[2];
+    response = await serveSubjectPage(request, env, semester, subjectCode);
+    return response; // Don't add CORS headers to HTML responses
   }
 
   // POST /api/login
@@ -231,10 +278,69 @@ async function handleRequest(request, env, ctx) {
     return addCorsHeaders(response)
   }
 
+  // GET /api/subjects - Authenticated list for the logged-in user's course
+  if (request.method === 'GET' && url.pathname === '/api/subjects') {
+    const auth = await getAccessPayload(request, env)
+    if (!auth.ok) {
+      response = new Response(JSON.stringify({ success: false, error: auth.error }), {
+        status: auth.status,
+        headers: { 'Content-Type': 'application/json' }
+      })
+      return addCorsHeaders(response)
+    }
+
+    const profile = auth.payload?.profile || null
+    // Resolve course from profile (tries profile.course, exact match, then fuzzy match)
+    let courseId = resolveCourseFromProfile(profile)
+    if (!courseId) {
+      response = new Response(JSON.stringify({ success: false, error: 'missing_course', details: { program: profile?.program, branch: profile?.branch } }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      })
+      return addCorsHeaders(response)
+    }
+
+    try {
+      const data = await getSubjectsConfig(env, courseId)
+      const subjects = data[courseId] || {}
+      const semesters = Object.keys(subjects).sort((a, b) => {
+        const anum = (a.match(/(\d+)/) || [])[1]
+        const bnum = (b.match(/(\d+)/) || [])[1]
+        return (Number(anum) || 0) - (Number(bnum) || 0)
+      })
+
+      response = new Response(JSON.stringify({
+        success: true,
+        course: courseId,
+        course_name: getCourseName(courseId) || profile?.branch || null,
+        semesters,
+        subjects
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      })
+      return addCorsHeaders(response)
+    } catch (e) {
+      response = new Response(JSON.stringify({ success: false, error: 'subjects_fetch_failed' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      })
+      return addCorsHeaders(response)
+    }
+  }
+
   // GET /api/subject/resources - Get resources for a specific subject
   if (request.method === 'GET' && url.pathname === '/api/subject/resources') {
     response = await getSubjectResources(request, env)
     return addCorsHeaders(response)
+  }
+
+  // GET /api/subjects/:code/meta - Get subject metadata
+  const subjectMetaMatch = url.pathname.match(/^\/api\/subjects\/([a-z0-9_-]+)\/meta$/);
+  if (subjectMetaMatch && request.method === 'GET') {
+    const subjectCode = subjectMetaMatch[1];
+    response = await getSubjectMeta(request, env, subjectCode);
+    return addCorsHeaders(response);
   }
 
   // GET /api/file/:storageKey - Get file via signed URL redirect
@@ -349,6 +455,130 @@ async function handleRequest(request, env, ctx) {
     const ctx = { params: { id: componentMatch[1] } };
     response = await updateComponentStatus(request, env, ctx);
     return addCorsHeaders(response)
+  }
+
+  // GET /api/admin/subjects - Get all subjects config
+  if (request.method === 'GET' && url.pathname === '/api/admin/subjects') {
+    try {
+      const authUser = await checkAdminAccess(request, env)
+      if (!authUser) {
+        response = new Response(JSON.stringify({ error: 'Unauthorized' }), { 
+          status: 401, 
+          headers: { 'Content-Type': 'application/json' } 
+        });
+        return addCorsHeaders(response);
+      }
+      
+      const data = await getSubjectsConfig(env);
+      response = new Response(JSON.stringify(data), { 
+        status: 200, 
+        headers: { 'Content-Type': 'application/json' } 
+      });
+      return addCorsHeaders(response);
+    } catch (e) {
+      response = new Response(JSON.stringify({ error: e.message }), { 
+        status: 500, 
+        headers: { 'Content-Type': 'application/json' } 
+      });
+      return addCorsHeaders(response);
+    }
+  }
+
+  // POST /api/admin/subjects - Create new subject
+  if (request.method === 'POST' && url.pathname === '/api/admin/subjects') {
+    try {
+      const authUser = await checkAdminAccess(request, env)
+      if (!authUser) {
+        response = new Response(JSON.stringify({ error: 'Unauthorized' }), { 
+          status: 401, 
+          headers: { 'Content-Type': 'application/json' } 
+        });
+        return addCorsHeaders(response);
+      }
+
+      const body = await request.json();
+      const { course_id, semester, subject_code, subject_name, display_order } = body;
+
+      if (!course_id || !semester || !subject_code || !subject_name) {
+        response = new Response(JSON.stringify({ error: 'Missing required fields' }), { 
+          status: 400, 
+          headers: { 'Content-Type': 'application/json' } 
+        });
+        return addCorsHeaders(response);
+      }
+
+      const subject = await createSubject(env, course_id, semester, subject_code, subject_name, display_order || 0);
+      response = new Response(JSON.stringify({ success: true, data: subject }), { 
+        status: 201, 
+        headers: { 'Content-Type': 'application/json' } 
+      });
+      return addCorsHeaders(response);
+    } catch (e) {
+      response = new Response(JSON.stringify({ error: e.message }), { 
+        status: 500, 
+        headers: { 'Content-Type': 'application/json' } 
+      });
+      return addCorsHeaders(response);
+    }
+  }
+
+  // PATCH /api/admin/subjects/:id - Update subject
+  const subjectUpdateMatch = url.pathname.match(/^\/api\/admin\/subjects\/([^/]+)\/?$/);
+  if (subjectUpdateMatch && request.method === 'PATCH') {
+    try {
+      const authUser = await checkAdminAccess(request, env)
+      if (!authUser) {
+        response = new Response(JSON.stringify({ error: 'Unauthorized' }), { 
+          status: 401, 
+          headers: { 'Content-Type': 'application/json' } 
+        });
+        return addCorsHeaders(response);
+      }
+
+      const id = subjectUpdateMatch[1];
+      const updates = await request.json();
+      const subject = await updateSubject(env, id, updates);
+      response = new Response(JSON.stringify({ success: true, data: subject }), { 
+        status: 200, 
+        headers: { 'Content-Type': 'application/json' } 
+      });
+      return addCorsHeaders(response);
+    } catch (e) {
+      response = new Response(JSON.stringify({ error: e.message }), { 
+        status: 500, 
+        headers: { 'Content-Type': 'application/json' } 
+      });
+      return addCorsHeaders(response);
+    }
+  }
+
+  // DELETE /api/admin/subjects/:id - Delete subject
+  const subjectDeleteMatch = url.pathname.match(/^\/api\/admin\/subjects\/([^/]+)\/?$/);
+  if (subjectDeleteMatch && request.method === 'DELETE') {
+    try {
+      const authUser = await checkAdminAccess(request, env)
+      if (!authUser) {
+        response = new Response(JSON.stringify({ error: 'Unauthorized' }), { 
+          status: 401, 
+          headers: { 'Content-Type': 'application/json' } 
+        });
+        return addCorsHeaders(response);
+      }
+
+      const id = subjectDeleteMatch[1];
+      await deleteSubject(env, id);
+      response = new Response(JSON.stringify({ success: true }), { 
+        status: 200, 
+        headers: { 'Content-Type': 'application/json' } 
+      });
+      return addCorsHeaders(response);
+    } catch (e) {
+      response = new Response(JSON.stringify({ error: e.message }), { 
+        status: 500, 
+        headers: { 'Content-Type': 'application/json' } 
+      });
+      return addCorsHeaders(response);
+    }
   }
 
   return new Response('Not found', { status:404, headers: corsHeaders })

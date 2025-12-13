@@ -1,7 +1,6 @@
 /**
- * GET /api/resources - Get all resources with optional filters
+ * GET /api/resources - Get all resources filtered by authenticated user's course
  * Query params:
- *   - course: filter by course code (e.g., "CA") - if not provided, uses JWT profile course
  *   - semester: filter by semester (e.g., "sem-1")
  *   - subject: filter by subject (e.g., "cfp")
  *   - resource_type: filter by type (e.g., "Notes")
@@ -10,55 +9,33 @@
  */
 import { checkRateLimit, deriveRateLimitIdentity } from '../utils/rate-limit.js';
 import { createLogger } from '../utils/logger.js';
-import { getCourseCodeFromProfile } from '../utils/course.js';
-import { verifyJWT } from '../utils/sign_jwt.js';
+import { getAuthenticatedUser } from '../utils/auth-helpers.js';
 
 const log = createLogger('Resources');
 
-async function getCourseFromRequest(request, env) {
-    // Try to extract course from request query params first
-    const url = new URL(request.url);
-    let course = url.searchParams.get('course');
-    
-    if (course) return course;
-
-    // Fallback: extract from JWT in request
-    const authHeader = request.headers.get('authorization');
-    const cookieHeader = request.headers.get('cookie');
-    let accessToken = null;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-        accessToken = authHeader.split(' ')[1];
-    } else if (cookieHeader) {
-        const parts = cookieHeader.split(';').map(s => s.trim());
-        for (const p of parts) {
-            if (p.startsWith('access_token=')) {
-                accessToken = p.slice('access_token='.length);
-                break;
-            }
-        }
-    }
-    
-    if (accessToken) {
-        try {
-            const decoded = await verifyJWT(accessToken, env.JWT_SECRET);
-            if (decoded && decoded.profile) {
-                course = getCourseCodeFromProfile(decoded.profile);
-            }
-        } catch (e) {
-            log.warn('Failed to extract course from JWT in resources.js', e);
-        }
-    }
-
-    return course || null;
-}
-
 export async function getResources(request, env) {
     try {
-        const url = new URL(request.url);
-        const course = await getCourseFromRequest(request, env);
+        const url = new URL(request.url);        
+        // Authenticate user and get their course
+        const auth = await getAuthenticatedUser(request, env);
         
-        // Course is optional for listing—storage_key encodes which course owns each file
-        // But we can filter by course if provided for optimization
+        if (!auth.valid || !auth.course) {
+            return new Response(JSON.stringify({ 
+                error: 'authentication_required',
+                message: 'Please log in to view resources',
+                debug: {
+                    error: auth.error,
+                    hasProfile: !!auth.profile,
+                    program: auth.profile?.program,
+                    branch: auth.profile?.branch
+                }
+            }), {
+                status: 401,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+        
+        const course = auth.course;        
         const semester = url.searchParams.get('semester');
         const subject = url.searchParams.get('subject');
         const resourceType = url.searchParams.get('resource_type');
@@ -72,15 +49,12 @@ export async function getResources(request, env) {
             'Content-Type': 'application/json'
         };
 
-        // Build query with optional course filter (if provided, use it; otherwise get all)
+        // Build query with course filter - now mandatory
+        // Course is embedded in storage_key as first path segment
+        // Example: CA/sem-1/subject/type/unit/file.pdf
         let query = `${base}/rest/v1/fileStore?select=*&order=created_at.desc&limit=${limit}&offset=${offset}`;
-        
-        if (course) {
-            // Course is embedded in storage_key as first path segment
-            // Example: CA/sem-1/subject/type/unit/file.pdf
-            // Use LIKE pattern to filter by course
-            query += `&storage_key=like.${encodeURIComponent(course)}/%`;
-        }
+        // PostgREST LIKE pattern: storage_key=like.{pattern} where * is wildcard
+        query += `&storage_key=like.${course}*`;
         
         if (semester) {
             query += `&semester=eq.${encodeURIComponent(semester)}`;
@@ -95,7 +69,9 @@ export async function getResources(request, env) {
         const resp = await fetch(query, { headers });
 
         if (!resp.ok) {
-            throw new Error(`Supabase query failed: ${resp.status}`);
+            const errorText = await resp.text();
+            log.error('Supabase query failed', { status: resp.status, statusText: resp.statusText, error: errorText, query });
+            throw new Error(`Supabase query failed: ${resp.status} - ${errorText}`);
         }
 
                 const resources = await resp.json();
@@ -168,9 +144,7 @@ export async function getResources(request, env) {
                                     // Delta update computed successfully
                                 }
                             }
-                        } catch (e) {
-                            log.warn('Delta computation failed', e);
-                        }
+                        } catch (e) {}
                     }
                 }
 

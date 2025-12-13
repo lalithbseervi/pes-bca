@@ -172,7 +172,7 @@ async function fetchAndUpdateResources() {
         const loadingEl = document.getElementById('loading-resources');
         const contentArea = document.getElementById('content-area');
         const etag = localStorage.getItem(RESOURCE_CACHE_HASH_KEY);
-        const response = await fetch(`${API_BASE_URL}/api/resources`, { headers: etag ? { 'If-None-Match': etag } : {} });
+        const response = await fetch(`${API_BASE_URL}/api/resources`, { headers: etag ? { 'If-None-Match': etag } : {}, credentials: 'include' });
         
         if (response.status === 304) {
             // No change; snapshot already rendered if present

@@ -9,21 +9,19 @@ import { initPDFViewer } from '../init/pdf-viewer.js';
 
 /**
  * Subject page route handler (protected)
- * Subject pages already have SSR routes in Zola, so we do full page navigation
+ * Subject pages are now served dynamically by Worker, no Zola markdown needed
  */
 export async function handleSubjectRoute(params, pathname) {
   let code = params.code;
+  let sem = params.sem;
   
-  if (!code) throw new Error('Subject code required');
+  if (!code || !sem) throw new Error('Subject code and semester required');
   
-  console.log('[Router] Subject route handler - code:', code, 'pathname:', pathname);
+  console.log('[Router] Subject route handler - sem:', sem, 'code:', code, 'pathname:', pathname);
 
-  // Since subject pages are SSR-rendered by Zola (content/sem-X/*.md files),
-  // we do a full page navigation instead of CSR. This ensures:
-  // 1. The subject.html template is properly loaded with correct subject_code
-  // 2. All inline scripts execute with the correct subject context
-  // 3. Proper page styling and structure are maintained
-  console.log('[Router] Navigating to subject page (SSR):', pathname);
+  // Subject pages are now fully dynamic - served by Worker /sem-X/code route
+  // Do a full navigation to let Worker serve the HTML with proper context
+  console.log('[Router] Navigating to dynamic subject page:', pathname);
   window.location.href = pathname;
 }
 

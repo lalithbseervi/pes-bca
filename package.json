@@ -6,6 +6,6 @@
   "scripts": {
     "build": "zola build",
     "serve": "zola serve",
-    "dev": "zola serve & npx wrangler dev cors-proxy/src/index.js"
+    "dev": "zola serve & npx wrangler dev cors-proxy/src/index.js --remote"
   }
 }
