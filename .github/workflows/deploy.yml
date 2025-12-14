@@ -1,0 +1,60 @@
+name: Deploy to Cloudflare with SW Version
+
+on:
+  push:
+    branches:
+      - master
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy Worker & Pages
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate SW Version
+        id: sw_version
+        run: |
+          # Use git commit short SHA as version
+          VERSION=$(git rev-parse --short HEAD)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Generated SW_VERSION: $VERSION"
+
+      - name: Deploy Worker with SW_VERSION
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy cors-proxy/src/index.js --var SW_VERSION:${{ steps.sw_version.outputs.version }}
+
+      - name: Deploy Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy public --project-name=pes-bca
+
+      - name: Update Worker Environment Variable (persistent)
+        run: |
+          curl -X PATCH "https://api.cloudflare.com/client/v4/accounts/${{ secrets.CLOUDFLARE_ACCOUNT_ID }}/workers/scripts/cors-proxy/settings" \
+            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            --data '{
+              "bindings": [
+                {
+                  "type": "plain_text",
+                  "name": "SW_VERSION",
+                  "text": "${{ steps.sw_version.outputs.version }}"
+                }
+              ]
+            }'
