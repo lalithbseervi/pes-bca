@@ -72,7 +72,10 @@ export async function streamSystemStatus(request, env) {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
-        'X-Accel-Buffering': 'no' // Disable buffering for SSE
+        'X-Accel-Buffering': 'no', // Disable buffering for SSE
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type'
       }
     });
 
