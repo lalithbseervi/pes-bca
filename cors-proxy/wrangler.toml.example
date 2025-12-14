@@ -1,7 +1,6 @@
 name = "cors-proxy"
 main = "src/index.js"
 workers_dev = true
-preview_urls = false
 compatibility_date = "2024-12-01"
 
 compatibility_flags = [ "nodejs_compat" ]
@@ -15,9 +14,6 @@ kv_namespaces = [
   { binding = "CONFIG_KV", id = "eb13ede6a27b45399d11df14525c331a", preview_id = "1b046aba40a0483e9af4242353a929aa" },
   { binding = "ERRORS_KV", id = "1e547ee4973f4aa7a92daa329dd3ce1e", preview_id="8461ec059ff54f81bede22cb518860a9" }
 ]
-
-[build]
-command = "npm install && npm run build"
 
 # D1 Database for user registry (run db/setup-d1.sh to create)
 [[d1_databases]]
