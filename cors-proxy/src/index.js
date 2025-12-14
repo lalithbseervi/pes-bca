@@ -11,7 +11,7 @@ import { getCacheStats } from "./api/cache-stats.js"
 import { handleFormReq } from "./api/contributeForm.js"
 import { handleDebugCookies } from "./api/debug.js"
 import { uploadResourceToSupabase, resourceStreamFromSupabase } from "./api/rw-supabase.js"
-import { getStatus, streamStatus, createIncident, addIncidentUpdate, updateComponentStatus } from "./api/status.js"
+import { getStatus, streamStatus, createIncident, addIncidentUpdate, updateComponentStatus, getStatusErrors } from "./api/status.js"
 import { checkAdminAccess, getResources as getAdminResources, updateResource, deleteResource, getFilters, replaceFile, getSystemConfig, updateSystemConfig } from "./api/admin.js"
 import { getSubjectsConfig, createSubject, updateSubject, deleteSubject, getAllCourses, getAllSemesters } from "./api/subjects-config.js"
 import { getFile } from "./api/file.js"
@@ -180,6 +180,12 @@ async function handleRequest(request, env, ctx) {
     return addCorsHeaders(response)
   }
 
+  // GET /api/status/errors - 5XX error metrics for status page graphs
+  if (request.method === 'GET' && url.pathname === '/api/status/errors') {
+    response = await getStatusErrors(request, env)
+    return addCorsHeaders(response)
+  }
+
   // POST /api/system/report-error - Report 5XX errors for monitoring
   if (request.method === 'POST' && url.pathname === '/api/system/report-error') {
     response = await reportError(request, env)
@@ -229,7 +235,7 @@ async function handleRequest(request, env, ctx) {
 
   // POST /api/analytics/cookieless
   if (request.method === 'POST' && url.pathname === '/api/analytics/cookieless') {
-    response = await handleCookielessEvent(request, env)
+    response = await proxyAnalytics(request, env)
     return addCorsHeaders(response)
   }
 

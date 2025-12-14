@@ -1,0 +1,22 @@
+name = "cors-proxy"
+main = "src/index.js"
+workers_dev = true
+preview_urls = false
+compatibility_date = "2025-02-04"
+
+kv_namespaces = [
+  { binding = "SESSIONS", id = "8c42a0cac2974b7cacceb11201be1846", preview_id = "25504661582643c6ad2c7ed3bacd92e7" },
+  { binding = "RATE_LIMIT_KV", id = "cd11075c2e1a4512954d9f8d9e99544a", preview_id = "25504661582643c6ad2c7ed3bacd92e7" },
+  { binding = "CSP_REPORTS", id = "b4aa00fa621b4a9082de2e67b35e4e4d", preview_id = "1c605cdc4a214380a97bbbfeda6ff883" },
+  { binding = "CONFIG_KV", id = "eb13ede6a27b45399d11df14525c331a", preview_id = "1b046aba40a0483e9af4242353a929aa" }
+]
+
+# D1 Database for user registry (run db/setup-d1.sh to create)
+[[d1_databases]]
+binding = "USER_DB"
+database_name = "user-registry"
+database_id = "3b325f17-f259-4582-971f-286f9f183244"
+
+[observability]
+enabled = true
+head_sampling_rate = 1

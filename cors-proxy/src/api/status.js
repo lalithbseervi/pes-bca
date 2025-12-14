@@ -102,6 +102,97 @@ async function fetchStatusData(env) {
     };
 }
 
+// Aggregate 5XX error metrics from KV for the last 24 hours
+async function fetchErrorMetrics(env) {
+    const JSON_HEADERS = { 'Content-Type': 'application/json' };
+
+    // If KV not available, return empty metrics
+    if (!env.RATE_LIMIT_KV || typeof env.RATE_LIMIT_KV.list !== 'function') {
+        return {
+            rangeHours: 24,
+            bucketMinutes: 60,
+            totals: [],
+            series: []
+        };
+    }
+
+    const now = Date.now();
+    const rangeMs = 24 * 60 * 60 * 1000; // 24 hours
+    const bucketMs = 60 * 60 * 1000; // 1 hour buckets
+    const cutoff = now - rangeMs;
+
+    const buckets = new Map(); // key: `${endpoint}|${bucket}` -> count
+    const totals = new Map();  // key: endpoint -> count
+    const bucketSet = new Set();
+
+    let cursor = undefined;
+    let iterations = 0;
+    const MAX_KEYS = 5000; // guard against excessive KV scans
+    const keys = [];
+
+    // List error keys (prefixed) with pagination and safety limits
+    do {
+        const res = await env.RATE_LIMIT_KV.list({ prefix: 'error:', cursor });
+        keys.push(...res.keys);
+        cursor = res.list_complete ? undefined : res.cursor;
+        iterations += 1;
+    } while (cursor && keys.length < MAX_KEYS && iterations < 20);
+
+    for (const k of keys) {
+        // Key format: error:<timestamp>:<random>
+        const parts = k.name.split(':');
+        const ts = Number(parts[1]);
+        if (!Number.isFinite(ts) || ts < cutoff) continue;
+
+        let record;
+        try {
+            const val = await env.RATE_LIMIT_KV.get(k.name);
+            if (!val) continue;
+            record = JSON.parse(val);
+        } catch (e) {
+            continue; // skip malformed entries
+        }
+
+        const path = (() => {
+            try {
+                return new URL(record.url).pathname || 'unknown';
+            } catch (_) {
+                return 'unknown';
+            }
+        })();
+
+        const bucket = Math.floor(ts / bucketMs) * bucketMs;
+        const bucketKey = `${path}|${bucket}`;
+        buckets.set(bucketKey, (buckets.get(bucketKey) || 0) + 1);
+        totals.set(path, (totals.get(path) || 0) + 1);
+        bucketSet.add(bucket);
+    }
+
+    // Determine top endpoints to plot (up to 5)
+    const topEndpoints = Array.from(totals.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([endpoint, count]) => ({ endpoint, count }));
+
+    const endpointsToInclude = new Set(topEndpoints.map(t => t.endpoint));
+    const bucketTimes = Array.from(bucketSet).sort((a, b) => a - b);
+
+    const series = Array.from(endpointsToInclude).map(endpoint => ({
+        endpoint,
+        points: bucketTimes.map(t => ({
+            t,
+            count: buckets.get(`${endpoint}|${t}`) || 0
+        }))
+    }));
+
+    return {
+        rangeHours: 24,
+        bucketMinutes: 60,
+        totals: topEndpoints,
+        series
+    };
+}
+
 // GET /api/status - Public endpoint for status page
 export async function getStatus(request, env) {
     const JSON_HEADERS = { 'Content-Type': 'application/json' };
@@ -115,6 +206,24 @@ export async function getStatus(request, env) {
     } catch (e) {
         log.error('Failed to fetch status', e);
         return new Response(JSON.stringify({ error: 'failed_to_fetch_status' }), {
+            status: 500,
+            headers: JSON_HEADERS
+        });
+    }
+}
+
+// GET /api/status/errors - 5XX error metrics for status page graphs
+export async function getStatusErrors(request, env) {
+    const JSON_HEADERS = { 'Content-Type': 'application/json' };
+    try {
+        const metrics = await fetchErrorMetrics(env);
+        return new Response(JSON.stringify(metrics), {
+            status: 200,
+            headers: JSON_HEADERS
+        });
+    } catch (e) {
+        log.error('Failed to fetch error metrics', e);
+        return new Response(JSON.stringify({ error: 'failed_to_fetch_error_metrics' }), {
             status: 500,
             headers: JSON_HEADERS
         });

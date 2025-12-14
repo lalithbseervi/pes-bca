@@ -30,12 +30,17 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Generated SW_VERSION: $VERSION"
 
+      - name: Prepare wrangler config
+        run: |
+          # Copy example to wrangler.toml (secrets will come from Cloudflare Dashboard)
+          cp cors-proxy/wrangler.toml.example cors-proxy/wrangler.toml
+
       - name: Deploy Worker with SW_VERSION
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy cors-proxy/src/index.js --name cors-proxy --compatibility-date 2025-02-24 --var SW_VERSION:${{ steps.sw_version.outputs.version }}
+          command: deploy --config cors-proxy/wrangler.toml --var SW_VERSION:${{ steps.sw_version.outputs.version }}
 
       - name: Update config.toml with SW_VERSION
         run: |

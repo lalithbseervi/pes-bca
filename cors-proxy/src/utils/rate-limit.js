@@ -12,9 +12,10 @@ const MAX_PENALTY_DURATION = 21600000; // Max 360 mins (6 hours) penalty
 
 // Get configured rate limit from KV or return default
 async function getMaxRequestsPerWindow(env) {
-  if (!env.RATE_LIMIT_KV) return DEFAULT_MAX_REQUESTS_PER_WINDOW;
+  const configStore = env.CONFIG_KV;
+  if (!configStore) return DEFAULT_MAX_REQUESTS_PER_WINDOW;
   try {
-    const config = await env.RATE_LIMIT_KV.get('config:max_requests_per_window');
+    const config = await configStore.get('config:max_requests_per_window');
     if (config) {
       const value = parseInt(config);
       if (value > 0 && value <= 1000) return value; // Sanity check: 1-1000

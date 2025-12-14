@@ -355,28 +355,6 @@
           </div>
         </div>
 
-        <!-- Service Worker Version -->
-        <div class="admin-section">
-          <h2>Service Worker Version</h2>
-          <p style="color: var(--admin-text-secondary); margin-bottom: 1.5rem;">
-            Update the service worker cache version to force clients to refresh cached assets.
-          </p>
-
-          <div class="admin-filter-group" style="max-width: 400px;">
-            <label for="sw-version-input">Cache Version</label>
-            <input 
-              type="text" 
-              id="sw-version-input" 
-              maxlength="50"
-              placeholder="e.g., 4b80282"
-              style="padding: 0.75rem; font-size: 1rem;"
-            >
-            <small style="color: var(--admin-text-secondary); display: block; margin-top: 0.5rem;">
-              Use a git commit hash or version number. Changing this will invalidate all client caches.
-            </small>
-          </div>
-        </div>
-
         <!-- Maintenance Mode -->
         <div class="admin-section">
           <h2>Maintenance Mode</h2>
@@ -856,7 +834,6 @@ async function loadSystemConfig() {
     
     // Populate form fields
     document.getElementById('max-requests-input').value = data.max_requests_per_window;
-    document.getElementById('sw-version-input').value = data.sw_version || '';
     document.getElementById('maintenance-mode-checkbox').checked = data.maintenance_mode;
     document.getElementById('maintenance-message-textarea').value = data.maintenance_message || '';
     
@@ -881,12 +858,6 @@ async function saveAllSettings() {
     return;
   }
   
-  const swVersion = document.getElementById('sw-version-input').value.trim();
-  if (swVersion.length > 50) {
-    messageEl.innerHTML = '<p style="color: #dc2626;">Service worker version must be 50 characters or less</p>';
-    return;
-  }
-  
   const maintenanceMessage = document.getElementById('maintenance-message-textarea').value.trim();
   if (maintenanceMessage.length > 500) {
     messageEl.innerHTML = '<p style="color: #dc2626;">Maintenance message must be 500 characters or less</p>';
@@ -899,7 +870,6 @@ async function saveAllSettings() {
   try {
     const config = {
       max_requests_per_window: maxRequests,
-      sw_version: swVersion,
       maintenance_mode: document.getElementById('maintenance-mode-checkbox').checked,
       maintenance_message: maintenanceMessage
     };
@@ -935,7 +905,6 @@ async function saveAllSettings() {
 
 function resetAllSettings() {
   document.getElementById('max-requests-input').value = 10;
-  document.getElementById('sw-version-input').value = '';
   document.getElementById('maintenance-mode-checkbox').checked = false;
   document.getElementById('maintenance-message-textarea').value = 'We are currently performing scheduled maintenance. Please check back soon.';
   document.getElementById('settings-message').innerHTML = '';

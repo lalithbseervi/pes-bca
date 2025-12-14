@@ -181,6 +181,13 @@ async function fetchAndUpdateResources() {
             return;
         }
         
+        // Handle 401 Unauthorized - likely auth not ready yet, retry after brief delay
+        if (response.status === 401) {
+            // Wait a bit and retry once (gives auth time to settle)
+            await new Promise(resolve => setTimeout(resolve, 500));
+            return fetchAndUpdateResources();
+        }
+        
         if (!response.ok) throw new Error('Failed to fetch resources');
         const data = await response.json();
         
@@ -512,6 +519,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     
     // Attempt instant render from cache, then background refresh
     loadCachedSnapshot();
+    // Fetch resources only after auth is confirmed ready
     fetchAndUpdateResources().catch((err) => { 
         // Resource loading failed - error already shown in UI
     });

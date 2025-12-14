@@ -10,7 +10,8 @@ const JSON_HEADERS = {
 
 export async function getPublicSystemStatus(env) {
     try {
-        if (!env.RATE_LIMIT_KV) {
+        const configStore = env.CONFIG_KV;
+        if (!configStore) {
             return new Response(JSON.stringify({ 
                 maintenance_mode: false
             }), {
@@ -21,8 +22,8 @@ export async function getPublicSystemStatus(env) {
 
         // Fetch public-facing configuration
         const [maintenanceMode, maintenanceMessage] = await Promise.all([
-            env.RATE_LIMIT_KV.get('config:maintenance_mode'),
-            env.RATE_LIMIT_KV.get('config:maintenance_message')
+            configStore.get('config:maintenance_mode'),
+            configStore.get('config:maintenance_message')
         ]);
 
         const status = {

@@ -710,23 +710,32 @@ export async function getSystemConfig(request, env) {
     
     try {
         const config = {};
+        // Prefer dedicated config KV; fall back to the legacy RATE_LIMIT_KV if not bound
+        const configStore = env.CONFIG_KV;
         
-        if (env.RATE_LIMIT_KV) {
-            // Rate limit config
-            const maxRequests = await env.RATE_LIMIT_KV.get('config:max_requests_per_window');
-            config.max_requests_per_window = maxRequests ? parseInt(maxRequests) : 10;
-            
-            // Service worker version
-            const swVersion = await env.RATE_LIMIT_KV.get('config:sw_version');
-            config.sw_version = swVersion || '';
-            
-            // Maintenance mode
-            const maintenanceMode = await env.RATE_LIMIT_KV.get('config:maintenance_mode');
-            config.maintenance_mode = maintenanceMode === 'true';
-            
-            // Maintenance message
-            const maintenanceMsg = await env.RATE_LIMIT_KV.get('config:maintenance_message');
-            config.maintenance_message = maintenanceMsg || 'Site is currently under maintenance. Please check back later.';
+        const defaults = {
+            max_requests_per_window: configStore.MAX_REQUESTS_PER_WINDOW ? parseInt(configStore.MAX_REQUESTS_PER_WINDOW) : 20,
+            maintenance_mode: configStore.MAINTENANCE_MODE === 'true',
+            maintenance_message: configStore.MAINTENANCE_MESSAGE || 'Site is currently under maintenance. Some features may not work as expected.'
+        };
+
+        // Start with defaults from env
+        config.max_requests_per_window = defaults.max_requests_per_window;
+        config.maintenance_mode = defaults.maintenance_mode;
+        config.maintenance_message = defaults.maintenance_message;
+
+        // Override with KV values if present (admin-updatable)
+        if (configStore) {
+            const maxRequests = await configStore.get('config:max_requests_per_window');
+            if (maxRequests) config.max_requests_per_window = parseInt(maxRequests);
+
+            const maintenanceMode = await configStore.get('config:maintenance_mode');
+            if (maintenanceMode !== null && maintenanceMode !== undefined) {
+                config.maintenance_mode = maintenanceMode === 'true';
+            }
+
+            const maintenanceMsg = await configStore.get('config:maintenance_message');
+            if (maintenanceMsg) config.maintenance_message = maintenanceMsg;
         }
         
         return new Response(JSON.stringify(config), {
@@ -754,9 +763,11 @@ export async function updateSystemConfig(request, env) {
     
     try {
         const body = await request.json();
+        // Prefer dedicated config KV;
+        const configStore = env.CONFIG_KV;
         
-        if (!env.RATE_LIMIT_KV) {
-            return new Response(JSON.stringify({ error: 'Configuration storage not available' }), {
+        if (!configStore) {
+            return new Response(JSON.stringify({ error: 'Configuration storage not available (CONFIG_KV)' }), {
                 status: 500,
                 headers: JSON_HEADERS
             });
@@ -773,30 +784,17 @@ export async function updateSystemConfig(request, env) {
                     headers: JSON_HEADERS
                 });
             }
-            await env.RATE_LIMIT_KV.put('config:max_requests_per_window', value.toString());
+            await configStore.put('config:max_requests_per_window', value.toString());
             updates.push(`max_requests_per_window=${value}`);
         }
-        
-        // Update sw_version
-        if ('sw_version' in body) {
-            const value = body.sw_version.toString().trim();
-            if (value.length > 50) {
-                return new Response(JSON.stringify({ error: 'sw_version must be 50 characters or less' }), {
-                    status: 400,
-                    headers: JSON_HEADERS
-                });
-            }
-            await env.RATE_LIMIT_KV.put('config:sw_version', value);
-            updates.push(`sw_version=${value}`);
-        }
-        
+
         // Update maintenance_mode
         if ('maintenance_mode' in body) {
             const value = body.maintenance_mode === true;
-            await env.RATE_LIMIT_KV.put('config:maintenance_mode', value.toString());
+            await configStore.put('config:maintenance_mode', value.toString());
             updates.push(`maintenance_mode=${value}`);
         }
-        
+
         // Update maintenance_message
         if ('maintenance_message' in body) {
             const value = body.maintenance_message.toString().trim();
@@ -806,10 +804,10 @@ export async function updateSystemConfig(request, env) {
                     headers: JSON_HEADERS
                 });
             }
-            await env.RATE_LIMIT_KV.put('config:maintenance_message', value);
-            updates.push(`maintenance_message updated`);
+            await configStore.put('config:maintenance_message', value);
+            updates.push('maintenance_message updated');
         }
-        
+
         // System config updated successfully
         
         return new Response(JSON.stringify({ 

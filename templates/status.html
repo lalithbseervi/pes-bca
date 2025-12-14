@@ -156,6 +156,45 @@
     margin-bottom: 2rem;
   }
 
+  .metrics-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-top: 1rem;
+  }
+
+  .chart-container {
+    position: relative;
+    height: 320px;
+  }
+
+  .metrics-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+  }
+
+  .legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.5rem;
+    border-radius: 6px;
+    background: #f9fafb;
+    border: 1px solid var(--border);
+  }
+
+  .legend-swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 4px;
+    display: inline-block;
+  }
+
   .incidents-section h2 {
     font-size: 1.5rem;
     margin-bottom: 1rem;
@@ -376,6 +415,19 @@
       <div id="components"></div>
     </div>
 
+    <div id="error-metrics-section" class="incidents-section" style="display: none;">
+      <h2>5XX Errors (last 24h)</h2>
+      <div class="metrics-card">
+        <div class="chart-container">
+          <canvas id="error-chart" aria-label="5XX errors over time" role="img"></canvas>
+        </div>
+        <div id="error-legend" class="metrics-legend"></div>
+        <div id="error-empty" class="no-incidents" style="display: none; padding: 1rem;">
+          <p>No 5XX errors recorded in the last 24 hours.</p>
+        </div>
+      </div>
+    </div>
+
     <div id="active-incidents-section" class="incidents-section" style="display: none;">
       <h2>Active Incidents</h2>
       <div id="active-incidents"></div>
@@ -394,6 +446,7 @@
   <a href="/status-admin" class="admin-link" id="admin-link" style="display: none;">Admin</a>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script type="module">
 import { API_BASE_URL } from '/js/utils.js?v={{ config.extra.sw_version }}';
 
@@ -427,6 +480,105 @@ function getStatusText(status) {
     scheduled: 'Scheduled'
   };
   return statusMap[status] || status;
+}
+
+const ERROR_COLORS = ['#ef4444', '#f97316', '#f59e0b', '#3b82f6', '#10b981'];
+let errorChart = null;
+
+function renderErrorLegend(series) {
+  const legend = document.getElementById('error-legend');
+  if (!legend) return;
+  legend.innerHTML = series.map((s, idx) => `
+    <span class="legend-item">
+      <span class="legend-swatch" style="background: ${ERROR_COLORS[idx % ERROR_COLORS.length]}"></span>
+      ${s.endpoint}
+    </span>
+  `).join('');
+}
+
+function renderErrorMetrics(data) {
+  const section = document.getElementById('error-metrics-section');
+  const empty = document.getElementById('error-empty');
+  if (!section) return;
+
+  if (!data || !data.series || data.series.length === 0) {
+    section.style.display = 'block';
+    if (empty) empty.style.display = 'block';
+    if (errorChart) {
+      errorChart.destroy();
+      errorChart = null;
+    }
+    const legend = document.getElementById('error-legend');
+    if (legend) legend.innerHTML = '';
+    return;
+  }
+
+  const labels = data.series[0].points.map(p =>
+    new Date(p.t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  );
+
+  const datasets = data.series.map((s, idx) => {
+    const color = ERROR_COLORS[idx % ERROR_COLORS.length];
+    return {
+      label: s.endpoint,
+      data: s.points.map(p => p.count),
+      borderColor: color,
+      backgroundColor: `${color}33`,
+      tension: 0.3,
+      fill: false
+    };
+  });
+
+  const canvas = document.getElementById('error-chart');
+  if (!canvas || !window.Chart) return;
+  const ctx = canvas.getContext('2d');
+  if (errorChart) errorChart.destroy();
+
+  errorChart = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y}` } }
+      },
+      scales: {
+        y: { 
+          beginAtZero: true, 
+          ticks: { precision: 0 },
+          title: { display: true, text: 'Error Count' }
+        },
+        x: { 
+          ticks: { maxRotation: 0 },
+          title: { display: true, text: 'Time' }
+        }
+      }
+    }
+  });
+
+  renderErrorLegend(data.series);
+  section.style.display = 'block';
+  if (empty) empty.style.display = 'none';
+}
+
+async function loadErrorMetrics() {
+  const empty = document.getElementById('error-empty');
+  try {
+    const resp = await fetch(`${API_BASE_URL}/api/status/errors`);
+    if (!resp.ok) throw new Error('Failed to fetch error metrics');
+    const data = await resp.json();
+    renderErrorMetrics(data);
+  } catch (e) {
+    const section = document.getElementById('error-metrics-section');
+    if (section) section.style.display = 'block';
+    if (empty) {
+      empty.style.display = 'block';
+      empty.innerHTML = '<p>Unable to load 5XX metrics right now.</p>';
+    }
+  }
 }
 
 
@@ -623,6 +775,7 @@ window.addEventListener('beforeunload', () => {
 document.addEventListener('DOMContentLoaded', () => {
   loadStatus();
   setupSSE();
+  loadErrorMetrics();
 });
 </script>
 {% endblock main_content %}
