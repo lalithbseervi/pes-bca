@@ -28,7 +28,7 @@ class SystemNotificationManager {
         }
 
         try {
-            const es = new EventSource(`${API_BASE_URL}/api/system/status/stream`);
+            const es = new EventSource(`https://cors-proxy.devpages.workers.dev/api/system/status/stream`);
             this.eventSource = es;
 
             es.addEventListener('open', () => {
@@ -189,7 +189,7 @@ class SystemNotificationManager {
 
     async reportError(statusCode, url) {
         try {
-            await fetch(`${API_BASE_URL}/api/system/report-error`, {
+            await fetch(`https://cors-proxy.devpages.workers.dev/api/system/report-error`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
