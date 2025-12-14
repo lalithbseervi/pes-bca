@@ -4,51 +4,61 @@ import { API_BASE_URL } from './utils.js';
 // Handles maintenance mode, announcements, and 5XX error notifications
 class SystemNotificationManager {
     constructor() {
-        this.checkInterval = null;
-        this.lastCheck = 0;
         this.initialized = false;
+        this.eventSource = null;
+        this.lastStatusJson = null;
     }
 
     async init() {
         if (this.initialized) return;
         this.initialized = true;
 
-        // Check immediately on load
-        await this.checkSystemStatus();
-
-        // Check every 60 seconds
-        this.checkInterval = setInterval(() => {
-            this.checkSystemStatus();
-        }, 60000);
+        // Subscribe to system status stream (SSE)
+        this.setupStatusStream();
 
         // Set up global fetch interceptor for 5XX errors
         this.interceptFetch();
     }
 
-    async checkSystemStatus() {
+    setupStatusStream() {
+        // Clean up existing stream if any
+        if (this.eventSource) {
+            this.eventSource.close();
+            this.eventSource = null;
+        }
+
         try {
-            const response = await fetch(`${API_BASE_URL}/api/system/status`, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json'
+            const es = new EventSource(`${API_BASE_URL}/api/system/status/stream`);
+            this.eventSource = es;
+
+            es.addEventListener('status', (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    const json = event.data;
+                    // Only process if changed
+                    if (json !== this.lastStatusJson) {
+                        this.lastStatusJson = json;
+                        if (data.maintenance_mode) {
+                            this.showMaintenanceBanner(data.maintenance_message);
+                        } else {
+                            this.hideMaintenanceBanner();
+                        }
+                    }
+                } catch (err) {
+                    // ignore parse errors
                 }
             });
 
-            if (!response.ok) {
-                return;
-            }
-
-            const status = await response.json();
-            this.lastCheck = Date.now();
-
-            // Handle maintenance mode
-            if (status.maintenance_mode) {
-                this.showMaintenanceBanner(status.maintenance_message);
-            } else {
-                this.hideMaintenanceBanner();
-            }
-        } catch (error) {
-            // Silently fail - system status check is non-critical
+            es.addEventListener('error', () => {
+                // Attempt lightweight reconnect after delay
+                if (this.eventSource) {
+                    this.eventSource.close();
+                    this.eventSource = null;
+                }
+                setTimeout(() => this.setupStatusStream(), 5000);
+            });
+        } catch (e) {
+            // Silently fail; no status updates
         }
     }
 
@@ -216,8 +226,9 @@ class SystemNotificationManager {
     }
 
     destroy() {
-        if (this.checkInterval) {
-            clearInterval(this.checkInterval);
+        if (this.eventSource) {
+            this.eventSource.close();
+            this.eventSource = null;
         }
         this.hideMaintenanceBanner();
         this.hideErrorNotification();

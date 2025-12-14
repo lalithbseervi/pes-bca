@@ -9,37 +9,28 @@
  */
 import { checkRateLimit, deriveRateLimitIdentity } from '../utils/rate-limit.js';
 import { createLogger } from '../utils/logger.js';
-import { getAuthenticatedUser } from '../utils/auth-helpers.js';
+import { authenticateRequest } from '../utils/auth-helpers.js';
 
 const log = createLogger('Resources');
 
 export async function getResources(request, env) {
     try {
-        const url = new URL(request.url);        
+        const url = new URL(request.url);
+
         // Authenticate user and get their course
-        const auth = await getAuthenticatedUser(request, env);        
-        if (!auth.valid || !auth.course) {
-            log.warn('Resources request rejected - authentication failed', { 
-                error: auth.error, 
-                hasProfile: !!auth.profile,
-                program: auth.profile?.program,
-                branch: auth.profile?.branch
-            });
+        const auth = await authenticateRequest(request, env, { requireCourse: true });
+        if (!auth.ok) {
+            log.warn('Resources request rejected - authentication failed', { error: auth.error });
             return new Response(JSON.stringify({ 
                 error: 'authentication_required',
                 message: 'Please log in to view resources',
-                debug: {
-                    error: auth.error,
-                    hasProfile: !!auth.profile,
-                    program: auth.profile?.program,
-                    branch: auth.profile?.branch
-                }
+                debug: { error: auth.error }
             }), {
-                status: 401,
+                status: auth.status || 401,
                 headers: { 'Content-Type': 'application/json' }
             });
         }
-        
+
         const course = auth.course;
         const semester = url.searchParams.get('semester');
         const subject = url.searchParams.get('subject');

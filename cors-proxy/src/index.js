@@ -1,8 +1,7 @@
 import { getCorsHeaders } from "./utils/cors.js"
 import { createLogger } from "./utils/logger.js"
-import { verifyJWT } from "./utils/sign_jwt.js"
 import { getCourseCodeFromProfile, getCourseName } from "./utils/course.js"
-import { resolveCourseFromProfile } from "./utils/auth-helpers.js"
+import { resolveCourseFromProfile, authenticateRequest } from "./utils/auth-helpers.js"
 import { loginHandler } from "./api/login.js"
 import { getSession } from "./api/session.js"
 import { logoutHandler } from "./api/logout.js"
@@ -12,6 +11,7 @@ import { handleFormReq } from "./api/contributeForm.js"
 import { handleDebugCookies } from "./api/debug.js"
 import { uploadResourceToSupabase, resourceStreamFromSupabase } from "./api/rw-supabase.js"
 import { getStatus, streamStatus, createIncident, addIncidentUpdate, updateComponentStatus, getStatusErrors } from "./api/status.js"
+import { streamSystemStatus } from "./api/system-status-stream.js"
 import { checkAdminAccess, getResources as getAdminResources, updateResource, deleteResource, getFilters, replaceFile, getSystemConfig, updateSystemConfig } from "./api/admin.js"
 import { getSubjectsConfig, createSubject, updateSubject, deleteSubject, getAllCourses, getAllSemesters } from "./api/subjects-config.js"
 import { getFile } from "./api/file.js"
@@ -20,41 +20,9 @@ import { getSubjectResources } from "./api/subject.js"
 import { getSubjectMeta } from "./api/subject-meta.js"
 import { serveSubjectPage } from "./api/subject-page.js"
 import { getResources } from "./api/resources.js"
-import { getPublicSystemStatus, reportError } from "./api/system-status.js"
+import { reportError } from "./api/system-status.js"
 
 const log = createLogger('Router');
-
-async function getAccessPayload(request, env) {
-  const authHeader = request.headers.get('authorization');
-  const cookieHeader = request.headers.get('cookie');
-  let accessToken = null;
-
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    accessToken = authHeader.split(' ')[1];
-  } else if (cookieHeader) {
-    const parts = cookieHeader.split(';').map(s => s.trim());
-    for (const p of parts) {
-      if (p.startsWith('access_token=')) {
-        accessToken = p.slice('access_token='.length);
-        break;
-      }
-    }
-  }
-
-  if (!accessToken) {
-    return { ok: false, status: 401, error: 'unauthenticated' };
-  }
-
-  try {
-    const v = await verifyJWT(accessToken, env.JWT_SECRET);
-    if (!v?.valid || v.payload?.type !== 'access') {
-      return { ok: false, status: 401, error: 'unauthenticated' };
-    }
-    return { ok: true, payload: v.payload };
-  } catch (e) {
-    return { ok: false, status: 502, error: 'auth_check_failed' };
-  }
-}
 
 addEventListener('fetch', event => {
   event.respondWith(handleRequest(event.request, event.env || globalThis))
@@ -174,9 +142,27 @@ async function handleRequest(request, env, ctx) {
     return addCorsHeaders(response)
   }
 
-  // GET /api/system/status - Public endpoint for maintenance mode and announcements
+  // GET /api/system/status - Public read-only endpoint for maintenance mode and announcements
   if (request.method === 'GET' && url.pathname === '/api/system/status') {
     response = await getPublicSystemStatus(env)
+    return addCorsHeaders(response)
+  }
+
+  // GET /api/system/status/stream - Server-Sent Events stream for real-time system status updates
+  if (request.method === 'GET' && url.pathname === '/api/system/status/stream') {
+    response = await streamSystemStatus(request, env)
+    return response // Don't add CORS headers to SSE streams
+  }
+
+  // GET /api/status/errors - 5XX error metrics for status page graphs
+  if (request.method === 'GET' && url.pathname === '/api/status/errors') {
+    response = await getStatusErrors(request, env)
+    return addCorsHeaders(response)
+  }
+
+  // POST /api/system/report-error - Report 5XX errors from clients for monitoring
+  if (request.method === 'POST' && url.pathname === '/api/system/report-error') {
+    response = await reportError(request, env)
     return addCorsHeaders(response)
   }
 
@@ -197,7 +183,6 @@ async function handleRequest(request, env, ctx) {
     response = await uploadResourceToSupabase(request, env)
     return addCorsHeaders(response)
   }
-
 
   // HEAD or GET /api/resources/sem-{N}/{subject}/[resource_type/]{unit-{all|N}}/{filename}
   // Supports both current semantic path (with resource_type) and the earlier form without it.
@@ -286,7 +271,7 @@ async function handleRequest(request, env, ctx) {
 
   // GET /api/subjects - Authenticated list for the logged-in user's course
   if (request.method === 'GET' && url.pathname === '/api/subjects') {
-    const auth = await getAccessPayload(request, env)
+    const auth = await authenticateRequest(request, env, { requireCourse: true })
     if (!auth.ok) {
       response = new Response(JSON.stringify({ success: false, error: auth.error }), {
         status: auth.status,
@@ -295,9 +280,9 @@ async function handleRequest(request, env, ctx) {
       return addCorsHeaders(response)
     }
 
-    const profile = auth.payload?.profile || null
+    const profile = auth.profile || auth.payload?.profile || null
     // Resolve course from profile (tries profile.course, exact match, then fuzzy match)
-    let courseId = resolveCourseFromProfile(profile)
+    let courseId = auth.course || resolveCourseFromProfile(profile)
     if (!courseId) {
       response = new Response(JSON.stringify({ success: false, error: 'missing_course', details: { program: profile?.program, branch: profile?.branch } }), {
         status: 400,

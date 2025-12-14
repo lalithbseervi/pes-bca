@@ -100,6 +100,43 @@ export function extractAccessToken(request) {
 }
 
 /**
+ * Authenticate request using access token (cookie or Authorization header)
+ * Returns { ok, status, error, payload, profile, course }
+ */
+export async function authenticateRequest(request, env, { requireCourse = true } = {}) {
+    const accessToken = extractAccessToken(request);
+    if (!accessToken) {
+        return { ok: false, status: 401, error: 'unauthenticated' };
+    }
+
+    try {
+        const decoded = await verifyJWT(accessToken, env.JWT_SECRET);
+        if (!decoded?.valid) {
+            return { ok: false, status: 401, error: 'unauthenticated' };
+        }
+
+        if (decoded.payload?.type !== 'access') {
+            return { ok: false, status: 401, error: 'wrong_token_type' };
+        }
+
+        const profile = decoded.payload?.profile || null;
+
+        let course = null;
+        if (requireCourse) {
+            course = resolveCourseFromProfile(profile);
+            if (!course) {
+                return { ok: false, status: 400, error: 'missing_course', profile };
+            }
+        }
+
+        return { ok: true, status: 200, error: null, payload: decoded.payload, profile, course };
+    } catch (e) {
+        log.error('authenticateRequest failed', { error: e.message, stack: e.stack });
+        return { ok: false, status: 502, error: 'auth_check_failed' };
+    }
+}
+
+/**
  * Get authenticated user profile and course from request
  * Returns { valid: boolean, profile: Object|null, course: string|null, error: string|null }
  */

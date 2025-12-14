@@ -3,6 +3,7 @@
  * Returns resources organized by unit and resource_type in hierarchical structure
  */
 import { createLogger } from '../utils/logger.js';
+import { authenticateRequest } from '../utils/auth-helpers.js';
 
 const log = createLogger('Subject');
 
@@ -14,6 +15,18 @@ const log = createLogger('Subject');
  */
 export async function getSubjectResources(request, env) {
     try {
+        const auth = await authenticateRequest(request, env, { requireCourse: false });
+        if (!auth.ok) {
+            return new Response(JSON.stringify({ 
+                error: 'authentication_required',
+                message: 'Please log in to view subject resources',
+                debug: { error: auth.error }
+            }), {
+                status: auth.status || 401,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+
         const url = new URL(request.url);
         const subject = url.searchParams.get('subject');
 
