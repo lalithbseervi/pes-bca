@@ -107,7 +107,7 @@ async function fetchErrorMetrics(env) {
     const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
     // If KV not available, return empty metrics
-    if (!env.RATE_LIMIT_KV || typeof env.RATE_LIMIT_KV.list !== 'function') {
+    if (!env.ERRORS_KV || typeof env.ERRORS_KV.list !== 'function') {
         return {
             rangeHours: 24,
             bucketMinutes: 60,
@@ -132,7 +132,7 @@ async function fetchErrorMetrics(env) {
 
     // List error keys (prefixed) with pagination and safety limits
     do {
-        const res = await env.RATE_LIMIT_KV.list({ prefix: 'error:', cursor });
+        const res = await env.ERRORS_KV.list({ prefix: 'error:', cursor });
         keys.push(...res.keys);
         cursor = res.list_complete ? undefined : res.cursor;
         iterations += 1;
@@ -146,7 +146,7 @@ async function fetchErrorMetrics(env) {
 
         let record;
         try {
-            const val = await env.RATE_LIMIT_KV.get(k.name);
+            const val = await env.ERRORS_KV.get(k.name);
             if (!val) continue;
             record = JSON.parse(val);
         } catch (e) {

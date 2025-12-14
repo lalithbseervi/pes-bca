@@ -1,73 +1,82 @@
 /**
  * System Status Stream - Server-Sent Events (SSE)
- * Provides real-time system status updates
+ * Provides real-time system status updates using cloudflare-workers-sse
  * GET /api/system/status/stream
  */
 import { createLogger } from '../utils/logger.js';
+import { sse } from 'cloudflare-workers-sse';
 
 const log = createLogger('SystemStatusStream');
 
-// GET /api/system/status/stream - SSE using the same pattern as streamStatus
-export async function streamSystemStatus(request, env) {
-  const headers = {
-    'Content-Type': 'text/event-stream',
-    'Cache-Control': 'no-cache',
-    'Connection': 'keep-alive',
+/**
+ * Async generator handler for SSE stream
+ * Yields status updates and ping messages to keep connection alive
+ */
+async function* statusHandler(request, env, ctx) {
+  try {
+    // Send initial status immediately
+    const initial = await getSystemStatusData(env);
+    yield {
+      event: 'status',
+      data: JSON.stringify(initial)
+    };
+
+    let lastSent = JSON.stringify(initial);
+    let iteration = 0;
+
+    // Send updates while request is active
+    while (true) {
+      // Wait 5 seconds between checks (100 x 50ms = 5000ms)
+      // Small delays allow Worker to handle other requests and respect ctx.isDone
+      for (let i = 0; i < 100; i++) {
+        await new Promise(resolve => setTimeout(resolve, 50));
+        // ctx may be undefined in local Miniflare; check before using
+        if (ctx?.isDone) {
+          return; // Exit gracefully when request is done or canceled
+        }
+      }
+
+      iteration++;
+
+      // Check for status changes every 5 seconds
+      try {
+        const current = await getSystemStatusData(env);
+        const serialized = JSON.stringify(current);
+        
+        if (serialized !== lastSent) {
+          yield {
+            event: 'status',
+            data: serialized
+          };
+          lastSent = serialized;
+        }
+      } catch (e) {
+        log.error('System status SSE update error', e);
+      }
+
+      // Send ping every 6 iterations (30 seconds) to keep connection alive
+      if (iteration % 6 === 0) {
+        yield {
+          data: ': ping'
+        };
+      }
+    }
+  } catch (e) {
+    log.error('System status SSE stream error', e);
+  }
+}
+
+/**
+ * Export SSE handler using cloudflare-workers-sse
+ * The library handles streaming, error handling, and client disconnection
+ */
+export const streamSystemStatus = sse(statusHandler, {
+  customHeaders: {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type'
-  };
-
-  const { readable, writable } = new TransformStream();
-  const writer = writable.getWriter();
-  const encoder = new TextEncoder();
-
-  (async () => {
-    try {
-      // Send initial status immediately
-      const initial = await getSystemStatusData(env);
-      let lastSent = JSON.stringify(initial);
-      await writer.write(encoder.encode(`event: status\ndata: ${lastSent}\n\n`));
-
-      // Periodic update check (every 30s), only send when changed
-      const updateId = setInterval(async () => {
-        try {
-          const current = await getSystemStatusData(env);
-          const serialized = JSON.stringify(current);
-          if (serialized !== lastSent) {
-            await writer.write(encoder.encode(`event: status\ndata: ${serialized}\n\n`));
-            lastSent = serialized;
-          }
-        } catch (e) {
-          log.error('System status SSE update error', e);
-        }
-      }, 30000);
-
-      // Ping every 30s to keep connection alive
-      const pingId = setInterval(async () => {
-        try {
-          await writer.write(encoder.encode(`: ping\n\n`));
-        } catch (e) {
-          clearInterval(pingId);
-          clearInterval(updateId);
-          writer.close().catch(() => {});
-        }
-      }, 30000);
-
-      // Clean up on disconnect
-      request.signal?.addEventListener('abort', () => {
-        clearInterval(updateId);
-        clearInterval(pingId);
-        writer.close().catch(() => {});
-      });
-    } catch (e) {
-      log.error('System status SSE stream error', e);
-      await writer.close().catch(() => {});
-    }
-  })();
-
-  return new Response(readable, { headers });
-}
+  }
+});
 
 
 

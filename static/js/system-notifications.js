@@ -1,4 +1,6 @@
-import { API_BASE_URL } from './utils.js';
+const API_BASE_URL = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+        ? 'http://localhost:8787'
+        : 'https://cors-proxy.devpages.workers.dev';
 
 // System Status and Error Notification Manager
 // Handles maintenance mode, announcements, and 5XX error notifications
@@ -28,7 +30,7 @@ class SystemNotificationManager {
         }
 
         try {
-            const es = new EventSource(`https://cors-proxy.devpages.workers.dev/api/system/status/stream`);
+            const es = new EventSource(`${API_BASE_URL}/api/system/status/stream`);
             this.eventSource = es;
 
             es.addEventListener('open', () => {
@@ -189,7 +191,7 @@ class SystemNotificationManager {
 
     async reportError(statusCode, url) {
         try {
-            await fetch(`https://cors-proxy.devpages.workers.dev/api/system/report-error`, {
+            await fetch(`${API_BASE_URL}/api/system/report-error`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
