@@ -20,7 +20,7 @@ import { getSubjectResources } from "./api/subject.js"
 import { getSubjectMeta } from "./api/subject-meta.js"
 import { serveSubjectPage } from "./api/subject-page.js"
 import { getResources } from "./api/resources.js"
-import { reportError } from "./api/system-status.js"
+import { reportError, getPublicSystemStatus } from "./api/system-status.js"
 
 const log = createLogger('Router');
 
