@@ -1,19 +1,27 @@
-import { createClient } from '@supabase/supabase-js'
 import { createLogger } from '../utils/logger.js'
 
 const log = createLogger('SubjectsConfig')
 
-let supabase = null
-
-function initSupabase(env) {
-  if (!supabase) {
-    supabase = createClient(
-      env.SUPABASE_URL,
-      env.SUPABASE_SERVICE_ROLE_KEY
-    )
+async function querySupabase(env, query) {
+  const base = env.SUPABASE_URL.replace(/\/+$/, '')
+  const headers = {
+    Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+    apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+    'Content-Type': 'application/json'
   }
-  return supabase
+  
+  const resp = await fetch(`${base}/rest/v1/${query}`, { headers })
+  
+  if (!resp.ok) {
+    const errorText = await resp.text()
+    log.error(`Supabase query failed: ${query}`, { status: resp.status, error: errorText })
+    throw new Error(`Supabase query failed: ${resp.status}`)
+  }
+  
+  return await resp.json()
 }
+
+
 
 function normalizeSemesterKey(raw) {
   if (!raw) return ''
@@ -24,30 +32,16 @@ function normalizeSemesterKey(raw) {
   s = s.replace(/[^a-z0-9\-]+/g, '')
   return s || String(raw)
 }
-/**
- * Get all subjects config, optionally filtered by course
- */
 export async function getSubjectsConfig(env, course = null) {
   try {
-    const sb = initSupabase(env)
-    let query = sb
-      .from('subjects_config')
-      .select('*')
-      .order('course_id')
-      .order('semester')
-      .order('display_order')
-
+    let query = `subjects_config?select=*&order=course_id,semester,display_order`
+    
     if (course) {
-      query = query.eq('course_id', course)
+      query += `&course_id=eq.${encodeURIComponent(course)}`
     }
-
-    const { data, error } = await query
-
-    if (error) {
-      log.error(`Failed to fetch subjects: ${error.message}`)
-      throw error
-    }
-
+    
+    const data = await querySupabase(env, query)
+    
     // Transform to the format expected by frontend
     const result = {}
     for (const row of data) {
@@ -73,28 +67,34 @@ export async function getSubjectsConfig(env, course = null) {
   }
 }
 
-/**
- * Create a new subject
- */
 export async function createSubject(env, courseId, semester, subjectCode, subjectName, displayOrder = 0) {
   try {
-    const sb = initSupabase(env)
-    const { data, error } = await sb
-      .from('subjects_config')
-      .insert({
-        course_id: courseId,
-        semester: semester,
-        subject_code: subjectCode,
-        subject_name: subjectName,
-        display_order: displayOrder
-      })
-      .select()
-
-    if (error) {
-      log.error(`Failed to create subject: ${error.message}`)
-      throw error
+    const query = `subjects_config?select=*`
+    
+    const response = await fetch(
+      `${env.SUPABASE_URL.replace(/\/+$/, '')}/rest/v1/${query}`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          course_id: courseId,
+          semester: semester,
+          subject_code: subjectCode,
+          subject_name: subjectName,
+          display_order: displayOrder
+        })
+      }
+    )
+    
+    if (!response.ok) {
+      throw new Error(`Failed to create subject: ${response.status}`)
     }
-
+    
+    const data = await response.json()
     log.info(`Created subject: ${subjectCode} (${courseId}/${semester})`)
     return data[0]
   } catch (e) {
@@ -103,26 +103,31 @@ export async function createSubject(env, courseId, semester, subjectCode, subjec
   }
 }
 
-/**
- * Update a subject
- */
 export async function updateSubject(env, id, updates) {
   try {
-    const sb = initSupabase(env)
-    const { data, error } = await sb
-      .from('subjects_config')
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', id)
-      .select()
-
-    if (error) {
-      log.error(`Failed to update subject: ${error.message}`)
-      throw error
+    const query = `subjects_config?id=eq.${id}&select=*`
+    
+    const response = await fetch(
+      `${env.SUPABASE_URL.replace(/\/+$/, '')}/rest/v1/${query}`,
+      {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
+      }
+    )
+    
+    if (!response.ok) {
+      throw new Error(`Failed to update subject: ${response.status}`)
     }
-
+    
+    const data = await response.json()
     log.info(`Updated subject: ${id}`)
     return data[0]
   } catch (e) {
@@ -131,22 +136,26 @@ export async function updateSubject(env, id, updates) {
   }
 }
 
-/**
- * Delete a subject
- */
 export async function deleteSubject(env, id) {
   try {
-    const sb = initSupabase(env)
-    const { error } = await sb
-      .from('subjects_config')
-      .delete()
-      .eq('id', id)
-
-    if (error) {
-      log.error(`Failed to delete subject: ${error.message}`)
-      throw error
+    const query = `subjects_config?id=eq.${id}`
+    
+    const response = await fetch(
+      `${env.SUPABASE_URL.replace(/\/+$/, '')}/rest/v1/${query}`,
+      {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+          'Content-Type': 'application/json'
+        }
+      }
+    )
+    
+    if (!response.ok) {
+      throw new Error(`Failed to delete subject: ${response.status}`)
     }
-
+    
     log.info(`Deleted subject: ${id}`)
   } catch (e) {
     log.error(`Error deleting subject: ${e.message}`)
@@ -154,23 +163,9 @@ export async function deleteSubject(env, id) {
   }
 }
 
-/**
- * Get all unique courses from subjects config
- */
 export async function getAllCourses(env) {
   try {
-    const sb = initSupabase(env)
-    const { data, error } = await sb
-      .from('subjects_config')
-      .select('course_id', { count: 'exact' })
-      .distinct()
-      .order('course_id')
-
-    if (error) {
-      log.error(`Failed to fetch courses: ${error.message}`)
-      throw error
-    }
-
+    const data = await querySupabase(env, `subjects_config?select=course_id&distinct()&order=course_id`)
     return data.map(d => d.course_id)
   } catch (e) {
     log.error(`Error fetching courses: ${e.message}`)
@@ -178,23 +173,9 @@ export async function getAllCourses(env) {
   }
 }
 
-/**
- * Get all unique semesters from subjects config
- */
 export async function getAllSemesters(env) {
   try {
-    const sb = initSupabase(env)
-    const { data, error } = await sb
-      .from('subjects_config')
-      .select('semester', { count: 'exact' })
-      .distinct()
-      .order('semester')
-
-    if (error) {
-      log.error(`Failed to fetch semesters: ${error.message}`)
-      throw error
-    }
-
+    const data = await querySupabase(env, `subjects_config?select=semester&distinct()&order=semester`)
     return data.map(d => d.semester)
   } catch (e) {
     log.error(`Error fetching semesters: ${e.message}`)
