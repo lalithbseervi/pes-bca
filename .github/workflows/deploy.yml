@@ -51,6 +51,7 @@ jobs:
           npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY --config cors-proxy/wrangler.toml <<< "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}"
           npx wrangler secret put STATUS_ADMIN_PASSPHRASE --config cors-proxy/wrangler.toml <<< "${{ secrets.STATUS_ADMIN_PASSPHRASE }}"
         env:
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}  
 
       - name: Deploy Worker with SW_VERSION
