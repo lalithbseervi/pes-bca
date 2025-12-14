@@ -35,7 +35,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy cors-proxy/src/index.js --var SW_VERSION:${{ steps.sw_version.outputs.version }}
+          command: deploy cors-proxy/src/index.js --name cors-proxy --var SW_VERSION:${{ steps.sw_version.outputs.version }}
 
       - name: Deploy Pages
         uses: cloudflare/wrangler-action@v3
