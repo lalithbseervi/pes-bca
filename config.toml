@@ -29,7 +29,7 @@ toc = true
 use_cdn = false
 repo_url = "https://github.com/lalithbseervi/notes/"
 dynamic_note = true
-sw_version = "fa6b47f"
+sw_version = "2d678c6"
 
 generate_sitemap = true
 ignore = ["offline"]
