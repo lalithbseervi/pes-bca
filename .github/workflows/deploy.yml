@@ -41,7 +41,7 @@ jobs:
         run: |
           curl -X PATCH "https://api.cloudflare.com/client/v4/accounts/${{ secrets.CLOUDFLARE_ACCOUNT_ID }}/workers/scripts/cors-proxy/settings" \
             -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
-            -H "Content-Type: application/json" \
+            -H "Content-Type: multipart/form-data" \
             --data '{
               "bindings": [
                 {
