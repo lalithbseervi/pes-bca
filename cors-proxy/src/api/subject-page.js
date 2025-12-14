@@ -92,6 +92,12 @@ function generateSubjectHTML(semester, subjectCode, env) {
     <!-- System Notifications & Auth -->
     <script type="module" src="/js/system-notifications.js?v=${swVersion}"></script>
     <script type="module" src="/js/auth.js?v=${swVersion}"></script>
+
+    <!-- Login modal assets -->
+    <link rel="stylesheet" href="/css/loading_animation.css?v=${swVersion}">
+    <link rel="stylesheet" href="/css/login_form.css?v=${swVersion}">
+    <script type="module" src="/js/session-sync.js?v=${swVersion}"></script>
+    <script type="module" src="/js/login.js?v=${swVersion}"></script>
     
     <style>
         /* Loading spinner - only custom override needed */
@@ -203,6 +209,49 @@ function generateSubjectHTML(semester, subjectCode, env) {
 <body>
     <div class="left-content"></div>
     <div class="content">
+        <!-- Login modal (same markup as components/login.html) -->
+        <div id="login-modal" class="login-modal" style="display: none;">
+            <div class="login-modal-content">
+                <div class="login-modal-header">
+                    <h2>Student Login</h2>
+                </div>
+                <div class="login-modal-body">
+                    <form id="login-form">
+                        <div class="error-message" id="error-message"></div>
+                        <div class="guest-info-message" id="guest-info-message" style="display: none; padding: 12px; margin-bottom: 15px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; color: #856404;">
+                            <strong>🔑 Guest Access Available</strong><br>
+                            <span style="font-size: 0.9em;">Login with: <code style="background: #fff; padding: 2px 6px; border-radius: 3px;">guest</code> / <code style="background: #fff; padding: 2px 6px; border-radius: 3px;">guest</code></span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="srn-input">SRN/PRN:</label>
+                            <input type="text" id="srn-input" placeholder="Enter your SRN or PRN" autocomplete="username" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="password-input">Password:</label>
+                            <div class="password-input-wrapper">
+                                <input type="password" id="password-input" placeholder="Enter your password" autocomplete="current-password" required>
+                                <button type="button" class="password-toggle" id="password-toggle" title="Show/Hide Password">👁️</button>
+                            </div>
+                        </div>
+                        <div class="login-buttons">
+                            <button type="submit" class="btn btn-primary">Login</button>
+                            <button type="button" class="btn btn-secondary" id="cancel-login">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading overlay used by login flow -->
+        <div id="loading-overlay" class="loading-overlay" style="display: none;">
+            <div class="loading-content">
+                <div class="spinner"></div>
+                <div class="loading-text">Verifying details<span class="loading-dots"></span></div>
+            </div>
+        </div>
+
         <nav>
             <div class="left-nav">
                 <a href="/">BCA | Study Materials</a>
@@ -367,9 +416,17 @@ function generateSubjectHTML(semester, subjectCode, env) {
         // Initialize page
         async function init() {
             try {
-                // Wait for auth check to complete if available
-                if (window.auth && typeof window.auth.waitForAuthReady === 'function') {
-                    await window.auth.waitForAuthReady();
+                // Ensure authentication; this shows the login modal when needed
+                if (window.auth && typeof window.auth.ensureAuthenticated === 'function') {
+                    const ok = await window.auth.ensureAuthenticated();
+                    if (!ok) {
+                        // Keep main content hidden and stop initialization
+                        const loadingContainer = document.getElementById('loading-container');
+                        if (loadingContainer) loadingContainer.style.display = 'none';
+                        const mainContent = document.getElementById('main-content');
+                        if (mainContent) mainContent.style.display = 'none';
+                        return;
+                    }
                 }
 
                 // Hide loading, show content

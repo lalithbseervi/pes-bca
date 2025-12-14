@@ -183,14 +183,20 @@
     const subjectCode = '{{ page.extra.subject_code }}';
     const semester = '{{ page.extra.semester | default(value="1") }}';
     
-    // Wait for auth check to complete before initializing subject page
-    (async () => {
-      if (auth && typeof auth.waitForAuthReady === 'function') {
-        await auth.waitForAuthReady();
-      }
-      
-      // Initialize subject page with all functionality
-      await initSubjectPage(subjectCode, semester, {
+        // Gate SSR subject init behind ensureAuthenticated to avoid leaks/glitches
+        (async () => {
+            if (auth && typeof auth.ensureAuthenticated === 'function') {
+                const ok = await auth.ensureAuthenticated();
+                if (!ok) {
+                    // Modal is shown by ensureAuthenticated; keep SSR content hidden
+                    const bodyEl = document.querySelector('.body');
+                    if (bodyEl) bodyEl.style.display = 'none';
+                    return;
+                }
+            }
+
+            // Initialize subject page with all functionality
+            await initSubjectPage(subjectCode, semester, {
         contentSelector: 'main, #main, .main-content',
         loadingSelector: '#loading',
         contentAreaSelector: '#content-area',
