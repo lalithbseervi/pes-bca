@@ -13,38 +13,60 @@ const log = createLogger('SystemStatusStream');
  */
 export async function streamSystemStatus(request, env) {
   try {
-    // Create a TransformStream to handle SSE formatting
-    const { readable, writable } = new TransformStream();
-    const writer = writable.getWriter();
+    // Create a ReadableStream that sends updates
+    const stream = new ReadableStream({
+      async start(controller) {
+        const encoder = new TextEncoder();
+        let lastStatus = null;
+        let closed = false;
 
-    // Send initial status
-    let lastStatus = await getSystemStatusData(env);
-    await sendSSEMessage(writer, 'status', lastStatus);
-
-    // Set up periodic updates (every 45 seconds)
-    const updateInterval = setInterval(async () => {
-      try {
-        const currentStatus = await getSystemStatusData(env);
-        
-        // Only send if status changed
-        if (JSON.stringify(currentStatus) !== JSON.stringify(lastStatus)) {
-          await sendSSEMessage(writer, 'status', currentStatus);
-          lastStatus = currentStatus;
+        // Send initial status
+        try {
+          const initialStatus = await getSystemStatusData(env);
+          lastStatus = JSON.stringify(initialStatus);
+          const message = `event: status\ndata: ${lastStatus}\n\n`;
+          controller.enqueue(encoder.encode(message));
+        } catch (error) {
+          log.error('Failed to send initial status:', error);
         }
-      } catch (error) {
-        log.error('Error sending SSE update:', error);
-        clearInterval(updateInterval);
-        await writer.close();
-      }
-    }, 45000); // 45 second interval
 
-    // Handle client disconnect
-    request.signal?.addEventListener('abort', () => {
-      clearInterval(updateInterval);
-      writer.close().catch(() => {});
+        // Set up interval for periodic updates
+        const intervalId = setInterval(async () => {
+          if (closed) {
+            clearInterval(intervalId);
+            return;
+          }
+
+          try {
+            const currentStatus = await getSystemStatusData(env);
+            const currentJson = JSON.stringify(currentStatus);
+            
+            // Only send if status changed
+            if (currentJson !== lastStatus) {
+              const message = `event: status\ndata: ${currentJson}\n\n`;
+              controller.enqueue(encoder.encode(message));
+              lastStatus = currentJson;
+            }
+          } catch (error) {
+            log.error('Error sending SSE update:', error);
+            clearInterval(intervalId);
+            controller.close();
+            closed = true;
+          }
+        }, 45000); // 45 second interval
+
+        // Handle client disconnect
+        request.signal?.addEventListener('abort', () => {
+          clearInterval(intervalId);
+          if (!closed) {
+            controller.close();
+            closed = true;
+          }
+        });
+      }
     });
 
-    return new Response(readable, {
+    return new Response(stream, {
       status: 200,
       headers: {
         'Content-Type': 'text/event-stream',
@@ -63,18 +85,7 @@ export async function streamSystemStatus(request, env) {
   }
 }
 
-/**
- * Send SSE message with event type and data
- */
-async function sendSSEMessage(writer, eventType, data) {
-  try {
-    const message = `event: ${eventType}\ndata: ${JSON.stringify(data)}\n\n`;
-    await writer.write(new TextEncoder().encode(message));
-  } catch (error) {
-    log.error('Failed to send SSE message:', error);
-    throw error;
-  }
-}
+
 
 /**
  * Get current system status data from KV/CONFIG
