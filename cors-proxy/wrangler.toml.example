@@ -2,7 +2,11 @@ name = "cors-proxy"
 main = "src/index.js"
 workers_dev = true
 preview_urls = false
-compatibility_date = "2025-02-04"
+compatibility_date = "2024-12-01"
+
+compatibility_flags = [ "nodejs_compat" ]
+
+placement.mode = "smart"
 
 kv_namespaces = [
   { binding = "SESSIONS", id = "8c42a0cac2974b7cacceb11201be1846", preview_id = "25504661582643c6ad2c7ed3bacd92e7" },
