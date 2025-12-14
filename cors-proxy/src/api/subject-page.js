@@ -15,8 +15,6 @@ export async function  serveSubjectPage(request, env, semester, subjectCode) {
         // Allow unauthenticated access - login modal will handle it
         // But we can check if they're authenticated to customize the experience
         
-        log.info('Serving subject page', { semester, subjectCode, authenticated: auth.valid });
-
         const html = generateSubjectHTML(semester, subjectCode, env);
 
         return new Response(html, {
@@ -34,8 +32,15 @@ export async function  serveSubjectPage(request, env, semester, subjectCode) {
 }
 
 function generateSubjectHTML(semester, subjectCode, env) {
-    // Get SW version from env or use timestamp
-    const swVersion = env.SW_VERSION || Date.now();
+    // SW version will be loaded from localStorage on client-side
+    // This is populated by the homepage/main pages when they load
+    const swVersionScript = `
+    (function() {
+        window.swVersion = localStorage.getItem('sw_version') ? 
+            JSON.parse(localStorage.getItem('sw_version')).version : 
+            Date.now().toString();
+    })();
+    `;
     
     return `<!DOCTYPE html>
 <html lang="en" class="dark light">
@@ -64,7 +69,7 @@ function generateSubjectHTML(semester, subjectCode, env) {
     
     <!-- Analytics -->
     <link rel="preconnect" href="https://us.i.posthog.com" crossorigin>
-    <script defer src="/js/analytics-preferences.js?v=${swVersion}"></script>
+    <script defer src="/js/analytics-preferences.js?v=latest"></script>
     
     <!-- Fonts -->
     <link href="/fonts.css" rel="stylesheet">
@@ -74,7 +79,7 @@ function generateSubjectHTML(semester, subjectCode, env) {
     <link rel="stylesheet" type="text/css" href="/syntax-theme-light.css" media="(prefers-color-scheme: light)">
     
     <!-- Theme Toggle Script -->
-    <script src="/js/themetoggle.js?v=${swVersion}"></script>
+    <script src="/js/themetoggle.js?v=latest"></script>
     <script>setTheme(getSavedTheme());</script>
     
     <!-- Theme CSS -->
@@ -88,12 +93,17 @@ function generateSubjectHTML(semester, subjectCode, env) {
     </noscript>
     
     <!-- Subject-specific styles -->
-    <link rel="stylesheet" href="/css/index.css?v=${swVersion}">
-    <link rel="stylesheet" href="/css/alerts.css?v=${swVersion}">
+    <link rel="stylesheet" href="/css/index.css?v=latest">
+    <link rel="stylesheet" href="/css/alerts.css?v=latest">
     
     <!-- System Notifications & Auth -->
-    <script type="module" src="/js/system-notifications.js?v=${swVersion}"></script>
-    <script type="module" src="/js/auth.js?v=${swVersion}"></script>
+    <script type="module" src="/js/system-notifications.js?v=latest"></script>
+    <script type="module" src="/js/auth.js?v=latest"></script>
+    <script type="module">
+        import { initSWVersion } from '/js/sw-version.js';
+        initSWVersion();
+    </script>
+    ${swVersionScript}
     
     <style>
         /* Loading spinner - only custom override needed */
@@ -380,7 +390,8 @@ function generateSubjectHTML(semester, subjectCode, env) {
                 document.getElementById('main-content').style.display = 'block';
 
                 // Load and initialize subject page module
-                const { initSubjectPage } = await import('/js/init/subject.js?v=${swVersion}');
+                const swVer = window.swVersion || Date.now().toString();
+                const { initSubjectPage } = await import('/js/init/subject.js?v=' + swVer);
                 await initSubjectPage(SUBJECT_CODE, SEMESTER, {
                     contentSelector: 'main, #main, .main-content',
                     loadingSelector: '#loading',
@@ -474,8 +485,19 @@ function generateSubjectHTML(semester, subjectCode, env) {
         })();
     </script>
 
-    <script defer src="/js/openLinkHandler.js?v=${swVersion}"></script>
-    <script type="module" src="/js/router/init.js?v=${swVersion}"></script>
+    <script>
+        // Use window.swVersion set from localStorage
+        const swVersionParam = window.swVersion || Date.now().toString();
+        const openLinkScript = document.createElement('script');
+        openLinkScript.src = '/js/openLinkHandler.js?v=' + swVersionParam;
+        openLinkScript.defer = true;
+        document.body.appendChild(openLinkScript);
+        
+        const routerScript = document.createElement('script');
+        routerScript.src = '/js/router/init.js?v=' + swVersionParam;
+        routerScript.type = 'module';
+        document.body.appendChild(routerScript);
+    </script>
 </body>
 </html>`;
 }

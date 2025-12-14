@@ -17,9 +17,7 @@ export async function getResources(request, env) {
     try {
         const url = new URL(request.url);        
         // Authenticate user and get their course
-        const auth = await getAuthenticatedUser(request, env);
-        log.info('GET /api/resources', { valid: auth.valid, course: auth.course, error: auth.error });
-        
+        const auth = await getAuthenticatedUser(request, env);        
         if (!auth.valid || !auth.course) {
             log.warn('Resources request rejected - authentication failed', { 
                 error: auth.error, 
@@ -43,7 +41,6 @@ export async function getResources(request, env) {
         }
         
         const course = auth.course;
-        log.info('Resources request authenticated', { course });        
         const semester = url.searchParams.get('semester');
         const subject = url.searchParams.get('subject');
         const resourceType = url.searchParams.get('resource_type');
@@ -65,7 +62,6 @@ export async function getResources(request, env) {
         
         // Determine storage key prefix based on course
         const storageKeyPrefix = (course === 'CA' || course === 'BCA') ? 'bca' : course;
-        log.info('Using storage key prefix', { course, prefix: storageKeyPrefix });
         
         // PostgREST LIKE pattern: storage_key=like.{prefix}/*
         query += `&storage_key=like.${storageKeyPrefix}*`;
@@ -80,7 +76,6 @@ export async function getResources(request, env) {
             query += `&resource_type=eq.${encodeURIComponent(resourceType)}`;
         }
 
-        log.info('Querying Supabase for resources', { query: query.substring(0, 250), course });
         const resp = await fetch(query, { headers });
 
         if (!resp.ok) {
@@ -90,8 +85,6 @@ export async function getResources(request, env) {
         }
 
         const resources = await resp.json();
-        log.info('Supabase returned resources', { count: resources.length, course });
-
                 // Create resource fingerprint map for differential updates
                 const resourceMap = new Map();
                 resources.forEach(r => {
