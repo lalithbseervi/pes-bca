@@ -215,12 +215,24 @@ export async function initSubjectPage(subjectCode, semester = '1', options = {})
       const url = `${API_BASE_URL}/api/subject/resources?subject=${encodeURIComponent(subjectCode)}&_t=${Date.now()}`;
       
       const response = await fetch(url, {
-        headers: etag ? { 'If-None-Match': etag } : {}
+        headers: etag ? { 'If-None-Match': etag } : {},
+        credentials: 'include'
       });
 
       if (response.status === 304) {
         hideElement(loadingSelector);
         showElement(contentAreaSelector);
+        return;
+      }
+
+      // Handle 401 Unauthorized - show login modal
+      if (response.status === 401) {
+        hideElement(loadingSelector);
+        hideElement(contentAreaSelector);
+        const loginModal = document.getElementById('login-modal');
+        if (loginModal) {
+          loginModal.style.display = 'block';
+        }
         return;
       }
 
@@ -315,7 +327,7 @@ export async function initSubjectPage(subjectCode, semester = '1', options = {})
   /**
    * Initialize
    */
-  function init() {
+  async function init() {
     initializeSearchOnEnter(searchInputSelector);
     initializeDetailsToggle(contentAreaSelector, 2);
 
@@ -323,6 +335,22 @@ export async function initSubjectPage(subjectCode, semester = '1', options = {})
     window.applyFilters = () => applyFilters(searchInputSelector, contentAreaSelector, noResultsSelector);
     window.clearFilters = () => clearFilters(searchInputSelector, contentAreaSelector, noResultsSelector);
 
+    // Wait for auth check before loading content
+    if (window.auth && typeof window.auth.waitForAuthReady === 'function') {
+      const isAuthenticated = await window.auth.waitForAuthReady();
+      
+      if (!isAuthenticated) {
+        // Not authenticated - hide loading, show login modal
+        hideElement(loadingSelector);
+        const loginModal = document.getElementById('login-modal');
+        if (loginModal) {
+          loginModal.style.display = 'block';
+        }
+        return;
+      }
+    }
+
+    // User is authenticated, proceed with loading content
     loadCachedSubject();
     loadSubjectResources();
 
