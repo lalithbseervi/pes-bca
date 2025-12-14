@@ -36,3 +36,18 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: deploy cors-proxy/src/index.js --name cors-proxy --compatibility-date 2025-02-24 --var SW_VERSION:${{ steps.sw_version.outputs.version }}
+
+      - name: Update config.toml with SW_VERSION
+        run: |
+          # Update the sw_version in config.toml
+          sed -i 's/^sw_version = .*/sw_version = "${{ steps.sw_version.outputs.version }}"/' config.toml
+
+      - name: Commit and push config.toml
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if [ -n "$(git status --porcelain)" ]; then
+            git add config.toml
+            git commit -m "chore: update sw_version to ${{ steps.sw_version.outputs.version }}"
+            git push origin HEAD:${GITHUB_REF#refs/heads/}
+          fi
