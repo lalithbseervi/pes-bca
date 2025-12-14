@@ -7,5 +7,8 @@
     "build": "zola build",
     "serve": "zola serve",
     "dev": "zola serve & npx wrangler dev cors-proxy/src/index.js --remote"
+  },
+  "dependencies": {
+    "cloudflare-workers-sse": "^2.1.0"
   }
 }

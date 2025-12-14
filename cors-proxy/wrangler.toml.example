@@ -16,6 +16,9 @@ kv_namespaces = [
   { binding = "ERRORS_KV", id = "1e547ee4973f4aa7a92daa329dd3ce1e", preview_id="8461ec059ff54f81bede22cb518860a9" }
 ]
 
+[build]
+command = "npm install && npm run build"
+
 # D1 Database for user registry (run db/setup-d1.sh to create)
 [[d1_databases]]
 binding = "USER_DB"
