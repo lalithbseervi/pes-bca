@@ -26,9 +26,9 @@ async function* statusHandler(request, env, ctx) {
 
     // Send updates while request is active
     while (true) {
-      // Wait 5 seconds between checks (100 x 50ms = 5000ms)
+      // Wait 10 seconds between checks (200 x 50ms = 10000ms)
       // Small delays allow Worker to handle other requests and respect ctx.isDone
-      for (let i = 0; i < 100; i++) {
+      for (let i = 0; i < 200; i++) {
         await new Promise(resolve => setTimeout(resolve, 50));
         // ctx may be undefined in local Miniflare; check before using
         if (ctx?.isDone) {
@@ -38,7 +38,7 @@ async function* statusHandler(request, env, ctx) {
 
       iteration++;
 
-      // Check for status changes every 5 seconds
+      // Check for status changes every 10 seconds
       try {
         const current = await getSystemStatusData(env);
         const serialized = JSON.stringify(current);
@@ -54,8 +54,8 @@ async function* statusHandler(request, env, ctx) {
         log.error('System status SSE update error', e);
       }
 
-      // Send ping every 6 iterations (30 seconds) to keep connection alive
-      if (iteration % 6 === 0) {
+      // Send ping every 3 iterations (30 seconds) to keep connection alive
+      if (iteration % 3 === 0) {
         yield {
           data: ': ping'
         };
