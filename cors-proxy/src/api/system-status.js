@@ -65,9 +65,9 @@ export async function reportError(request, env) {
         }
 
         // Log to KV for monitoring
-        if (env.RATE_LIMIT_KV) {
+        if (env.ERRORS_KV) {
             const errorKey = `error:${timestamp}:${Math.random().toString(36).slice(2, 8)}`;
-            await env.RATE_LIMIT_KV.put(errorKey, JSON.stringify({
+            await env.ERRORS_KV.put(errorKey, JSON.stringify({
                 statusCode,
                 url,
                 error,

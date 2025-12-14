@@ -225,13 +225,17 @@ export async function initSubjectPage(subjectCode, semester = '1', options = {})
         return;
       }
 
-      // Handle 401 Unauthorized - show login modal
+      // Handle 401 Unauthorized - trigger auth flow and show modal
       if (response.status === 401) {
         hideElement(loadingSelector);
         hideElement(contentAreaSelector);
-        const loginModal = document.getElementById('login-modal');
-        if (loginModal) {
-          loginModal.style.display = 'block';
+        const bodyEl = document.querySelector('.body');
+        if (bodyEl) bodyEl.style.display = 'none';
+        if (window.auth && typeof window.auth.ensureAuthenticated === 'function') {
+          await window.auth.ensureAuthenticated();
+        } else {
+          const loginModal = document.getElementById('login-modal');
+          if (loginModal) loginModal.style.display = 'block';
         }
         return;
       }
@@ -335,20 +339,34 @@ export async function initSubjectPage(subjectCode, semester = '1', options = {})
     window.applyFilters = () => applyFilters(searchInputSelector, contentAreaSelector, noResultsSelector);
     window.clearFilters = () => clearFilters(searchInputSelector, contentAreaSelector, noResultsSelector);
 
-    // Wait for auth check before loading content
-    if (window.auth && typeof window.auth.waitForAuthReady === 'function') {
-      const isAuthenticated = await window.auth.waitForAuthReady();
-      
+    // Wait for auth check before loading content; use ensureAuthenticated to trigger modal
+    if (window.auth && typeof window.auth.ensureAuthenticated === 'function') {
+      const isAuthenticated = await window.auth.ensureAuthenticated();
+
       if (!isAuthenticated) {
-        // Not authenticated - hide loading, show login modal
+        // Not authenticated - hide content and wait for user to login
         hideElement(loadingSelector);
-        const loginModal = document.getElementById('login-modal');
-        if (loginModal) {
-          loginModal.style.display = 'block';
-        }
+        hideElement(contentAreaSelector);
+        const bodyEl = document.querySelector('.body');
+        if (bodyEl) bodyEl.style.display = 'none';
         return;
       }
+    } else {
+      // Auth not available; show modal if present
+      hideElement(loadingSelector);
+      hideElement(contentAreaSelector);
+      const bodyEl = document.querySelector('.body');
+      if (bodyEl) bodyEl.style.display = 'none';
+      const loginModal = document.getElementById('login-modal');
+      if (loginModal) {
+        loginModal.style.display = 'block';
+      }
+      return;
     }
+
+    // Authenticated - reveal body container
+    const bodyEl = document.querySelector('.body');
+    if (bodyEl) bodyEl.style.display = 'block';
 
     // User is authenticated, proceed with loading content
     loadCachedSubject();
