@@ -43,13 +43,13 @@ jobs:
 
       - name: Set Wrangler secrets (idempotent)
         run: |
-          npx wrangler secret put POSTHOG_WRITE_KEY <<< "${{ secrets.POSTHOG_WRITE_KEY }}"
-          npx wrangler secret put PH_HOST <<< "${{ secrets.PH_HOST }}"
-          npx wrangler secret put FILE_CHANGE_LOG_TABLE <<< "${{ secrets.FILE_CHANGE_LOG_TABLE }}"
-          npx wrangler secret put JWT_SECRET <<< "${{ secrets.JWT_SECRET }}"
-          npx wrangler secret put SUPABASE_URL <<< "${{ secrets.SUPABASE_URL }}"
-          npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY <<< "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}"
-          npx wrangler secret put STATUS_ADMIN_PASSPHRASE <<< "${{ secrets.STATUS_ADMIN_PASSPHRASE }}"
+          npx wrangler secret put POSTHOG_WRITE_KEY --config cors-proxy/wrangler.toml <<< "${{ secrets.POSTHOG_WRITE_KEY }}"
+          npx wrangler secret put PH_HOST --config cors-proxy/wrangler.toml <<< "${{ secrets.PH_HOST }}"
+          npx wrangler secret put FILE_CHANGE_LOG_TABLE --config cors-proxy/wrangler.toml <<< "${{ secrets.FILE_CHANGE_LOG_TABLE }}"
+          npx wrangler secret put JWT_SECRET --config cors-proxy/wrangler.toml <<< "${{ secrets.JWT_SECRET }}"
+          npx wrangler secret put SUPABASE_URL --config cors-proxy/wrangler.toml <<< "${{ secrets.SUPABASE_URL }}"
+          npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY --config cors-proxy/wrangler.toml <<< "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}"
+          npx wrangler secret put STATUS_ADMIN_PASSPHRASE --config cors-proxy/wrangler.toml <<< "${{ secrets.STATUS_ADMIN_PASSPHRASE }}"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}  
 
