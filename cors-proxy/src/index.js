@@ -148,12 +148,6 @@ async function handleRequest(request, env, ctx) {
     return addCorsHeaders(response)
   }
 
-  // GET /api/system/status/stream - Server-Sent Events stream for real-time system status updates
-  if (request.method === 'GET' && url.pathname === '/api/system/status/stream') {
-    response = await streamSystemStatus(request, env)
-    return response // Don't add CORS headers to SSE streams
-  }
-
   // GET /api/status/errors - 5XX error metrics for status page graphs
   if (request.method === 'GET' && url.pathname === '/api/status/errors') {
     response = await getStatusErrors(request, env)
@@ -570,6 +564,12 @@ async function handleRequest(request, env, ctx) {
       });
       return addCorsHeaders(response);
     }
+  }
+
+  // GET /api/system/status/stream - Server-Sent Events stream for real-time system status updates
+  if (request.method === 'GET' && url.pathname === '/api/system/status/stream') {
+    response = await streamSystemStatus(request, env)
+    return response // Already has CORS headers
   }
 
   return new Response('Not found', { status:404, headers: corsHeaders })

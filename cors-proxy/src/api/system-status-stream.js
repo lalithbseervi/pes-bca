@@ -1,91 +1,72 @@
 /**
  * System Status Stream - Server-Sent Events (SSE)
- * Provides real-time system status updates without polling
+ * Provides real-time system status updates
  * GET /api/system/status/stream
  */
 import { createLogger } from '../utils/logger.js';
 
 const log = createLogger('SystemStatusStream');
 
-/**
- * Stream system status updates via SSE
- * Sends maintenance mode and announcement changes in real-time
- */
+// GET /api/system/status/stream - SSE using the same pattern as streamStatus
 export async function streamSystemStatus(request, env) {
-  try {
-    // Create a ReadableStream that sends updates
-    const stream = new ReadableStream({
-      async start(controller) {
-        const encoder = new TextEncoder();
-        let lastStatus = null;
-        let closed = false;
+  const headers = {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type'
+  };
 
-        // Send initial status
+  const { readable, writable } = new TransformStream();
+  const writer = writable.getWriter();
+  const encoder = new TextEncoder();
+
+  (async () => {
+    try {
+      // Send initial status immediately
+      const initial = await getSystemStatusData(env);
+      let lastSent = JSON.stringify(initial);
+      await writer.write(encoder.encode(`event: status\ndata: ${lastSent}\n\n`));
+
+      // Periodic update check (every 30s), only send when changed
+      const updateId = setInterval(async () => {
         try {
-          const initialStatus = await getSystemStatusData(env);
-          lastStatus = JSON.stringify(initialStatus);
-          const message = `event: status\ndata: ${lastStatus}\n\n`;
-          controller.enqueue(encoder.encode(message));
-        } catch (error) {
-          log.error('Failed to send initial status:', error);
+          const current = await getSystemStatusData(env);
+          const serialized = JSON.stringify(current);
+          if (serialized !== lastSent) {
+            await writer.write(encoder.encode(`event: status\ndata: ${serialized}\n\n`));
+            lastSent = serialized;
+          }
+        } catch (e) {
+          log.error('System status SSE update error', e);
         }
+      }, 30000);
 
-        // Set up interval for periodic updates
-        const intervalId = setInterval(async () => {
-          if (closed) {
-            clearInterval(intervalId);
-            return;
-          }
+      // Ping every 30s to keep connection alive
+      const pingId = setInterval(async () => {
+        try {
+          await writer.write(encoder.encode(`: ping\n\n`));
+        } catch (e) {
+          clearInterval(pingId);
+          clearInterval(updateId);
+          writer.close().catch(() => {});
+        }
+      }, 30000);
 
-          try {
-            const currentStatus = await getSystemStatusData(env);
-            const currentJson = JSON.stringify(currentStatus);
-            
-            // Only send if status changed
-            if (currentJson !== lastStatus) {
-              const message = `event: status\ndata: ${currentJson}\n\n`;
-              controller.enqueue(encoder.encode(message));
-              lastStatus = currentJson;
-            }
-          } catch (error) {
-            log.error('Error sending SSE update:', error);
-            clearInterval(intervalId);
-            controller.close();
-            closed = true;
-          }
-        }, 45000); // 45 second interval
+      // Clean up on disconnect
+      request.signal?.addEventListener('abort', () => {
+        clearInterval(updateId);
+        clearInterval(pingId);
+        writer.close().catch(() => {});
+      });
+    } catch (e) {
+      log.error('System status SSE stream error', e);
+      await writer.close().catch(() => {});
+    }
+  })();
 
-        // Handle client disconnect
-        request.signal?.addEventListener('abort', () => {
-          clearInterval(intervalId);
-          if (!closed) {
-            controller.close();
-            closed = true;
-          }
-        });
-      }
-    });
-
-    return new Response(stream, {
-      status: 200,
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-        'X-Accel-Buffering': 'no', // Disable buffering for SSE
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type'
-      }
-    });
-
-  } catch (error) {
-    log.error('Failed to stream system status:', error);
-    return new Response(JSON.stringify({ error: 'Stream initialization failed' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
-  }
+  return new Response(readable, { headers });
 }
 
 

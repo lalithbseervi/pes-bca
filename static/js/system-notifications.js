@@ -31,6 +31,10 @@ class SystemNotificationManager {
             const es = new EventSource(`${API_BASE_URL}/api/system/status/stream`);
             this.eventSource = es;
 
+            es.addEventListener('open', () => {
+                console.log('[SystemNotifications] SSE connection opened');
+            });
+
             es.addEventListener('status', (event) => {
                 try {
                     const data = JSON.parse(event.data);
@@ -45,22 +49,26 @@ class SystemNotificationManager {
                         }
                     }
                 } catch (err) {
-                    // ignore parse errors
+                    console.error('[SystemNotifications] Parse error:', err);
                 }
             });
 
-            es.addEventListener('error', () => {
-                // Attempt lightweight reconnect after delay
-                if (this.eventSource) {
-                    this.eventSource.close();
-                    this.eventSource = null;
+            es.addEventListener('error', (err) => {
+                console.warn('[SystemNotifications] SSE error, will reconnect');
+                // EventSource automatically reconnects unless readyState is CLOSED
+                if (es.readyState === EventSource.CLOSED) {
+                    if (this.eventSource) {
+                        this.eventSource.close();
+                        this.eventSource = null;
+                    }
+                    setTimeout(() => this.setupStatusStream(), 5000);
                 }
-                setTimeout(() => this.setupStatusStream(), 5000);
             });
         } catch (e) {
-            // Silently fail; no status updates
+            console.error('[SystemNotifications] Failed to setup SSE:', e);
         }
     }
+
 
     showMaintenanceBanner(message) {
         let banner = document.getElementById('maintenance-banner');
