@@ -37,13 +37,6 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: deploy cors-proxy/src/index.js --name cors-proxy --compatibility-date 2025-02-24 --var SW_VERSION:${{ steps.sw_version.outputs.version }}
 
-      - name: Deploy Pages
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy public --project-name=pes-bca
-
       - name: Update Worker Environment Variable (persistent)
         run: |
           curl -X PATCH "https://api.cloudflare.com/client/v4/accounts/${{ secrets.CLOUDFLARE_ACCOUNT_ID }}/workers/scripts/cors-proxy/settings" \
