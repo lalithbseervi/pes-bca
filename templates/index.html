@@ -184,7 +184,7 @@ async function fetchAndUpdateResources() {
         // Handle 401 Unauthorized - likely auth not ready yet, retry after brief delay
         if (response.status === 401) {
             // Wait a bit and retry once (gives auth time to settle)
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            await new Promise(resolve => setTimeout(resolve, 5000));
             return fetchAndUpdateResources();
         }
         
