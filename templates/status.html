@@ -416,14 +416,14 @@
     </div>
 
     <div id="error-metrics-section" class="incidents-section" style="display: none;">
-      <h2>5XX Errors (last 24h)</h2>
+      <h2>5XX Errors (last 7 days)</h2>
       <div class="metrics-card">
         <div class="chart-container">
           <canvas id="error-chart" aria-label="5XX errors over time" role="img"></canvas>
         </div>
         <div id="error-legend" class="metrics-legend"></div>
         <div id="error-empty" class="no-incidents" style="display: none; padding: 1rem;">
-          <p>No 5XX errors recorded in the last 24 hours.</p>
+          <p>No 5XX errors recorded in the last 7 days.</p>
         </div>
       </div>
     </div>
@@ -513,9 +513,17 @@ function renderErrorMetrics(data) {
     return;
   }
 
-  const labels = data.series[0].points.map(p =>
-    new Date(p.t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  );
+  const labels = data.series[0].points.map(p => {
+    const date = new Date(p.t);
+    const now = new Date();
+    const diffDays = Math.floor((now - date) / (24 * 60 * 60 * 1000));
+    
+    // Show date + time for 7-day view
+    if (diffDays > 1) {
+      return date.toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit' });
+    }
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  });
 
   const datasets = data.series.map((s, idx) => {
     const color = ERROR_COLORS[idx % ERROR_COLORS.length];
@@ -552,7 +560,11 @@ function renderErrorMetrics(data) {
           title: { display: true, text: 'Error Count' }
         },
         x: { 
-          ticks: { maxRotation: 0 },
+          ticks: { 
+            maxRotation: 45,
+            autoSkip: true,
+            maxTicksLimit: 24
+          },
           title: { display: true, text: 'Time' }
         }
       }
@@ -566,13 +578,70 @@ function renderErrorMetrics(data) {
 
 async function loadErrorMetrics() {
   const empty = document.getElementById('error-empty');
+  const section = document.getElementById('error-metrics-section');
+  
   try {
-    const resp = await fetch(`${API_BASE_URL}/api/status/errors`);
-    if (!resp.ok) throw new Error('Failed to fetch error metrics');
-    const data = await resp.json();
+    // Calculate timestamps for 7 days ago and now
+    const now = Date.now();
+    const sevenDaysAgo = now - (7 * 24 * 60 * 60 * 1000);
+    
+    // Fetch errors in 24-hour batches for the past 7 days
+    const batchPromises = [];
+    for (let i = 0; i < 7; i++) {
+      const end = now - (i * 24 * 60 * 60 * 1000);
+      const start = end - (24 * 60 * 60 * 1000);
+      batchPromises.push(
+        fetch(`${API_BASE_URL}/api/status/errors?start=${start}&end=${end}`)
+          .then(r => r.ok ? r.json() : null)
+          .catch(() => null)
+      );
+    }
+    
+    // Wait for all batches in parallel
+    const batches = await Promise.all(batchPromises);
+    
+    // Merge all series data from batches
+    const mergedSeries = new Map();
+    
+    batches.forEach(batch => {
+      if (!batch || !batch.series) return;
+      batch.series.forEach(s => {
+        if (!mergedSeries.has(s.endpoint)) {
+          mergedSeries.set(s.endpoint, { endpoint: s.endpoint, points: [] });
+        }
+        mergedSeries.get(s.endpoint).points.push(...s.points);
+      });
+    });
+    
+    // Sort points by time and aggregate duplicates
+    mergedSeries.forEach(series => {
+      series.points.sort((a, b) => a.t - b.t);
+      
+      // Aggregate points within same hour
+      const aggregated = [];
+      let current = null;
+      
+      series.points.forEach(p => {
+        const hourBucket = Math.floor(p.t / (60 * 60 * 1000)) * (60 * 60 * 1000);
+        if (!current || current.t !== hourBucket) {
+          if (current) aggregated.push(current);
+          current = { t: hourBucket, count: p.count };
+        } else {
+          current.count += p.count;
+        }
+      });
+      
+      if (current) aggregated.push(current);
+      series.points = aggregated;
+    });
+    
+    const data = {
+      series: Array.from(mergedSeries.values())
+    };
+    
     renderErrorMetrics(data);
   } catch (e) {
-    const section = document.getElementById('error-metrics-section');
+    console.error('Error loading metrics:', e);
     if (section) section.style.display = 'block';
     if (empty) {
       empty.style.display = 'block';
@@ -580,8 +649,6 @@ async function loadErrorMetrics() {
     }
   }
 }
-
-
 
 function renderIncident(incident) {
   const updates = incident.updates || [];
@@ -753,7 +820,7 @@ document.addEventListener('visibilitychange', () => {
     }
   } else {
     // Reconnect when tab becomes visible
-    loadStatus();
+    Promise.all([loadStatus(), loadErrorMetrics()]).catch(console.error);
     setupSSE();
   }
 });
@@ -761,7 +828,7 @@ document.addEventListener('visibilitychange', () => {
 // Refresh when window regains focus
 window.addEventListener('focus', () => {
   if (!document.hidden && !eventSource) {
-    loadStatus();
+    Promise.all([loadStatus(), loadErrorMetrics()]).catch(console.error);
     setupSSE();
   }
 });
@@ -773,9 +840,14 @@ window.addEventListener('beforeunload', () => {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
-  loadStatus();
+  // Call all initialization functions in parallel without blocking
+  Promise.all([
+    loadStatus(),
+    loadErrorMetrics()
+  ]).catch(err => console.error('Initialization error:', err));
+  
+  // setupSSE doesn't return a promise, start it separately
   setupSSE();
-  loadErrorMetrics();
 });
 </script>
 {% endblock main_content %}

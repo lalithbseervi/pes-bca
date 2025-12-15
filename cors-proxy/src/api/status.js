@@ -102,8 +102,8 @@ async function fetchStatusData(env) {
     };
 }
 
-// Aggregate 5XX error metrics from KV for the last 24 hours
-async function fetchErrorMetrics(env) {
+// Aggregate 5XX error metrics from KV for a specified time range
+async function fetchErrorMetrics(env, startTime = null, endTime = null) {
     const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
     // If KV not available, return empty metrics
@@ -117,9 +117,11 @@ async function fetchErrorMetrics(env) {
     }
 
     const now = Date.now();
-    const rangeMs = 24 * 60 * 60 * 1000; // 24 hours
+    const end = endTime ? Number(endTime) : now;
+    const start = startTime ? Number(startTime) : (now - 24 * 60 * 60 * 1000);
+    const rangeMs = end - start;
     const bucketMs = 60 * 60 * 1000; // 1 hour buckets
-    const cutoff = now - rangeMs;
+    const cutoff = start;
 
     const buckets = new Map(); // key: `${endpoint}|${bucket}` -> count
     const totals = new Map();  // key: endpoint -> count
@@ -142,7 +144,7 @@ async function fetchErrorMetrics(env) {
         // Key format: error:<timestamp>:<random>
         const parts = k.name.split(':');
         const ts = Number(parts[1]);
-        if (!Number.isFinite(ts) || ts < cutoff) continue;
+        if (!Number.isFinite(ts) || ts < cutoff || ts > end) continue;
 
         let record;
         try {
@@ -186,7 +188,7 @@ async function fetchErrorMetrics(env) {
     }));
 
     return {
-        rangeHours: 24,
+        rangeHours: Math.round(rangeMs / (60 * 60 * 1000)),
         bucketMinutes: 60,
         totals: topEndpoints,
         series
@@ -216,7 +218,11 @@ export async function getStatus(request, env) {
 export async function getStatusErrors(request, env) {
     const JSON_HEADERS = { 'Content-Type': 'application/json' };
     try {
-        const metrics = await fetchErrorMetrics(env);
+        const url = new URL(request.url);
+        const start = url.searchParams.get('start');
+        const end = url.searchParams.get('end');
+        
+        const metrics = await fetchErrorMetrics(env, start, end);
         return new Response(JSON.stringify(metrics), {
             status: 200,
             headers: JSON_HEADERS
