@@ -20,7 +20,12 @@ async function statusHandler(request, env, ctx) {
   try {
     // Initial snapshot
     const initial = await getSystemStatusData(env);
-    let lastSerialized = JSON.stringify(initial);
+    let lastPayload = JSON.stringify(initial);
+    let lastSignature = JSON.stringify({
+      maintenance_mode: initial.maintenance_mode,
+      maintenance_message: initial.maintenance_message,
+      version: initial.version
+    });
 
     while (Date.now() - start < MAX_DURATION_MS) {
       // Sleep between checks
@@ -33,10 +38,17 @@ async function statusHandler(request, env, ctx) {
 
       try {
         const current = await getSystemStatusData(env);
+        const signature = JSON.stringify({
+          maintenance_mode: current.maintenance_mode,
+          maintenance_message: current.maintenance_message,
+          version: current.version
+        });
         const serialized = JSON.stringify(current);
 
-        // Status changed → respond immediately
-        if (serialized !== lastSerialized) {
+        // Status changed (ignoring timestamp) → respond immediately
+        if (signature !== lastSignature) {
+          lastSignature = signature;
+          lastPayload = serialized;
           return new Response(serialized, {
             status: 200,
             headers: {
@@ -53,7 +65,7 @@ async function statusHandler(request, env, ctx) {
     }
 
     // Timeout reached → heartbeat response
-    return new Response(lastSerialized, {
+    return new Response(lastPayload, {
       status: 200,
       headers: {
         'Content-Type': 'application/json',

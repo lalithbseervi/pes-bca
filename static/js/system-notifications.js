@@ -40,11 +40,16 @@ class SystemNotificationManager {
             }
 
             const data = await response.json();
-            const json = JSON.stringify(data);
+            // Ignore timestamp differences; only compare meaningful fields
+            const signature = JSON.stringify({
+                maintenance_mode: data.maintenance_mode,
+                maintenance_message: data.maintenance_message,
+                version: data.version
+            });
 
-            // Only process if changed
-            if (json !== this.lastStatusJson) {
-                this.lastStatusJson = json;
+            // Only process if changed (excluding timestamp)
+            if (signature !== this.lastStatusJson) {
+                this.lastStatusJson = signature;
                 console.log('[SystemNotifications] Status updated:', data);
                 if (data.maintenance_mode) {
                     this.showMaintenanceBanner(data.maintenance_message);
