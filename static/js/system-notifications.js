@@ -7,7 +7,6 @@ const API_BASE_URL = (location.hostname === 'localhost' || location.hostname ===
 class SystemNotificationManager {
     constructor() {
         this.initialized = false;
-        this.eventSource = null;
         this.lastStatusJson = null;
     }
 
@@ -23,51 +22,43 @@ class SystemNotificationManager {
     }
 
     setupStatusStream() {
-        // Clean up existing stream if any
-        if (this.eventSource) {
-            this.eventSource.close();
-            this.eventSource = null;
-        }
+        // Poll the status endpoint (blocks for up to 25 seconds)
+        this.pollStatus();
+    }
 
+    async pollStatus() {
         try {
-            const es = new EventSource(`${API_BASE_URL}/api/system/status/stream`);
-            this.eventSource = es;
-
-            es.addEventListener('open', () => {
-                console.log('[SystemNotifications] SSE connection opened');
+            const response = await fetch(`${API_BASE_URL}/api/system/status/stream`, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
             });
 
-            es.addEventListener('status', (event) => {
-                try {
-                    const data = JSON.parse(event.data);
-                    const json = event.data;
-                    // Only process if changed
-                    if (json !== this.lastStatusJson) {
-                        this.lastStatusJson = json;
-                        if (data.maintenance_mode) {
-                            this.showMaintenanceBanner(data.maintenance_message);
-                        } else {
-                            this.hideMaintenanceBanner();
-                        }
-                    }
-                } catch (err) {
-                    console.error('[SystemNotifications] Parse error:', err);
+            if (!response.ok) {
+                console.warn('[SystemNotifications] Status poll failed:', response.status);
+                setTimeout(() => this.pollStatus(), 5000);
+                return;
+            }
+
+            const data = await response.json();
+            const json = JSON.stringify(data);
+
+            // Only process if changed
+            if (json !== this.lastStatusJson) {
+                this.lastStatusJson = json;
+                console.log('[SystemNotifications] Status updated:', data);
+                if (data.maintenance_mode) {
+                    this.showMaintenanceBanner(data.maintenance_message);
+                } else {
+                    this.hideMaintenanceBanner();
                 }
-            });
+            }
 
-            es.addEventListener('error', (err) => {
-                console.warn('[SystemNotifications] SSE error, will reconnect');
-                // EventSource automatically reconnects unless readyState is CLOSED
-                if (es.readyState === EventSource.CLOSED) {
-                    if (this.eventSource) {
-                        this.eventSource.close();
-                        this.eventSource = null;
-                    }
-                    setTimeout(() => this.setupStatusStream(), 5000);
-                }
-            });
-        } catch (e) {
-            console.error('[SystemNotifications] Failed to setup SSE:', e);
+            // Start next poll after a small delay to avoid tight loops
+            // The server blocks for 25 seconds, so polling again immediately is wasteful
+            setTimeout(() => this.pollStatus(), 10000);
+        } catch (err) {
+            console.warn('[SystemNotifications] Poll error, will retry:', err);
+            setTimeout(() => this.pollStatus(), 5000);
         }
     }
 

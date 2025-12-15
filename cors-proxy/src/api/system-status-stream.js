@@ -1,82 +1,77 @@
 /**
- * System Status Stream - Server-Sent Events (SSE)
- * Provides real-time system status updates using cloudflare-workers-sse
+ * System Status Stream - Long Polling
+ * Provides real-time system status updates with 25-second blocking timeout
  * GET /api/system/status/stream
  */
 import { createLogger } from '../utils/logger.js';
-import { sse } from 'cloudflare-workers-sse';
 
 const log = createLogger('SystemStatusStream');
 
 /**
- * Async generator handler for SSE stream
- * Yields status updates and ping messages to keep connection alive
+ * Long polling handler - blocks up to 25 seconds waiting for status changes
+ * Returns immediately if status changes, or heartbeat after timeout
  */
-async function* statusHandler(request, env, ctx) {
+async function statusHandler(request, env, ctx) {
+  const MAX_DURATION_MS = 25_000; // safety margin
+  const CHECK_INTERVAL_MS = 1_000;
+
+  const start = Date.now();
+
   try {
-    // Send initial status immediately
+    // Initial snapshot
     const initial = await getSystemStatusData(env);
-    yield {
-      event: 'status',
-      data: JSON.stringify(initial)
-    };
+    let lastSerialized = JSON.stringify(initial);
 
-    let lastSent = JSON.stringify(initial);
-    let iteration = 0;
+    while (Date.now() - start < MAX_DURATION_MS) {
+      // Sleep between checks
+      await new Promise(resolve => setTimeout(resolve, CHECK_INTERVAL_MS));
 
-    // Send updates while request is active
-    while (true) {
-      // Wait 10 seconds between checks (200 x 50ms = 10000ms)
-      // Small delays allow Worker to handle other requests and respect ctx.isDone
-      for (let i = 0; i < 200; i++) {
-        await new Promise(resolve => setTimeout(resolve, 50));
-        // ctx may be undefined in local Miniflare; check before using
-        if (ctx?.isDone) {
-          return; // Exit gracefully when request is done or canceled
-        }
+      // If client disconnected (Miniflare safe)
+      if (ctx?.isDone) {
+        return;
       }
 
-      iteration++;
-
-      // Check for status changes every 10 seconds
       try {
         const current = await getSystemStatusData(env);
         const serialized = JSON.stringify(current);
-        
-        if (serialized !== lastSent) {
-          yield {
-            event: 'status',
-            data: serialized
-          };
-          lastSent = serialized;
+
+        // Status changed → respond immediately
+        if (serialized !== lastSerialized) {
+          return new Response(serialized, {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+              'Cache-Control': 'no-store',
+              'Access-Control-Allow-Origin': '*'
+            }
+          });
         }
       } catch (e) {
-        log.error('System status SSE update error', e);
-      }
-
-      // Send ping every 3 iterations (30 seconds) to keep connection alive
-      if (iteration % 3 === 0) {
-        yield {
-          data: ': ping'
-        };
+        log.error('Status poll error', e);
+        break; // fail fast, don't spin
       }
     }
+
+    // Timeout reached → heartbeat response
+    return new Response(lastSerialized, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-store',
+        'X-Heartbeat': 'true',
+        'Access-Control-Allow-Origin': '*'
+      }
+    });
   } catch (e) {
-    log.error('System status SSE stream error', e);
+    log.error('Fake realtime handler error', e);
+    return new Response('Internal error', { status: 500 });
   }
 }
 
 /**
- * Export SSE handler using cloudflare-workers-sse
- * The library handles streaming, error handling, and client disconnection
+ * Export handler for long polling
  */
-export const streamSystemStatus = sse(statusHandler, {
-  customHeaders: {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type'
-  }
-});
+export const streamSystemStatus = statusHandler;
 
 
 
