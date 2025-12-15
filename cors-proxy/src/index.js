@@ -253,7 +253,12 @@ async function handleRequest(request, env, ctx) {
 
   // GET /api/status/stream - Server-Sent Events for real-time status updates
   if (request.method === 'GET' && url.pathname === '/api/status/stream') {
-    response = await streamStatus(request, env)
+    // response = await streamStatus(request, env)
+    // return addCorsHeaders(response)
+    response = new Response(JSON.stringify({ error: 'service_unavailable', message: 'Status stream temporarily disabled' }), {
+      status: 503,
+      headers: { 'Content-Type': 'application/json' }
+    })
     return addCorsHeaders(response)
   }
 
