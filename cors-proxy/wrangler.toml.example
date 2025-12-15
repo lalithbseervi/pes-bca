@@ -10,7 +10,6 @@ kv_namespaces = [
   { binding = "SESSIONS", id = "8c42a0cac2974b7cacceb11201be1846", preview_id = "25504661582643c6ad2c7ed3bacd92e7" },
   { binding = "RATE_LIMIT_KV", id = "cd11075c2e1a4512954d9f8d9e99544a", preview_id = "25504661582643c6ad2c7ed3bacd92e7" },
   { binding = "CSP_REPORTS", id = "b4aa00fa621b4a9082de2e67b35e4e4d", preview_id = "1c605cdc4a214380a97bbbfeda6ff883" },
-  { binding = "CONFIG_KV", id = "eb13ede6a27b45399d11df14525c331a", preview_id = "1b046aba40a0483e9af4242353a929aa" },
   { binding = "ERRORS_KV", id = "1e547ee4973f4aa7a92daa329dd3ce1e", preview_id="8461ec059ff54f81bede22cb518860a9" }
 ]
 
