@@ -43,7 +43,6 @@ jobs:
 
       - name: Set Wrangler secrets (idempotent)
         run: |
-          npx wrangler secret put AUTH_API --config cors-proxy/wrangler.toml <<< "${{ secrets.AUTH_API }}"
           npx wrangler secret put POSTHOG_WRITE_KEY --config cors-proxy/wrangler.toml <<< "${{ secrets.POSTHOG_WRITE_KEY }}"
           npx wrangler secret put PH_HOST --config cors-proxy/wrangler.toml <<< "${{ secrets.PH_HOST }}"
           npx wrangler secret put FILE_CHANGE_LOG_TABLE --config cors-proxy/wrangler.toml <<< "${{ secrets.FILE_CHANGE_LOG_TABLE }}"
