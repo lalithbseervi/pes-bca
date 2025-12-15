@@ -14,6 +14,7 @@ const log = createLogger('SystemStatusStream');
 async function statusHandler(request, env, ctx) {
   const MAX_DURATION_MS = 25_000; // safety margin
   const CHECK_INTERVAL_MS = 1_000;
+  const clientSignature = request.headers.get('If-None-Match');
 
   const start = Date.now();
 
@@ -26,6 +27,19 @@ async function statusHandler(request, env, ctx) {
       maintenance_message: initial.maintenance_message,
       version: initial.version
     });
+
+    // If client signature differs, return immediately with latest
+    if (clientSignature && clientSignature !== lastSignature) {
+      return new Response(lastPayload, {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-store',
+          'Access-Control-Allow-Origin': '*',
+          'ETag': lastSignature
+        }
+      });
+    }
 
     while (Date.now() - start < MAX_DURATION_MS) {
       // Sleep between checks
@@ -54,7 +68,8 @@ async function statusHandler(request, env, ctx) {
             headers: {
               'Content-Type': 'application/json',
               'Cache-Control': 'no-store',
-              'Access-Control-Allow-Origin': '*'
+              'Access-Control-Allow-Origin': '*',
+              'ETag': signature
             }
           });
         }
@@ -71,7 +86,8 @@ async function statusHandler(request, env, ctx) {
         'Content-Type': 'application/json',
         'Cache-Control': 'no-store',
         'X-Heartbeat': 'true',
-        'Access-Control-Allow-Origin': '*'
+        'Access-Control-Allow-Origin': '*',
+        'ETag': lastSignature
       }
     });
   } catch (e) {

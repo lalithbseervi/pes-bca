@@ -30,7 +30,11 @@ class SystemNotificationManager {
         try {
             const response = await fetch(`${API_BASE_URL}/api/system/status/stream`, {
                 method: 'GET',
-                headers: { 'Content-Type': 'application/json' }
+                headers: {
+                    'Content-Type': 'application/json',
+                    // Ask server to short-circuit if it already has a newer signature
+                    ...(this.lastStatusJson ? { 'If-None-Match': this.lastStatusJson } : {})
+                }
             });
 
             if (!response.ok) {
@@ -40,12 +44,14 @@ class SystemNotificationManager {
             }
 
             const data = await response.json();
-            // Ignore timestamp differences; only compare meaningful fields
-            const signature = JSON.stringify({
+            // Prefer server-provided signature (ETag); fallback to local signature build
+            const serverSignature = response.headers.get('ETag');
+            const computedSignature = JSON.stringify({
                 maintenance_mode: data.maintenance_mode,
                 maintenance_message: data.maintenance_message,
                 version: data.version
             });
+            const signature = serverSignature || computedSignature;
 
             // Only process if changed (excluding timestamp)
             if (signature !== this.lastStatusJson) {
