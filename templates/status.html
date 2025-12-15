@@ -581,64 +581,13 @@ async function loadErrorMetrics() {
   const section = document.getElementById('error-metrics-section');
   
   try {
-    // Calculate timestamps for 7 days ago and now
+    // Single request for past 7 days, server aggregates into hourly buckets
     const now = Date.now();
     const sevenDaysAgo = now - (7 * 24 * 60 * 60 * 1000);
-    
-    // Fetch errors in 24-hour batches for the past 7 days
-    const batchPromises = [];
-    for (let i = 0; i < 7; i++) {
-      const end = now - (i * 24 * 60 * 60 * 1000);
-      const start = end - (24 * 60 * 60 * 1000);
-      batchPromises.push(
-        fetch(`${API_BASE_URL}/api/status/errors?start=${start}&end=${end}`)
-          .then(r => r.ok ? r.json() : null)
-          .catch(() => null)
-      );
-    }
-    
-    // Wait for all batches in parallel
-    const batches = await Promise.all(batchPromises);
-    
-    // Merge all series data from batches
-    const mergedSeries = new Map();
-    
-    batches.forEach(batch => {
-      if (!batch || !batch.series) return;
-      batch.series.forEach(s => {
-        if (!mergedSeries.has(s.endpoint)) {
-          mergedSeries.set(s.endpoint, { endpoint: s.endpoint, points: [] });
-        }
-        mergedSeries.get(s.endpoint).points.push(...s.points);
-      });
-    });
-    
-    // Sort points by time and aggregate duplicates
-    mergedSeries.forEach(series => {
-      series.points.sort((a, b) => a.t - b.t);
-      
-      // Aggregate points within same hour
-      const aggregated = [];
-      let current = null;
-      
-      series.points.forEach(p => {
-        const hourBucket = Math.floor(p.t / (60 * 60 * 1000)) * (60 * 60 * 1000);
-        if (!current || current.t !== hourBucket) {
-          if (current) aggregated.push(current);
-          current = { t: hourBucket, count: p.count };
-        } else {
-          current.count += p.count;
-        }
-      });
-      
-      if (current) aggregated.push(current);
-      series.points = aggregated;
-    });
-    
-    const data = {
-      series: Array.from(mergedSeries.values())
-    };
-    
+    const resp = await fetch(`${API_BASE_URL}/api/status/errors?start=${sevenDaysAgo}&end=${now}`);
+    if (!resp.ok) throw new Error('Failed to fetch error metrics');
+    const data = await resp.json();
+
     renderErrorMetrics(data);
   } catch (e) {
     console.error('Error loading metrics:', e);
