@@ -16,7 +16,7 @@ class SystemNotificationManager {
         this.initialized = true;
 
         // Subscribe to system status stream (SSE)
-        this.setupStatusStream();
+        // this.setupStatusStream();
 
         // Set up global fetch interceptor for 5XX errors
         this.interceptFetch();
