@@ -577,6 +577,13 @@ function renderErrorMetrics(data) {
 }
 
 async function loadErrorMetrics() {
+  // Throttle to avoid excessive KV reads; only fetch every 30 minutes per tab
+  const nowTs = Date.now();
+  if (nowTs - lastErrorMetricsFetch < ERROR_FETCH_COOLDOWN_MS) {
+    return;
+  }
+  lastErrorMetricsFetch = nowTs;
+
   const empty = document.getElementById('error-empty');
   const section = document.getElementById('error-metrics-section');
   
@@ -640,6 +647,8 @@ function renderIncident(incident) {
 let eventSource = null;
 let fallbackTimer = null;
 const FALLBACK_INTERVAL = 60000; // 1 minute fallback polling
+let lastErrorMetricsFetch = 0;
+const ERROR_FETCH_COOLDOWN_MS = 30 * 60 * 1000; // 30 minutes
 
 function renderStatusData(data) {
   // Update overall status
@@ -769,7 +778,7 @@ document.addEventListener('visibilitychange', () => {
     }
   } else {
     // Reconnect when tab becomes visible
-    Promise.all([loadStatus(), loadErrorMetrics()]).catch(console.error);
+    Promise.all([loadStatus()]).catch(console.error);
     setupSSE();
   }
 });
@@ -777,7 +786,7 @@ document.addEventListener('visibilitychange', () => {
 // Refresh when window regains focus
 window.addEventListener('focus', () => {
   if (!document.hidden && !eventSource) {
-    Promise.all([loadStatus(), loadErrorMetrics()]).catch(console.error);
+    Promise.all([loadStatus()]).catch(console.error);
     setupSSE();
   }
 });

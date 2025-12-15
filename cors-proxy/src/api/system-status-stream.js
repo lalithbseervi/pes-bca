@@ -14,6 +14,7 @@ const log = createLogger('SystemStatusStream');
 async function statusHandler(request, env, ctx) {
   const MAX_DURATION_MS = 25_000; // safety margin
   const CHECK_INTERVAL_MS = 1_000;
+  const REFRESH_INTERVAL_MS = 5_000; // throttle KV reads to stay under subrequest limits
   const clientSignature = request.headers.get('If-None-Match');
 
   const start = Date.now();
@@ -21,12 +22,14 @@ async function statusHandler(request, env, ctx) {
   try {
     // Initial snapshot
     const initial = await getSystemStatusData(env);
+    let cachedStatus = initial;
     let lastPayload = JSON.stringify(initial);
     let lastSignature = JSON.stringify({
       maintenance_mode: initial.maintenance_mode,
       maintenance_message: initial.maintenance_message,
       version: initial.version
     });
+    let nextRefreshAt = start + REFRESH_INTERVAL_MS;
 
     // If client signature differs, return immediately with latest
     if (clientSignature && clientSignature !== lastSignature) {
@@ -51,7 +54,13 @@ async function statusHandler(request, env, ctx) {
       }
 
       try {
-        const current = await getSystemStatusData(env);
+        // Refresh KV-backed status at a slower cadence to avoid hitting per-request subrequest limits
+        const shouldRefresh = Date.now() >= nextRefreshAt;
+        const current = shouldRefresh ? await getSystemStatusData(env) : cachedStatus;
+        if (shouldRefresh) {
+          cachedStatus = current;
+          nextRefreshAt = Date.now() + REFRESH_INTERVAL_MS;
+        }
         const signature = JSON.stringify({
           maintenance_mode: current.maintenance_mode,
           maintenance_message: current.maintenance_message,

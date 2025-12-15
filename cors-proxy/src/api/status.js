@@ -129,7 +129,7 @@ async function fetchErrorMetrics(env, startTime = null, endTime = null) {
 
     let cursor = undefined;
     let iterations = 0;
-    const MAX_KEYS = 5000; // guard against excessive KV scans
+    const MAX_KEYS = 1000; // tighter guard against excessive KV scans
     const keys = [];
 
     // List error keys (prefixed) with pagination and safety limits

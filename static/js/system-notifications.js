@@ -8,6 +8,7 @@ class SystemNotificationManager {
     constructor() {
         this.initialized = false;
         this.lastStatusJson = null;
+        this.statusPollInFlight = false;
     }
 
     async init() {
@@ -27,6 +28,10 @@ class SystemNotificationManager {
     }
 
     async pollStatus() {
+        // Ensure only one in-flight request at a time
+        if (this.statusPollInFlight) return;
+        this.statusPollInFlight = true;
+
         try {
             const response = await fetch(`${API_BASE_URL}/api/system/status/stream`, {
                 method: 'GET',
@@ -39,7 +44,7 @@ class SystemNotificationManager {
 
             if (!response.ok) {
                 console.warn('[SystemNotifications] Status poll failed:', response.status);
-                setTimeout(() => this.pollStatus(), 5000);
+                setTimeout(() => this.pollStatus(), 5 * 60 * 1000); // retry in 5 minutes
                 return;
             }
 
@@ -64,12 +69,13 @@ class SystemNotificationManager {
                 }
             }
 
-            // Start next poll after a small delay to avoid tight loops
-            // The server blocks for 25 seconds, so polling again immediately is wasteful
-            setTimeout(() => this.pollStatus(), 10000);
+            // Poll at most every 30 minutes
+            setTimeout(() => this.pollStatus(), 30 * 60 * 1000);
         } catch (err) {
             console.warn('[SystemNotifications] Poll error, will retry:', err);
-            setTimeout(() => this.pollStatus(), 5000);
+            setTimeout(() => this.pollStatus(), 5 * 60 * 1000); // retry in 5 minutes
+        } finally {
+            this.statusPollInFlight = false;
         }
     }
 
