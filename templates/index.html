@@ -117,25 +117,6 @@
                 <button class="filter-btn clear-btn" onclick="clearFilters()">Clear</button>
               </div>
             </div>
-            
-            <!-- Success Banner -->
-            <div id="success-banner" style="
-              position: fixed;
-              top: 0;
-              left: 0;
-              right: 0;
-              background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-              color: white;
-              padding: 12px 20px;
-              text-align: center;
-              font-size: 14px;
-              font-weight: 500;
-              box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-              z-index: 9999;
-              animation: slideDown 0.3s ease-out;
-            ">
-              <span>✅ Download feature restored and is normally functioning!</span>
-            </div>
 
             <div id="loading-resources" class="loading-message" style="text-align: center; padding: 2rem;">
               <p>Loading resources...</p>
@@ -528,15 +509,6 @@ function handleVisibilityChangeEvent(e) {
 
 // Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', async function() {
-    // Auto-dismiss success banner after 10 seconds
-    const banner = document.getElementById('success-banner');
-    if (banner) {
-        setTimeout(() => {
-            banner.style.animation = 'slideUp 0.3s ease-out';
-            setTimeout(() => banner.remove(), 300);
-        }, 10000);
-    }
-
     // Wait for auth check to complete before loading resources
     if (window.auth && typeof window.auth.waitForAuthReady === 'function') {
         await window.auth.waitForAuthReady();
