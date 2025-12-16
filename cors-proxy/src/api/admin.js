@@ -447,7 +447,9 @@ export async function deleteResource(request, env, ctx) {
         // Delete from storage
         if (resource.storage_key) {
             const BUCKET = 'fileStore';
-            const deleteStorageUrl = `${base}/storage/v1/object/${encodeURIComponent(BUCKET)}/${encodeURIComponent(resource.storage_key)}`;
+            // Encode each path segment individually
+            const encodedStorageKey = resource.storage_key.split('/').map(s => encodeURIComponent(s)).join('/');
+            const deleteStorageUrl = `${base}/storage/v1/object/${BUCKET}/${encodedStorageKey}`;
             const deleteStorageResp = await fetch(deleteStorageUrl, {
                 method: 'DELETE',
                 headers
@@ -558,7 +560,9 @@ export async function replaceFile(request, env, ctx) {
         // Delete old file from storage
         if (resource.storage_key) {
             const BUCKET = 'fileStore';
-            const deleteStorageUrl = `${base}/storage/v1/object/${encodeURIComponent(BUCKET)}/${encodeURIComponent(resource.storage_key)}`;
+            // Encode each path segment individually
+            const encodedStorageKey = resource.storage_key.split('/').map(s => encodeURIComponent(s)).join('/');
+            const deleteStorageUrl = `${base}/storage/v1/object/${BUCKET}/${encodedStorageKey}`;
             const deleteStorageResp = await fetch(deleteStorageUrl, {
                 method: 'DELETE',
                 headers
@@ -572,7 +576,9 @@ export async function replaceFile(request, env, ctx) {
         // Upload new file to same storage location
         const BUCKET = 'fileStore';
         const storageKey = resource.storage_key || `${resource.subject || 'unknown'}/${resource.filename}`;
-        const uploadUrl = `${base}/storage/v1/object/${encodeURIComponent(BUCKET)}/${encodeURIComponent(storageKey)}`;
+        // Encode each path segment individually
+        const encodedStorageKey = storageKey.split('/').map(s => encodeURIComponent(s)).join('/');
+        const uploadUrl = `${base}/storage/v1/object/${BUCKET}/${encodedStorageKey}`;
         
         const uploadResp = await fetch(uploadUrl, {
             method: 'POST',

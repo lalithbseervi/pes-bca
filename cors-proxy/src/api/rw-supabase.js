@@ -245,7 +245,9 @@ export async function uploadResourceToSupabase(request, env) {
             const objectPath = `${course}/${semester}/${subject}/${resource_type}/${unitSegment}/${safeName}`;
 
             // upload bytes
-            const uploadUrl = `${env.SUPABASE_URL.replace(/\/+$/, '')}/storage/v1/object/${encodeURIComponent(BUCKET)}/${encodeURIComponent(objectPath)}`;
+            // Encode each path segment individually (not the whole path, which would encode slashes)
+            const encodedObjectPath = objectPath.split('/').map(s => encodeURIComponent(s)).join('/');
+            const uploadUrl = `${env.SUPABASE_URL.replace(/\/+$/, '')}/storage/v1/object/${BUCKET}/${encodedObjectPath}`;
             const uploadResp = await fetch(uploadUrl, {
                 method: 'PUT',
                 headers: {
@@ -413,9 +415,9 @@ export async function resourceStreamFromSupabase(request, env, ctx) {
             try {
                 // Use service-role auth to directly fetch object metadata from Supabase Storage
                 const supaHeaders = { Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`, apikey: `${env.SUPABASE_SERVICE_ROLE_KEY}` };
-                const objectUrl = `${env.SUPABASE_URL.replace(/\/+$/, '')}/storage/v1/object/${encodeURIComponent(BUCKET)}/${encodeURIComponent(
-                    row.storage_key
-                )}`;
+                // Encode each path segment individually
+                const encodedStorageKey = row.storage_key.split('/').map(s => encodeURIComponent(s)).join('/');
+                const objectUrl = `${env.SUPABASE_URL.replace(/\/+$/, '')}/storage/v1/object/${BUCKET}/${encodedStorageKey}`;
 
                 const headResp = await fetch(objectUrl, { method: 'HEAD', headers: supaHeaders });
                 if (!headResp.ok) {
@@ -447,7 +449,9 @@ export async function resourceStreamFromSupabase(request, env, ctx) {
     try {
         // Proxy via service-role authenticated object GET to avoid signed-url issues
         const supaHeaders = { Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`, apikey: `${env.SUPABASE_SERVICE_ROLE_KEY}` };
-        const objectUrl = `${env.SUPABASE_URL.replace(/\/+$/, '')}/storage/v1/object/${encodeURIComponent(BUCKET)}/${encodeURIComponent(row.storage_key)}`;
+        // Encode each path segment individually
+        const encodedStorageKey = row.storage_key.split('/').map(s => encodeURIComponent(s)).join('/');
+        const objectUrl = `${env.SUPABASE_URL.replace(/\/+$/, '')}/storage/v1/object/${BUCKET}/${encodedStorageKey}`;
 
         const fetchHeaders = { ...supaHeaders };
         const range = request.headers.get('range');

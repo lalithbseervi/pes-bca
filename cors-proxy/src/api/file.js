@@ -8,27 +8,39 @@ const BUCKET = 'fileStore';
 // Helper to fetch file directly from Supabase Storage using authenticated request
 async function fetchFileFromStorage(env, bucket, storageKey) {
     // Encode path segments individually for proper URL construction
+    // storageKey is expected to be already decoded (raw path)
     const encodedPath = storageKey.split('/').map(segment => encodeURIComponent(segment)).join('/');
-    const url = env.SUPABASE_URL.replace(/\/+$/, '') + `/storage/v1/object/${bucket}/${encodedPath}`;
+    const base = env.SUPABASE_URL.replace(/\/+$/, '');
     const headers = { 
         Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`, 
         apikey: `${env.SUPABASE_SERVICE_ROLE_KEY}` 
     };
 
-    try {
-        const response = await fetch(url, { headers });
-        
-        if (response.ok) {
-            return response;
-        } else {
-            const errorText = await response.text();
-            log.error(`Failed to fetch from storage (${response.status})`, new Error(errorText));
-            return null;
+    // Try encoded path first; if Supabase rejects key (400 InvalidKey), retry with raw path
+    const attempts = [
+        `${base}/storage/v1/object/${bucket}/${encodedPath}`,
+        `${base}/storage/v1/object/${bucket}/${storageKey}`
+    ];
+
+    for (const url of attempts) {
+        try {
+            const response = await fetch(url, { headers });
+            if (response.ok) {
+                return response;
+            }
+            // Only retry on InvalidKey or 400; otherwise break
+            if (response.status !== 400) {
+                const errorText = await response.text();
+                log.error(`Failed to fetch from storage (${response.status})`, new Error(errorText));
+                return null;
+            }
+        } catch (e) {
+            log.error('File storage fetch error', e);
         }
-    } catch (e) {
-        log.error('File storage fetch error', e);
-        return null;
     }
+
+    log.error('Failed to fetch from storage after fallback attempts', null);
+    return null;
 }
 
 // GET /api/file/:storageKey - Get a file via signed URL (redirect)
@@ -63,8 +75,9 @@ export async function getFile(request, env, ctx) {
             });
         }
         
-        // Decode the storage key
-        const decodedKey = decodeURIComponent(storageKey);
+        // storageKey from URL path is already decoded by router (spaces, parens, etc. are literal)
+        // This should match the storage_key value stored in the database
+        const decodedKey = storageKey;
         
         // Fetch file directly from Supabase Storage using service role auth
         // This avoids signed URL encoding issues and keeps endpoint hidden
@@ -74,10 +87,11 @@ export async function getFile(request, env, ctx) {
             log.error(`Failed to fetch file: ${decodedKey}`, null);
             return new Response(JSON.stringify({ 
                 error: 'Failed to fetch file from storage',
-                storageKey: decodedKey
+                storageKey: decodedKey,
+                supabaseUrl: env.SUPABASE_URL
             }), { 
                 status: 500,
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 'Content-Type': 'application/json', ...rateLimitHeaders }
             });
         }        // Return the file with proper headers including rate limit info
         return new Response(fileResponse.body, {

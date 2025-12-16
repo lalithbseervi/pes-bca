@@ -53,6 +53,14 @@ export async function initDownloadManager(options = {}) {
    * Build download URL for a resource
    */
   function buildDownloadUrl(resource) {
+    // Use storage_key from the resource metadata if available (includes course prefix)
+    // This ensures the path matches exactly what's stored in Supabase
+    if (resource.storage_key) {
+      console.log('Using storage_key:', resource.storage_key, 'for', resource.filename);
+      return `${API_BASE_URL}/api/file/${resource.storage_key}`;
+    }
+    
+    // Fallback: reconstruct path (legacy support, may be missing course prefix)
     const semester = resource.semester || 'sem-1';
     const subject = resource.subject;
     const type = resource.resource_type || 'Miscellaneous';
@@ -69,8 +77,8 @@ export async function initDownloadManager(options = {}) {
     }
     
     const path = `${semester}/${subject}/${type}/${unitSegment}/${filename}`;
-    console.log('Constructed path:', path, 'for', resource.filename);
-    return `${API_BASE_URL}/api/file/${encodeURIComponent(path)}`;
+    console.warn('Reconstructing path (missing storage_key):', path, 'for', resource.filename);
+    return `${API_BASE_URL}/api/file/${path}`;
   }
 
   /**
