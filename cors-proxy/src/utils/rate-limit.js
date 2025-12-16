@@ -5,7 +5,7 @@ import { createLogger } from './logger.js';
 const log = createLogger('RateLimit');
 
 const RATE_LIMIT_WINDOW = 600000; // 10 minutes in milliseconds
-const DEFAULT_MAX_REQUESTS_PER_WINDOW = 10; // Default: 10 requests per 10 minutes per user
+const DEFAULT_MAX_REQUESTS_PER_WINDOW = 40; // Default: 10 requests per 10 minutes per user
 const PENALTY_BASE_DURATION = 120000; // 2 minutes base penalty
 const PENALTY_MULTIPLIER = 3; // 3x increase per offense (2min, 6min, 18min, 54min)
 const MAX_PENALTY_DURATION = 21600000; // Max 360 mins (6 hours) penalty
